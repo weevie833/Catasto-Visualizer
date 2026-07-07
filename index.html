@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marano Marchesato 1754 Household Mosaic Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1e293b;
+      --muted: #64748b;
+      --line: #cbd5e1;
+      --panel: #ffffff;
+      --ground: #fbfaf5;
+      --tile: #f7f1dc;
+      --tile-edge: #7c5f22;
+      --selected: #dbeafe;
+      --selected-edge: #2563eb;
+      --signal: #b91c1c;
+      --green: #14756f;
+      --gold: #a16207;
+      --violet: #6d28d9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 285px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      border-right: 1px solid #d7dee8;
+      background: #f8fafc;
+      padding: 18px 14px;
+      overflow: auto;
+    }
+
+    .sidebar h1 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .sidebar .hint {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .household-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .household-button {
+      width: 100%;
+      min-height: 76px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 10px 11px;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+
+    .household-button:hover {
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+
+    .household-button.active {
+      border-color: var(--selected-edge);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+    }
+
+    .household-button[disabled] {
+      cursor: not-allowed;
+      opacity: .55;
+      transform: none;
+    }
+
+    .household-name {
+      display: block;
+      font-size: 14px;
+      font-weight: 750;
+      line-height: 1.2;
+    }
+
+    .household-meta {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .workspace {
+      min-width: 0;
+      padding: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 0 12px;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+
+    .kicker {
+      margin: 0 0 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .signal-pill {
+      border: 1px solid rgba(185, 28, 28, .35);
+      border-radius: 999px;
+      background: #fff1f2;
+      color: var(--signal);
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .stage {
+      border: 1px solid #d7dee8;
+      background: #fffef9;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+      overflow: hidden;
+    }
+
+    .map-wrap {
+      position: relative;
+      height: min(68vh, 720px);
+      min-height: 540px;
+      background:
+        linear-gradient(rgba(30, 41, 59, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 41, 59, .035) 1px, transparent 1px),
+        #f0efe4;
+      background-size: 48px 48px;
+      overflow: hidden;
+    }
+
+    .map {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .map.dragging {
+      cursor: grabbing;
+    }
+
+    .toolbar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      display: grid;
+      gap: 6px;
+    }
+
+    .tool-button {
+      width: 38px;
+      height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .92);
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: 750;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, .12);
+    }
+
+    .asset-legend {
+      position: absolute;
+      top: 148px;
+      right: 14px;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 150px;
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .9);
+      padding: 8px 10px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, .1);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .legend-item svg {
+      width: 18px;
+      height: 18px;
+      overflow: visible;
+    }
+
+    .legend-item path {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .tool-button:hover {
+      border-color: #94a3b8;
+    }
+
+    .neighborhood-label {
+      fill: rgba(71, 85, 105, .16);
+      font-size: 92px;
+      font-weight: 850;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .road {
+      fill: none;
+      stroke: #c4a46a;
+      stroke-width: 34;
+      stroke-linecap: round;
+      opacity: .58;
+    }
+
+    .road-rut {
+      fill: none;
+      stroke: #8f6a36;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 18 16;
+      opacity: .48;
+    }
+
+    .adjacency-edge {
+      fill: none;
+      stroke: var(--signal);
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-dasharray: 10 8;
+      pointer-events: none;
+    }
+
+    .tile {
+      filter: drop-shadow(0 12px 18px rgba(50, 42, 22, .12));
+    }
+
+    .tile polygon {
+      fill: var(--tile);
+      stroke: var(--tile-edge);
+      stroke-width: 3;
+    }
+
+    .tile.selected polygon {
+      fill: var(--selected);
+      stroke: var(--selected-edge);
+      stroke-width: 4;
+    }
+
+    .tile.clickable {
+      cursor: pointer;
+    }
+
+    .tile-label {
+      fill: var(--ink);
+      font-size: 18px;
+      font-weight: 850;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(255, 254, 249, .96);
+      stroke-width: 6px;
+      stroke-linejoin: round;
+    }
+
+    .tile-label.clickable {
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-thickness: 1.5px;
+    }
+
+    .member {
+      fill: #334155;
+      font-size: 13px;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(255, 254, 249, .96);
+      stroke-width: 5px;
+      stroke-linejoin: round;
+    }
+
+    .member.clickable {
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .surname {
+      fill: var(--signal);
+      font-weight: 850;
+    }
+
+    .tile-place {
+      fill: #64748b;
+      font-size: 12px;
+      font-weight: 750;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(255, 254, 249, .96);
+      stroke-width: 5px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .asset path,
+    .asset line,
+    .asset polyline {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .asset.house {
+      color: var(--green);
+    }
+
+    .asset.land {
+      color: var(--violet);
+    }
+
+    .asset.trees {
+      color: #15803d;
+    }
+
+    .asset.work {
+      color: var(--gold);
+    }
+
+    .evidence {
+      border-top: 1px solid #d7dee8;
+      background: #f8fafc;
+      padding: 13px 15px;
+    }
+
+    .evidence-block h3 {
+      margin: 0 0 5px;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .evidence-block p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid #d7dee8;
+      }
+
+      .household-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .workspace {
+        padding: 12px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .signal-pill {
+        white-space: normal;
+      }
+
+    }
+
+    @media (max-width: 560px) {
+      .household-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>Households</h1>
+      <p class="hint">Select a household, then drag the mosaic or use zoom controls to explore nearby properties.</p>
+      <div class="household-list" id="householdList"></div>
+    </aside>
+
+    <main class="workspace">
+      <div class="topbar">
+        <div>
+          <p class="kicker">Selected household</p>
+          <h2 id="selectedTitle"></h2>
+        </div>
+        <div class="signal-pill" id="signalPill"></div>
+      </div>
+
+      <section class="stage" aria-label="Household proximity visualization">
+        <div class="map-wrap">
+          <div class="toolbar" aria-label="Map controls">
+            <button class="tool-button" id="zoomIn" type="button" title="Zoom in">+</button>
+            <button class="tool-button" id="zoomOut" type="button" title="Zoom out">−</button>
+            <button class="tool-button" id="resetView" type="button" title="Center selected">⌂</button>
+          </div>
+          <div class="asset-legend" aria-label="Asset legend">
+            <span class="legend-item" style="color: var(--green)">
+              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -11 1 L 0 -10 L 11 1"></path><path d="M -8 1 V 12 H 8 V 1"></path><path d="M -2 12 V 5 H 4 V 12"></path></svg>
+              House
+            </span>
+            <span class="legend-item" style="color: var(--violet)">
+              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -12 11 C -7 1 -7 -8 0 -12 C 7 -8 7 1 12 11"></path><path d="M -10 11 H 10"></path><path d="M -5 5 H 5"></path></svg>
+              Land
+            </span>
+            <span class="legend-item" style="color: #15803d">
+              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M 0 12 V 3"></path><path d="M -10 3 C -11 -6 -4 -12 0 -12 C 7 -12 12 -6 10 3 C 9 10 -9 10 -10 3"></path><path d="M -6 6 L 0 0 L 6 6"></path></svg>
+              Chestnuts
+            </span>
+            <span class="legend-item" style="color: var(--gold)">
+              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -10 10 H 10"></path><path d="M -7 8 L -2 -10 H 5 L 9 8"></path><path d="M -1 -3 H 7"></path></svg>
+              Industry / livestock
+            </span>
+          </div>
+          <svg class="map" id="map" viewBox="0 0 1000 650" role="img" aria-labelledby="mapTitle mapDesc">
+            <title id="mapTitle">Household mosaic view</title>
+            <desc id="mapDesc">Households are shown as same-shape property tiles in a draggable and zoomable mosaic.</desc>
+            <g id="viewport"></g>
+          </svg>
+        </div>
+
+        <div class="evidence">
+          <div class="evidence-block">
+            <h3>Source tax entry</h3>
+            <p id="sourceEntry"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const TILE_W = 270;
+    const TILE_H = 236;
+    const HEX_POINTS = [
+      [0, -118],
+      [117, -59],
+      [117, 59],
+      [0, 118],
+      [-117, 59],
+      [-117, -59]
+    ];
+
+    const households = [
+      {
+        id: "andrea-orrico",
+        head: "Andrea Orrico",
+        surname: "Orrico",
+        role: "day laborer, age 50",
+        place: "San Nicolo",
+        x: 0,
+        y: 0,
+        members: ["Andrea Orrico, age 50", "Barbara Fabiano, wife, age 40"],
+        assets: [
+          { type: "house" },
+          { type: "land" },
+          { type: "trees" },
+          { type: "work" }
+        ],
+        signal: "Same surname at the shared boundary",
+        sourceEntry: `Andrea Orrico, day laborer, age 50,
+Barbara Fabiano, wife, age 40,
+
+Tax base two,
+Industry 12 ounces.
+
+He lives in his own house situated in San Nicolo, bordering the property of Francesco and Matalena Orrico.
+
+Brought forward: 12 oncie
+He possesses a landholding called San Nicola of the capacity of half a moggio, bordering Cesare Chiappetta and Giacomo di Franceso; the annual income is estimated at fifteen carlini, which are converted to 5 ounces.
+Another landholding called "li Malvitani" consisting of chestnuts, measuring half a moggio, bordering the property of Mercurio Bartuccio and Cesare Tenuta; the annual income is estimated at twenty-four carlini, which are converted to 8 ounces.
+They are in total 25 ounces.
+Deductions
+He pays to the Reverend Clergy of the Land of Rende, for a capital debt of sixteen ducats sixteen annual carlini; they are converted to ounces five and ten grana - onc: 5: 10 - . 5. 10
+There remains net - onc. 19: 1`,
+        neighbors: ["francesco-orrico", "matalena-orrico"]
+      },
+      {
+        id: "francesco-orrico",
+        head: "Francesco Orrico",
+        surname: "Orrico",
+        role: "adjacent boundary owner",
+        place: "San Nicolo",
+        x: 234,
+        y: 0,
+        members: ["Francesco Orrico", "household members pending"],
+        assets: [{ type: "house" }],
+        signal: "Same surname at the shared boundary",
+        sourceEntry: "Francesco Orrico is named as a boundary owner in Andrea Orrico's tax entry. Full household entry not included in this sample.",
+        neighbors: ["andrea-orrico", "matalena-orrico"]
+      },
+      {
+        id: "matalena-orrico",
+        head: "Matalena Orrico",
+        surname: "Orrico",
+        role: "owner in her own right",
+        place: "San Nicolo",
+        x: 117,
+        y: 177,
+        members: ["Matalena Orrico", "household members pending"],
+        assets: [{ type: "house" }],
+        signal: "Same surname at the shared boundary",
+        sourceEntry: "Matalena Orrico is named as a boundary owner in Andrea Orrico's tax entry. Full household entry not included in this sample.",
+        neighbors: ["andrea-orrico", "francesco-orrico"]
+      },
+      {
+        id: "angelo-chiappetta",
+        head: "Angelo Chiappetta",
+        surname: "Chiappetta",
+        role: "shepherd, age 30",
+        place: "Pajoli",
+        x: -560,
+        y: -80,
+        members: ["Angelo Chiappetta, age 30", "Rosolia Bruno, wife, age 26", "Pietro, son, age 3", "Giulia, daughter, age 1"],
+        assets: [
+          { type: "house" },
+          { type: "trees" }
+        ],
+        signal: "No direct surname match at house boundary",
+        sourceEntry: `Angelo Chiappetta, shepherd, age 30
+Rosolia Bruno, wife, age 26
+Pietro, son, age 3
+Giulia, daughter, age 1
+
+tax base two.
+He lives in his own house situated in the Pajoli neighborhood bordering the property of Isabella Orrico and the public road. He possesses a landholding called "Persano Lento" consisting of chestnuts, measuring one quarter of a moggiata, bordering the property of Gioacchino Venturo and Giovanni Battista Passarello; the annual income is estimated at twenty-five carlini, which are converted to 8:10 ounces. In total - 20:00 ounces`,
+        neighbors: ["isabella-orrico"]
+      },
+      {
+        id: "isabella-orrico",
+        head: "Isabella Orrico",
+        surname: "Orrico",
+        role: "adjacent boundary owner",
+        place: "Pajoli",
+        x: -443,
+        y: -257,
+        members: ["Isabella Orrico", "household members pending"],
+        assets: [{ type: "house" }],
+        signal: "Named neighbor at the house boundary",
+        sourceEntry: "Isabella Orrico is named as a boundary owner in Angelo Chiappetta's tax entry. Full household entry not included in this sample.",
+        neighbors: ["angelo-chiappetta"]
+      },
+      {
+        id: "andrea-morrone",
+        head: "Andrea Morrone",
+        surname: "Morrone",
+        role: "day laborer, age 46",
+        place: "San Nicola",
+        x: -560,
+        y: 330,
+        members: ["Andrea Morrone, age 46", "Lucrezia Ajello, wife, age 40"],
+        assets: [
+          { type: "house" },
+          { type: "land" },
+          { type: "work" }
+        ],
+        signal: "Spouse-surname clue appears on a separate parcel",
+        sourceEntry: `Andrea Morrone, day laborer, age 46,
+Lucrezia Ajello, wife, age 40,
+Tax base two
+Industry 12 ounces.
+
+Carried forward 12 ounces.
+He lives in his own house situated in San Nicola, bordering Agostino Serpe and the public road. He possesses a garden in the place called San Giovanni of the capacity of one quarta bordering the property of Carlo Aijello and the public road; the income is estimated at twelve carlini, which are converted to 4 ounces.
+A landholding or rather a vineyard in the place called San Marco of the capacity of half a moggio bordering Pietro di Luca and the public road; the annual income is estimated at thirteen carlini, which are converted to 4 ounces and 10 grana.
+One mule for the private use of the house. They are in total 20 ounces and 10 grana.`,
+        neighbors: ["agostino-serpe"]
+      },
+      {
+        id: "agostino-serpe",
+        head: "Agostino Serpe",
+        surname: "Serpe",
+        role: "adjacent boundary owner",
+        place: "San Nicola",
+        x: -794,
+        y: 330,
+        members: ["Agostino Serpe", "household members pending"],
+        assets: [{ type: "house" }],
+        signal: "Named neighbor at the house boundary",
+        sourceEntry: "Agostino Serpe is named as a boundary owner in Andrea Morrone's tax entry. Full household entry not included in this sample.",
+        neighbors: ["andrea-morrone"]
+      },
+      {
+        id: "angelo-ruffo",
+        head: "Angelo Ruffo",
+        surname: "Ruffo",
+        role: "day laborer, age 30",
+        place: "property text not shown",
+        x: 560,
+        y: 330,
+        members: ["Angelo Ruffo", "Chiara Vera, wife", "Giuseppe Ruffo, brother"],
+        assets: [{ type: "work" }],
+        signal: "Property boundary text not shown",
+        sourceEntry: `Angelo Ruffo, day laborer, age 30,
+Chiara Vera, wife, age 26,
+Giuseppe, brother, day laborer, age 28,
+Dianora Morella, sister-in-law, age 24,
+Elisabetta Rossi, niece, age 2,
+
+Tax base two,
+Industry 12 ounces.`,
+        neighbors: []
+      }
+    ];
+
+    const householdById = new Map(households.map(household => [household.id, household]));
+    const list = document.querySelector("#householdList");
+    const map = document.querySelector("#map");
+    const viewport = document.querySelector("#viewport");
+
+    const view = {
+      x: 500,
+      y: 325,
+      scale: 1,
+      selectedId: "andrea-orrico"
+    };
+
+    let isDragging = false;
+    let dragStart = null;
+
+    function renderList() {
+      list.innerHTML = households.map(household => `
+        <button class="household-button ${household.id === view.selectedId ? "active" : ""}" data-id="${household.id}" ${household.disabled ? "disabled" : ""}>
+          <span class="household-name">${household.head}</span>
+          <span class="household-meta">${household.role || "No role listed"}<br>${household.place}</span>
+        </button>
+      `).join("");
+
+      list.querySelectorAll("button:not([disabled])").forEach(button => {
+        button.addEventListener("click", () => selectHousehold(button.dataset.id));
+      });
+    }
+
+    function iconPath(type) {
+      if (type === "house") {
+        return `
+          <path d="M -12 1 L 0 -11 L 12 1"></path>
+          <path d="M -9 1 V 14 H 9 V 1"></path>
+          <path d="M -2 14 V 6 H 4 V 14"></path>
+        `;
+      }
+
+      if (type === "trees") {
+        return `
+          <path d="M 0 14 V 4"></path>
+          <path d="M -11 4 C -12 -6 -4 -14 0 -14 C 7 -14 13 -6 11 4 C 10 12 -10 12 -11 4"></path>
+          <path d="M -7 7 L 0 1 L 7 7"></path>
+        `;
+      }
+
+      if (type === "work") {
+        return `
+          <path d="M -11 11 H 11"></path>
+          <path d="M -8 9 L -3 -10 H 5 L 10 9"></path>
+          <path d="M -1 -3 H 7"></path>
+        `;
+      }
+
+      return `
+        <path d="M -13 12 C -7 2 -7 -8 0 -13 C 7 -8 7 2 13 12"></path>
+        <path d="M -11 12 H 11"></path>
+        <path d="M -5 6 H 5"></path>
+      `;
+    }
+
+    function assetMarkup(asset, index, total) {
+      const spacing = 34;
+      const x = (index - (total - 1) / 2) * spacing;
+      return `
+        <g class="asset ${asset.type}" transform="translate(${x} -58) scale(.72)">
+          ${iconPath(asset.type)}
+        </g>
+      `;
+    }
+
+    function nameParts(name, surname) {
+      const escaped = name.replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      })[char]);
+      return escaped.replace(surname, `<tspan class="surname">${surname}</tspan>`);
+    }
+
+    function memberMarkup(household) {
+      const max = household.members.slice(0, 4);
+      return max.map((member, index) => {
+        const y = 22 + index * 17;
+        return `<text class="member ${household.disabled ? "" : "clickable"}" data-member-id="${household.id}" x="0" y="${y}">${nameParts(member, household.surname)}</text>`;
+      }).join("");
+    }
+
+    function tilePoints(x, y) {
+      return HEX_POINTS.map(([px, py]) => `${x + px},${y + py}`).join(" ");
+    }
+
+    function adjacencyKey(a, b) {
+      return [a, b].sort().join("::");
+    }
+
+    function adjacencyMarkup() {
+      const seen = new Set();
+      const selected = householdById.get(view.selectedId);
+
+      return households.flatMap(household => household.neighbors.map(neighborId => {
+        const neighbor = householdById.get(neighborId);
+        if (!neighbor) return "";
+        const key = adjacencyKey(household.id, neighbor.id);
+        if (seen.has(key)) return "";
+        seen.add(key);
+        const isSelectedEdge = household.id === selected.id || neighbor.id === selected.id;
+        if (!isSelectedEdge) return "";
+        const midX = (household.x + neighbor.x) / 2;
+        const midY = (household.y + neighbor.y) / 2;
+        return `<path class="adjacency-edge" d="M ${midX - 40} ${midY - 40} L ${midX + 40} ${midY + 40}"></path>`;
+      })).join("");
+    }
+
+    function renderMosaic() {
+      const selected = householdById.get(view.selectedId);
+      const neighborhoodLabels = [...new Set(households.filter(h => !h.disabled).map(h => h.place))];
+
+      viewport.innerHTML = `
+        ${neighborhoodLabels.map((label, index) => `
+          <text class="neighborhood-label" x="${-520 + index * 520}" y="${-260 + index * 220}">${label}</text>
+        `).join("")}
+        <path class="road" d="M -560 350 C -280 260, -60 345, 180 286 C 440 220, 620 300, 820 210"></path>
+        <path class="road-rut" d="M -560 342 C -280 252, -60 337, 180 278 C 440 212, 620 292, 820 202"></path>
+        <path class="road-rut" d="M -560 360 C -280 270, -60 355, 180 296 C 440 230, 620 310, 820 220"></path>
+        ${adjacencyMarkup()}
+        ${households.map(household => {
+          const classes = [
+            "tile",
+            household.id === selected.id ? "selected" : "",
+            household.disabled ? "" : "clickable"
+          ].filter(Boolean).join(" ");
+
+          return `
+            <g class="${classes}" data-id="${household.id}" transform="translate(${household.x} ${household.y})">
+              <polygon points="${tilePoints(0, 0)}"></polygon>
+              ${household.assets.map((asset, index) => assetMarkup(asset, index, household.assets.length)).join("")}
+              <text class="tile-label ${household.disabled ? "" : "clickable"}" data-name-id="${household.id}" x="0" y="-7">${nameParts(household.head, household.surname)}</text>
+              ${memberMarkup(household)}
+              <text class="tile-place" x="0" y="92">${household.place}</text>
+            </g>
+          `;
+        }).join("")}
+      `;
+
+      viewport.querySelectorAll(".tile.clickable, .tile-label.clickable, .member.clickable").forEach(element => {
+        element.addEventListener("click", event => {
+          event.stopPropagation();
+          const id = element.dataset.id || element.dataset.nameId || element.dataset.memberId || element.closest(".tile").dataset.id;
+          selectHousehold(id);
+        });
+      });
+    }
+
+    function applyTransform() {
+      viewport.setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.scale})`);
+    }
+
+    function centerOnHousehold(id, nextScale = view.scale) {
+      const household = householdById.get(id);
+      if (!household) return;
+      view.scale = nextScale;
+      view.x = 500 - household.x * view.scale;
+      view.y = 325 - household.y * view.scale;
+      applyTransform();
+    }
+
+    function selectHousehold(id) {
+      const household = householdById.get(id);
+      if (!household || household.disabled) return;
+      view.selectedId = id;
+      document.querySelector("#selectedTitle").textContent = `${household.head} - ${household.place}`;
+      document.querySelector("#signalPill").textContent = household.signal;
+      document.querySelector("#sourceEntry").textContent = household.sourceEntry;
+      renderList();
+      renderMosaic();
+      centerOnHousehold(id);
+    }
+
+    function zoomBy(multiplier) {
+      const selected = householdById.get(view.selectedId);
+      const nextScale = Math.max(.55, Math.min(2.4, view.scale * multiplier));
+      centerOnHousehold(selected.id, nextScale);
+    }
+
+    map.addEventListener("pointerdown", event => {
+      isDragging = true;
+      map.classList.add("dragging");
+      map.setPointerCapture(event.pointerId);
+      dragStart = { x: event.clientX, y: event.clientY, viewX: view.x, viewY: view.y };
+    });
+
+    map.addEventListener("pointermove", event => {
+      if (!isDragging) return;
+      view.x = dragStart.viewX + event.clientX - dragStart.x;
+      view.y = dragStart.viewY + event.clientY - dragStart.y;
+      applyTransform();
+    });
+
+    map.addEventListener("pointerup", event => {
+      isDragging = false;
+      map.classList.remove("dragging");
+      map.releasePointerCapture(event.pointerId);
+    });
+
+    map.addEventListener("pointercancel", () => {
+      isDragging = false;
+      map.classList.remove("dragging");
+    });
+
+    map.addEventListener("wheel", event => {
+      event.preventDefault();
+      const nextScale = Math.max(.55, Math.min(2.4, view.scale * (event.deltaY > 0 ? .9 : 1.1)));
+      const rect = map.getBoundingClientRect();
+      const mx = event.clientX - rect.left;
+      const my = event.clientY - rect.top;
+      const worldX = (mx - view.x) / view.scale;
+      const worldY = (my - view.y) / view.scale;
+      view.scale = nextScale;
+      view.x = mx - worldX * view.scale;
+      view.y = my - worldY * view.scale;
+      applyTransform();
+    }, { passive: false });
+
+    document.querySelector("#zoomIn").addEventListener("click", () => zoomBy(1.18));
+    document.querySelector("#zoomOut").addEventListener("click", () => zoomBy(.85));
+    document.querySelector("#resetView").addEventListener("click", () => centerOnHousehold(view.selectedId, 1));
+
+    selectHousehold(view.selectedId);
+  </script>
+</body>
+</html>
