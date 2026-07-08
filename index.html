@@ -40,14 +40,20 @@
     .app {
       display: grid;
       grid-template-columns: 285px minmax(0, 1fr);
-      min-height: 100vh;
+      grid-template-rows: minmax(0, 1fr);
+      height: 100vh;
     }
 
     .sidebar {
+      display: flex;
+      flex-direction: column;
       border-right: 1px solid #d7dee8;
       background: #f8fafc;
       padding: 18px 14px;
-      overflow: auto;
+      height: 100vh;
+      max-height: 100vh;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .sidebar h1 {
@@ -63,9 +69,85 @@
       line-height: 1.4;
     }
 
+    .sidebar-search {
+      display: grid;
+      gap: 6px;
+      margin: 12px 0;
+    }
+
+    .sidebar-search label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .sidebar-search input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--ink);
+      font: 13px/1.35 ui-sans-serif, system-ui, sans-serif;
+      padding: 9px 10px;
+    }
+
+    .sidebar-search input:focus {
+      border-color: var(--selected-edge);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+      outline: none;
+    }
+
+    .sidebar-search-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+
+    .search-button,
+    .clear-search-button {
+      min-height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .search-button {
+      background: var(--ink);
+      color: #ffffff;
+      border-color: var(--ink);
+    }
+
+    .clear-search-button {
+      background: #ffffff;
+      color: var(--muted);
+    }
+
+    .search-button:hover,
+    .clear-search-button:hover {
+      transform: translateY(-1px);
+    }
+
     .household-list {
       display: grid;
       gap: 8px;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .list-empty {
+      margin: 0;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      padding: 12px;
     }
 
     .household-button {
@@ -217,6 +299,14 @@
       overflow: hidden;
     }
 
+    .stage.reviewing .visualization-view {
+      display: none;
+    }
+
+    .stage:not(.reviewing) .main-review {
+      display: none;
+    }
+
     .map-wrap {
       position: relative;
       height: min(68vh, 720px);
@@ -365,7 +455,7 @@
 
     .member {
       fill: #334155;
-      font-size: 13px;
+      font-size: 11px;
       text-anchor: middle;
     }
 
@@ -453,6 +543,8 @@
 
     .modal {
       width: min(720px, 100%);
+      max-height: calc(100vh - 36px);
+      overflow: auto;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
       background: #ffffff;
@@ -497,14 +589,127 @@
       font-size: 13px;
     }
 
+    .review-panel {
+      padding: 18px;
+      background: #f8fafc;
+    }
+
+    .review-panel.open {
+      display: block;
+    }
+
+    .review-topline {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .review-summary {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .review-select,
+    .review-input,
+    .review-note {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--ink);
+      font: 13px/1.35 ui-sans-serif, system-ui, sans-serif;
+      padding: 8px 9px;
+    }
+
+    .review-note {
+      min-height: 58px;
+      resize: vertical;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 10px;
+      max-height: min(62vh, 680px);
+      overflow: auto;
+      margin-top: 12px;
+      padding-right: 4px;
+    }
+
+    .review-card {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.1fr) minmax(320px, 1.6fr);
+      gap: 12px;
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 10px;
+    }
+
+    .review-card-main {
+      min-width: 0;
+    }
+
+    .review-card h3 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .review-problem,
+    .review-source {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .review-source {
+      max-height: 110px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .review-fields {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+    }
+
+    .review-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .llm-prompt {
+      min-height: 120px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    .modal .review-panel {
+      display: none;
+    }
+
     @media (max-width: 900px) {
       .app {
         grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
       }
 
       .sidebar {
         border-right: 0;
         border-bottom: 1px solid #d7dee8;
+        height: auto;
+        max-height: 46vh;
       }
 
       .household-list {
@@ -536,6 +741,12 @@
       .evidence {
         grid-template-columns: 1fr;
       }
+
+      .review-topline,
+      .review-card,
+      .review-fields {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 560px) {
@@ -549,6 +760,14 @@
   <div class="app">
     <aside class="sidebar">
       <h1>Households</h1>
+      <div class="sidebar-search">
+        <label for="personSearch">Search people</label>
+        <input id="personSearch" type="search" autocomplete="off" placeholder="Name, surname, or role">
+        <div class="sidebar-search-actions">
+          <button class="search-button" id="runPersonSearch" type="button">SEARCH</button>
+          <button class="clear-search-button" id="clearPersonSearch" type="button">Clear</button>
+        </div>
+      </div>
       <div class="household-list" id="householdList"></div>
     </aside>
 
@@ -571,42 +790,67 @@
         </div>
       </div>
 
-      <section class="stage" aria-label="Household proximity visualization">
-        <div class="map-wrap">
-          <div class="toolbar" aria-label="Map controls">
-            <button class="tool-button" id="zoomIn" type="button" title="Zoom in">+</button>
-            <button class="tool-button" id="zoomOut" type="button" title="Zoom out">-</button>
-            <button class="tool-button" id="resetView" type="button" title="Center selected">C</button>
+      <section class="stage" id="stage" aria-label="Household proximity visualization">
+        <div class="visualization-view">
+          <div class="map-wrap">
+            <div class="toolbar" aria-label="Map controls">
+              <button class="tool-button" id="zoomIn" type="button" title="Zoom in">+</button>
+              <button class="tool-button" id="zoomOut" type="button" title="Zoom out">-</button>
+              <button class="tool-button" id="resetView" type="button" title="Center selected">C</button>
+            </div>
+            <svg class="map" id="map" viewBox="0 0 1000 650" role="img" aria-labelledby="mapTitle mapDesc">
+              <title id="mapTitle">Household mosaic view</title>
+              <desc id="mapDesc">Households are shown as same-shape property tiles in a draggable and zoomable mosaic.</desc>
+              <g id="viewport"></g>
+            </svg>
           </div>
-          <svg class="map" id="map" viewBox="0 0 1000 650" role="img" aria-labelledby="mapTitle mapDesc">
-            <title id="mapTitle">Household mosaic view</title>
-            <desc id="mapDesc">Households are shown as same-shape property tiles in a draggable and zoomable mosaic.</desc>
-            <g id="viewport"></g>
-          </svg>
+
+          <div class="evidence">
+            <div class="evidence-block">
+              <h3>Source tax entry</h3>
+              <p id="sourceEntry">Loading extracted household data...</p>
+            </div>
+            <div class="asset-legend" aria-label="Asset legend">
+              <span class="legend-item" style="color: var(--green)">
+                <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -11 1 L 0 -10 L 11 1"></path><path d="M -8 1 V 12 H 8 V 1"></path><path d="M -2 12 V 5 H 4 V 12"></path></svg>
+                House
+              </span>
+              <span class="legend-item" style="color: var(--violet)">
+                <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -12 11 C -7 1 -7 -8 0 -12 C 7 -8 7 1 12 11"></path><path d="M -10 11 H 10"></path><path d="M -5 5 H 5"></path></svg>
+                Land
+              </span>
+              <span class="legend-item" style="color: #15803d">
+                <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M 0 12 V 3"></path><path d="M -10 3 C -11 -6 -4 -12 0 -12 C 7 -12 12 -6 10 3 C 9 10 -9 10 -10 3"></path><path d="M -6 6 L 0 0 L 6 6"></path></svg>
+                Chestnuts
+              </span>
+              <span class="legend-item" style="color: var(--gold)">
+                <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -10 10 H 10"></path><path d="M -7 8 L -2 -10 H 5 L 9 8"></path><path d="M -1 -3 H 7"></path></svg>
+                Industry / livestock
+              </span>
+            </div>
+          </div>
         </div>
 
-        <div class="evidence">
-          <div class="evidence-block">
-            <h3>Source tax entry</h3>
-            <p id="sourceEntry">Loading extracted household data...</p>
+        <div class="main-review review-panel" id="dataReview">
+          <div class="review-topline">
+            <p class="review-summary" id="reviewSummary">No review issues detected.</p>
+            <div>
+              <label for="modelRoute">LLM route</label>
+              <select class="review-select" id="modelRoute">
+                <option value="economy">Economy extraction</option>
+                <option value="balanced">Balanced extraction</option>
+                <option value="manual">Manual only</option>
+              </select>
+            </div>
           </div>
-          <div class="asset-legend" aria-label="Asset legend">
-            <span class="legend-item" style="color: var(--green)">
-              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -11 1 L 0 -10 L 11 1"></path><path d="M -8 1 V 12 H 8 V 1"></path><path d="M -2 12 V 5 H 4 V 12"></path></svg>
-              House
-            </span>
-            <span class="legend-item" style="color: var(--violet)">
-              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -12 11 C -7 1 -7 -8 0 -12 C 7 -8 7 1 12 11"></path><path d="M -10 11 H 10"></path><path d="M -5 5 H 5"></path></svg>
-              Land
-            </span>
-            <span class="legend-item" style="color: #15803d">
-              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M 0 12 V 3"></path><path d="M -10 3 C -11 -6 -4 -12 0 -12 C 7 -12 12 -6 10 3 C 9 10 -9 10 -10 3"></path><path d="M -6 6 L 0 0 L 6 6"></path></svg>
-              Chestnuts
-            </span>
-            <span class="legend-item" style="color: var(--gold)">
-              <svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M -10 10 H 10"></path><path d="M -7 8 L -2 -10 H 5 L 9 8"></path><path d="M -1 -3 H 7"></path></svg>
-              Industry / livestock
-            </span>
+          <label for="reviewInstructions">User instructions for ambiguous records</label>
+          <textarea class="review-note" id="reviewInstructions" placeholder="Example: Treat San Nicola, San Nicolo, and Saint Nicholas as the same district. If a person lives in rented houses with no district, leave residence blank."></textarea>
+          <div class="review-list" id="reviewList"></div>
+          <textarea class="llm-prompt" id="llmPrompt" readonly placeholder="Generate a compact LLM prompt for unresolved issues."></textarea>
+          <div class="review-actions">
+            <button class="modal-button secondary" id="generatePrompt" type="button">Generate LLM Prompt</button>
+            <button class="modal-button secondary" id="visualizeAnyway" type="button">Visualize Anyway</button>
+            <button class="modal-button" id="applyReview" type="button">Apply Review & Visualize</button>
           </div>
         </div>
       </section>
@@ -622,28 +866,28 @@
       <p class="ingest-status" id="ingestStatus">The parser uses English Translation sections when present, then looks for household member lines, residence sentences, and residence-neighbor names.</p>
       <div class="modal-actions">
         <button class="modal-button secondary" id="uploadCancel" type="button">Cancel</button>
-        <button class="modal-button" id="ingestText" type="button">Ingest Text</button>
+        <button class="modal-button" id="ingestText" type="button">Parse for Review</button>
       </div>
     </div>
   </div>
 
   <script>
     const HEX_POINTS = [
-      [0, -145],
-      [145, -72],
-      [145, 72],
-      [0, 145],
-      [-145, 72],
-      [-145, -72]
+      [0, -180],
+      [145, -90],
+      [145, 90],
+      [0, 180],
+      [-145, 90],
+      [-145, -90]
     ];
 
     const NEIGHBOR_OFFSETS = [
       [290, 0],
-      [145, 217],
-      [-145, 217],
+      [145, 270],
+      [-145, 270],
       [-290, 0],
-      [-145, -217],
-      [145, -217]
+      [-145, -270],
+      [145, -270]
     ];
 
     const CLUSTER_X_SPACING = 980;
@@ -655,26 +899,39 @@
     let householdById = new Map();
 
     const list = document.querySelector("#householdList");
+    const personSearch = document.querySelector("#personSearch");
+    const runPersonSearch = document.querySelector("#runPersonSearch");
+    const clearPersonSearch = document.querySelector("#clearPersonSearch");
     const map = document.querySelector("#map");
     const viewport = document.querySelector("#viewport");
+    const stage = document.querySelector("#stage");
     const uploadModal = document.querySelector("#uploadModal");
     const plainTextInput = document.querySelector("#plainTextInput");
     const ingestStatus = document.querySelector("#ingestStatus");
     const filenameLine = document.querySelector("#filenameLine");
     const textFileInput = document.querySelector("#textFile");
+    const dataReview = document.querySelector("#dataReview");
+    const reviewSummary = document.querySelector("#reviewSummary");
+    const reviewInstructions = document.querySelector("#reviewInstructions");
+    const reviewList = document.querySelector("#reviewList");
+    const modelRoute = document.querySelector("#modelRoute");
+    const llmPrompt = document.querySelector("#llmPrompt");
 
     const view = {
       x: 500,
       y: 325,
       scale: 1,
       selectedId: null,
-      layer: "household"
+      layer: "household",
+      search: ""
     };
 
     let isDragging = false;
     let dragStart = null;
     let selectedUploadName = "";
     let activeData = null;
+    let pendingReviewData = null;
+    let pendingReviewIssues = [];
     let districtZones = [];
 
     function slugify(value) {
@@ -686,17 +943,56 @@
         .replace(/^-|-$/g, "");
     }
 
+    function stripNamePrefixes(name) {
+      return String(name || "")
+        .replace(/\b(Most\s+Illustrious|Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa)\b\.?/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function splitHonorificName(name) {
+      const tokens = String(name || "").replace(/[.,]/g, "").trim().split(/\s+/).filter(Boolean);
+      const honorifics = [];
+      while (tokens.length) {
+        const one = tokens[0];
+        const two = tokens.slice(0, 2).join(" ");
+        if (/^(Most Illustrious)$/i.test(two)) {
+          honorifics.push(tokens.splice(0, 2).join(" "));
+        } else if (/^(Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa)$/i.test(one)) {
+          honorifics.push(tokens.shift());
+        } else {
+          break;
+        }
+      }
+      return { honorifics, nameParts: tokens };
+    }
+
+    function surnamePhrase(parts) {
+      if (!parts.length) return "";
+      const surnameParticles = /^(di|de|del|della|da|dal|dalla|lo|la|le|li)$/i;
+      let start = parts.length - 1;
+      while (start > 0 && surnameParticles.test(parts[start - 1])) {
+        start -= 1;
+      }
+      return parts.slice(start).join(" ");
+    }
+
     function surnameFromName(name) {
-      const parts = name.replace(/[.,]/g, "").trim().split(/\s+/);
+      const parts = stripNamePrefixes(name).replace(/[.,]/g, "").trim().split(/\s+/);
       return parts.length > 1 ? parts[parts.length - 1] : parts[0] || "";
     }
 
     function firstAndSurname(name, householdSurname) {
-      const clean = name.replace(/\s+/g, " ").trim();
-      if (!clean) return "";
-      const parts = clean.split(" ");
-      if (parts.length === 1 && householdSurname) return `${parts[0]} ${householdSurname}`;
-      return `${parts[0]} ${parts[parts.length - 1]}`;
+      const { honorifics, nameParts } = splitHonorificName(name);
+      if (!nameParts.length) return honorifics.join(" ");
+      if (nameParts.length === 1 && householdSurname) {
+        return [...honorifics, nameParts[0], householdSurname].join(" ");
+      }
+      if (nameParts.length > 2) {
+        return [...honorifics, ...nameParts].join(" ");
+      }
+      const surname = surnamePhrase(nameParts);
+      return [...honorifics, nameParts[0], surname].filter(Boolean).join(" ");
     }
 
     function titleCasePlace(value) {
@@ -719,8 +1015,13 @@
         "pasolani": "pasolani",
         "san nicolo": "san nicolo",
         "san nicola": "san nicolo",
-        "san nicolo": "san nicolo",
+        "saint nicholas": "san nicolo",
+        "st nicholas": "san nicolo",
+        "nicola": "san nicolo",
+        "santo nicola": "san nicolo",
         "pajoli": "pajoli",
+        "not indicated": "not listed",
+        "not listed": "not listed",
         "no residence listed": "no residence listed"
       };
       key = aliases[key] || key || "no residence listed";
@@ -782,7 +1083,7 @@
       const beforeAge = ageMatch ? cleaned.slice(0, ageMatch.index).replace(/[,—-]\s*$/g, "").trim() : cleaned;
       const chunks = beforeAge.split(",").map(part => part.trim()).filter(Boolean);
       const rawName = chunks[0] || cleaned;
-      let relation = chunks.find(part => /\b(wife|husband|son|daughter|brother|sister|niece|nephew|mother|father|law|servant|widow|head)\b/i.test(part)) || "";
+      let relation = chunks.find(part => /\b(wife|husband|son|daughter|brother|sister|niece|nephew|mother|father|law|servant|maidservant|farmhand|worker|laborer|widow|head)\b/i.test(part)) || "";
       relation = relation
         .replace(/\b(his|her|and|first-born child)\b/gi, "")
         .replace(/\ba\s+/gi, "")
@@ -863,9 +1164,256 @@
       };
     }
 
+    function personKey(name) {
+      return normalizeName(name).toLowerCase();
+    }
+
+    function recordsByPersonName(records) {
+      const byName = new Map();
+      records.forEach(record => {
+        const key = personKey(record.household_head);
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key).push(record);
+      });
+      return byName;
+    }
+
+    function bestMatchingRecord(records, sourceRecord) {
+      if (!records?.length) return null;
+      if (records.length === 1 || !sourceRecord) return records[0];
+      const sourcePlace = canonicalPlace(sourceRecord.residence?.place || "No residence listed").key;
+      return records.find(record => canonicalPlace(record.residence?.place || "No residence listed").key === sourcePlace) || records[0];
+    }
+
+    function residenceLinks(records) {
+      const byName = recordsByPersonName(records);
+      const byId = new Map(records.map(record => [record.id, record]));
+      const links = new Map(records.map(record => [record.id, new Set()]));
+
+      records.forEach(record => {
+        (record.residence?.adjacent_to || []).filter(name => !isPublicAnchor(name)).forEach(name => {
+          const target = bestMatchingRecord(byName.get(personKey(name)), record);
+          if (!target || target.id === record.id || !byId.has(target.id)) return;
+          links.get(record.id).add(target.id);
+          links.get(target.id).add(record.id);
+        });
+      });
+
+      return links;
+    }
+
+    function adjacencyOrderedRecords(records) {
+      const links = residenceLinks(records);
+      const byId = new Map(records.map(record => [record.id, record]));
+      const visited = new Set();
+      const components = [];
+      records.forEach(record => {
+        if (visited.has(record.id)) return;
+        const stack = [record.id];
+        const component = [];
+        visited.add(record.id);
+        while (stack.length) {
+          const id = stack.pop();
+          const current = byId.get(id);
+          if (current) component.push(current);
+          [...(links.get(id) || [])].sort().forEach(nextId => {
+            if (visited.has(nextId)) return;
+            visited.add(nextId);
+            stack.push(nextId);
+          });
+        }
+        component.sort((a, b) => {
+          const degreeDiff = (links.get(b.id)?.size || 0) - (links.get(a.id)?.size || 0);
+          return degreeDiff || records.indexOf(a) - records.indexOf(b);
+        });
+        components.push(component);
+      });
+
+      components.sort((a, b) => records.indexOf(a[0]) - records.indexOf(b[0]));
+      return components.flat();
+    }
+
+    function connectedRecordComponents(records, links) {
+      const byId = new Map(records.map(record => [record.id, record]));
+      const visited = new Set();
+      const components = [];
+
+      records.forEach(record => {
+        if (visited.has(record.id)) return;
+        const stack = [record.id];
+        const component = [];
+        visited.add(record.id);
+        while (stack.length) {
+          const id = stack.pop();
+          const current = byId.get(id);
+          if (current) component.push(current);
+          [...(links.get(id) || [])].sort((a, b) => records.findIndex(record => record.id === a) - records.findIndex(record => record.id === b)).forEach(nextId => {
+            if (visited.has(nextId)) return;
+            visited.add(nextId);
+            stack.push(nextId);
+          });
+        }
+        components.push(component);
+      });
+
+      components.sort((a, b) => records.indexOf(a[0]) - records.indexOf(b[0]));
+      return components;
+    }
+
+    function pointKey(point) {
+      return `${Math.round(point.x)},${Math.round(point.y)}`;
+    }
+
+    function hexesWouldOverlap(a, b) {
+      const dx = Math.abs(a.x - b.x);
+      const dy = Math.abs(a.y - b.y);
+      if (!dx && !dy) return true;
+      return dx < 286 && dy < 214;
+    }
+
+    function collidesWithPlaced(point, positions, ignoredIds = new Set()) {
+      return [...positions.entries()].some(([id, placed]) => !ignoredIds.has(id) && hexesWouldOverlap(point, placed));
+    }
+
+    function oppositeEdge(index) {
+      return (index + 3) % NEIGHBOR_OFFSETS.length;
+    }
+
+    function hexPositionComponent(component, links, recordOrder) {
+      const ids = new Set(component.map(record => record.id));
+      const byId = new Map(component.map(record => [record.id, record]));
+      const positions = new Map();
+      const usedCenters = new Set();
+      const usedEdges = new Map(component.map(record => [record.id, new Set()]));
+      const seed = [...component].sort((a, b) => {
+        const degreeDiff = [...(links.get(b.id) || [])].filter(id => ids.has(id)).length - [...(links.get(a.id) || [])].filter(id => ids.has(id)).length;
+        return degreeDiff || recordOrder.indexOf(a) - recordOrder.indexOf(b);
+      })[0];
+
+      positions.set(seed.id, { x: 0, y: 0 });
+      usedCenters.add("0,0");
+      const queue = [seed.id];
+
+      while (queue.length) {
+        const id = queue.shift();
+        const origin = positions.get(id);
+        const neighbors = [...(links.get(id) || [])]
+          .filter(nextId => ids.has(nextId) && !positions.has(nextId))
+          .sort((a, b) => recordOrder.indexOf(byId.get(a)) - recordOrder.indexOf(byId.get(b)));
+
+        neighbors.forEach((nextId, neighborIndex) => {
+          let placed = false;
+          const edgeOrder = NEIGHBOR_OFFSETS.map((_, offsetIndex) => (neighborIndex + offsetIndex) % NEIGHBOR_OFFSETS.length);
+          for (const edgeIndex of edgeOrder) {
+            if (usedEdges.get(id).has(edgeIndex)) continue;
+            const [dx, dy] = NEIGHBOR_OFFSETS[edgeIndex];
+            const point = { x: origin.x + dx, y: origin.y + dy };
+            const key = pointKey(point);
+            if (usedCenters.has(key) || collidesWithPlaced(point, positions)) continue;
+            positions.set(nextId, point);
+            usedCenters.add(key);
+            usedEdges.get(id).add(edgeIndex);
+            usedEdges.get(nextId).add(oppositeEdge(edgeIndex));
+            queue.push(nextId);
+            placed = true;
+            break;
+          }
+
+          for (let ring = 2; ring <= 8 && !placed; ring += 1) {
+            for (const edgeIndex of edgeOrder) {
+              const [dx, dy] = NEIGHBOR_OFFSETS[edgeIndex];
+              const point = { x: origin.x + dx * ring, y: origin.y + dy * ring };
+              const key = pointKey(point);
+              if (usedCenters.has(key) || collidesWithPlaced(point, positions)) continue;
+              positions.set(nextId, point);
+              usedCenters.add(key);
+              queue.push(nextId);
+              placed = true;
+              break;
+            }
+          }
+        });
+      }
+
+      component.forEach((record, index) => {
+        if (positions.has(record.id)) return;
+        let placed = false;
+        for (let row = 0; row < 20 && !placed; row += 1) {
+          for (let col = 0; col < 20; col += 1) {
+            const point = { x: col * 580, y: row * 500 };
+            const key = pointKey(point);
+            if (usedCenters.has(key) || collidesWithPlaced(point, positions)) continue;
+            positions.set(record.id, point);
+            usedCenters.add(key);
+            placed = true;
+            break;
+          }
+        }
+      });
+
+      return positions;
+    }
+
+    function layoutRecordGroup(records) {
+      const ordered = adjacencyOrderedRecords(records);
+      const links = residenceLinks(ordered);
+      const components = connectedRecordComponents(ordered, links);
+      const componentLayouts = components.map(component => {
+        const positions = hexPositionComponent(component, links, ordered);
+        const xs = [...positions.values()].map(point => point.x);
+        const ys = [...positions.values()].map(point => point.y);
+        return {
+          component,
+          positions,
+          minX: Math.min(...xs),
+          maxX: Math.max(...xs),
+          minY: Math.min(...ys),
+          maxY: Math.max(...ys),
+          width: Math.max(760, Math.max(...xs) - Math.min(...xs) + 520),
+          height: Math.max(620, Math.max(...ys) - Math.min(...ys) + 460)
+        };
+      });
+
+      const columns = Math.max(1, Math.ceil(Math.sqrt(componentLayouts.length * 1.8)));
+      const componentGapX = 900;
+      const componentGapY = 760;
+      const colWidths = Array.from({ length: columns }, (_, col) =>
+        Math.max(0, ...componentLayouts.filter((_, index) => index % columns === col).map(layout => layout.width))
+      );
+      const rowCount = Math.ceil(componentLayouts.length / columns);
+      const rowHeights = Array.from({ length: rowCount }, (_, row) =>
+        Math.max(0, ...componentLayouts.filter((_, index) => Math.floor(index / columns) === row).map(layout => layout.height))
+      );
+      const positions = new Map();
+      let maxRight = 0;
+      let maxBottom = 0;
+
+      componentLayouts.forEach((layout, index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        const xOffset = colWidths.slice(0, col).reduce((sum, width) => sum + width, 0) + col * componentGapX;
+        const yOffset = rowHeights.slice(0, row).reduce((sum, height) => sum + height, 0) + row * componentGapY;
+        const baseX = xOffset - layout.minX + 360;
+        const baseY = yOffset - layout.minY + 300;
+        layout.component.forEach(record => {
+          const point = layout.positions.get(record.id);
+          positions.set(record.id, { x: baseX + point.x, y: baseY + point.y });
+        });
+        maxRight = Math.max(maxRight, xOffset + layout.width + 720);
+        maxBottom = Math.max(maxBottom, yOffset + layout.height + 620);
+      });
+
+      return {
+        records: ordered,
+        positions,
+        width: Math.max(2100, maxRight),
+        height: Math.max(1000, maxBottom)
+      };
+    }
+
     function buildHouseholds(data) {
       const records = data.households;
-      const actualByName = new Map(records.map(record => [record.household_head.toLowerCase(), record.id]));
+      const actualByName = recordsByPersonName(records);
       const all = [];
       const byId = new Map();
       const used = new Set();
@@ -883,49 +1431,48 @@
         groupByKey.get(placeInfo.key).records.push(record);
       });
 
-      const zoneWidth = 1500;
-      const zoneGapX = 320;
-      const zoneGapY = 260;
+      grouped.forEach(group => {
+        group.layout = layoutRecordGroup(group.records);
+        group.records = group.layout.records;
+      });
+
+      const zoneGapX = 1200;
+      const zoneGapY = 900;
       const zoneCols = 2;
-      const localGapX = 520;
-      const localGapY = 360;
       let cursorY = -560;
 
       for (let rowStart = 0; rowStart < grouped.length; rowStart += zoneCols) {
         const rowGroups = grouped.slice(rowStart, rowStart + zoneCols);
         const rowZones = rowGroups.map(group => {
-          const localCols = Math.min(2, Math.max(1, Math.ceil(Math.sqrt(group.records.length))));
-          const localRows = Math.ceil(group.records.length / localCols);
           return {
             group,
-            localCols,
-            localRows,
-            height: Math.max(680, localRows * localGapY + 360)
+            width: group.layout.width,
+            height: group.layout.height
           };
         });
         const rowHeight = Math.max(...rowZones.map(zone => zone.height));
+        const rowWidth = rowZones.reduce((sum, zone) => sum + zone.width, 0) + zoneGapX * (rowZones.length - 1);
+        let zoneLeftCursor = -rowWidth / 2;
 
         rowZones.forEach((zone, zoneIndex) => {
-          const zoneCol = zoneIndex;
-          const zoneX = (zoneCol - (zoneCols - 1) / 2) * (zoneWidth + zoneGapX);
+          const zoneX = zoneLeftCursor + zone.width / 2;
+          zoneLeftCursor += zone.width + zoneGapX;
           const zoneY = cursorY;
-          const zoneLeft = zoneX - zoneWidth / 2;
+          const zoneLeft = zoneX - zone.width / 2;
           const zoneTop = zoneY;
           districtZones.push({
             key: zone.group.key,
             label: zone.group.label,
             x: zoneLeft,
             y: zoneTop,
-            width: zoneWidth,
+            width: zone.width,
             height: rowHeight
           });
 
-          zone.group.records.forEach((record, index) => {
-            const localCol = index % zone.localCols;
-            const localRow = Math.floor(index / zone.localCols);
-            const localWidth = (zone.localCols - 1) * localGapX;
-            const x = zoneX + localCol * localGapX - localWidth / 2;
-            const y = zoneTop + 260 + localRow * localGapY;
+          zone.group.records.forEach(record => {
+            const point = zone.group.layout.positions.get(record.id) || { x: zone.width / 2, y: 300 };
+            const x = zoneLeft + point.x;
+            const y = zoneTop + point.y;
             const household = createHouseholdFromRecord(record, x, y);
             all.push(household);
             byId.set(household.id, household);
@@ -949,8 +1496,8 @@
       });
 
       const ensurePlaceholder = (name, sourceHousehold, offsetIndex) => {
-        const actualId = actualByName.get(name.toLowerCase());
-        if (actualId) return actualId;
+        const actualRecord = bestMatchingRecord(actualByName.get(personKey(name)), records.find(record => record.id === sourceHousehold.id));
+        if (actualRecord) return actualRecord.id;
 
         const id = `adjacent-${slugify(name)}`;
         if (byId.has(id)) return id;
@@ -1034,7 +1581,7 @@
       const ownerRecords = data.households
         .map(record => ({ record, holdings: parseLandholdings(record) }))
         .filter(item => item.holdings.length);
-      const actualByName = new Map(ownerRecords.map(item => [item.record.household_head.toLowerCase(), `landowner-${item.record.id}`]));
+      const actualByName = recordsByPersonName(ownerRecords.map(item => item.record));
       const all = [];
       const byId = new Map();
       const used = new Set();
@@ -1051,8 +1598,8 @@
       });
 
       const ensurePlaceholder = (name, sourceUnit, offsetIndex) => {
-        const actualId = actualByName.get(name.toLowerCase());
-        if (actualId) return actualId;
+        const actualRecord = bestMatchingRecord(actualByName.get(personKey(name)), null);
+        if (actualRecord) return `landowner-${actualRecord.id}`;
 
         const id = `land-adjacent-${slugify(name)}`;
         if (byId.has(id)) return id;
@@ -1121,8 +1668,41 @@
       return match?.id || null;
     }
 
+    function surnameSortKey(household) {
+      const surname = stripNamePrefixes(household.head || "")
+        .replace(/[.,]/g, "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(-1)[0] || "";
+      return `${surname.toLowerCase()} ${String(household.head || "").toLowerCase()}`;
+    }
+
+    function householdSearchText(household) {
+      return [
+        household.head,
+        household.surname,
+        household.role,
+        household.place,
+        ...(household.members || [])
+      ].filter(Boolean).join(" ").toLowerCase();
+    }
+
+    function filteredHouseholdList() {
+      const query = view.search.trim().toLowerCase();
+      return households
+        .filter(household => household.source === "extracted")
+        .filter(household => !query || householdSearchText(household).includes(query))
+        .sort((a, b) => surnameSortKey(a).localeCompare(surnameSortKey(b), undefined, { sensitivity: "base" }));
+    }
+
     function renderList() {
-      const extracted = households.filter(household => household.source === "extracted");
+      const extracted = filteredHouseholdList();
+      if (!extracted.length) {
+        list.innerHTML = `<p class="list-empty">${view.search ? "No people match this search." : "No households found."}</p>`;
+        return;
+      }
+
       list.innerHTML = extracted.map(household => `
         <button class="household-button ${household.id === view.selectedId ? "active" : ""}" data-id="${household.id}">
           <span class="household-name">${escapeHtml(household.head)}</span>
@@ -1200,12 +1780,23 @@
       return `${nameText.slice(0, start)}<tspan class="surname">${match[1]}</tspan>${suffix}`;
     }
 
+    function compactMemberLabel(member) {
+      const maxLength = 44;
+      if (member.length <= maxLength) return member;
+      const ageMatch = member.match(/\s+\([^)]*\)$/);
+      const ageSuffix = ageMatch ? ageMatch[0] : "";
+      const core = ageSuffix ? member.slice(0, -ageSuffix.length) : member;
+      const available = Math.max(18, maxLength - ageSuffix.length - 3);
+      return `${core.slice(0, available).replace(/[\s,]+$/g, "")}...${ageSuffix}`;
+    }
+
     function memberMarkup(household) {
-      const max = household.members.slice(0, 7);
-      const startY = max.length > 5 ? -25 : -10;
+      const max = household.members.slice(0, 12);
+      const lineHeight = max.length > 8 ? 14 : 16;
+      const startY = max.length > 8 ? -48 : max.length > 5 ? -28 : -10;
       return max.map((member, index) => {
-        const y = startY + index * 18;
-        return `<text class="member clickable" data-member-id="${household.id}" x="0" y="${y}">${highlightSurnames(member)}</text>`;
+        const y = startY + index * lineHeight;
+        return `<text class="member clickable" data-member-id="${household.id}" x="0" y="${y}">${highlightSurnames(compactMemberLabel(member))}</text>`;
       }).join("");
     }
 
@@ -1374,8 +1965,16 @@
     function normalizeName(name) {
       return name
         .replace(/\[[^\]]+\]/g, "")
-        .replace(/\b(the|property|of|and|bordering|borders|Magnificent|Master)\b/gi, " ")
-        .replace(/[.;:]/g, " ")
+        .replace(/\b(the|property|properties|of|and|bordering|borders|Magnificent|Most Illustrious|Illustrious|Master)\b/gi, " ")
+        .replace(/[.;:—–-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function normalizeResidencePlace(name) {
+      return normalizeName(name)
+        .replace(/\b(own house|group of houses|cluster of houses|casaggio|house|houses)\b/gi, " ")
+        .replace(/\b(his|her|their|own|in|the|neighborhood|district|place|called|located|situated)\b/gi, " ")
         .replace(/\s+/g, " ")
         .trim();
     }
@@ -1385,6 +1984,8 @@
         .replace(/\bthe property of\b/gi, "")
         .replace(/\bproperties of\b/gi, "")
         .replace(/\bthe public road\b/gi, "public road")
+        .replace(/\[[^\]]+\]/g, "")
+        .replace(/\b(?:with|for|and pays|paying|who pays)\b[\s\S]*$/i, "")
         .replace(/\s+/g, " ")
         .trim();
       const parts = cleaned.split(/\s*(?:,|;|\band\b)\s*/i).map(normalizeName).filter(Boolean);
@@ -1401,17 +2002,40 @@
       return [...new Set(expanded)];
     }
 
+    function isUnlocatedHostedResidence(sentence) {
+      return /\b(?:house|houses|group of houses|cluster of houses|casaggio)\s+(?:of|belonging to|rented from)\b/i.test(sentence) ||
+        /\brented\s+from\b/i.test(sentence);
+    }
+
     function parseResidence(entry) {
-      const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n\n)/i)?.[0] || "";
+      const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[^\n]*(?:\.|$)/i)?.[0] ||
+        entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n\n|$)/i)?.[0] ||
+        "";
+      const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:\.|\n|$)/i);
+      const adjacentTo = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
+      if (isUnlocatedHostedResidence(sentence)) {
+        return {
+          place: "Not Listed",
+          description: sentence.trim() || null,
+          adjacent_to: adjacentTo
+        };
+      }
       const placeMatch =
+        sentence.match(/\bin (?:a |his |her |their |own )?(?:group of houses|cluster of houses|casaggio|house|houses)(?:\s+\[[^\]]+\])?\s+in\s+(?:the )?(?:neighborhood|district|place)\s+of\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
+        sentence.match(/\bin (?:a |his |her |their |own )?(?:group of houses|cluster of houses|casaggio|house|houses)(?:\s+\[[^\]]+\])?\s+in\s+(?:the )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+        sentence.match(/\b(?:group of houses|cluster of houses|casaggio|house|houses)\s+called\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
+        sentence.match(/\b(?:local\s+)?(?:group of houses|cluster of houses|casaggio|house|houses)\s+in\s+(?:the )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+        sentence.match(/\bin\s+(?:the )?((?:Li\s+)?(?:Pasolani|Malvitani|San Nicola|San Nicolo|Pajoli|Saint Nicholas))\s+house\b/i) ||
+        sentence.match(/\bin\s+(?:the )?([^,.]+?)\s+district(?:,|\.|\s+bordering)/i) ||
+        sentence.match(/\bin\s+((?:Li\s+)?(?:Pasolani|Malvitani|San Nicola|San Nicolo|Pajoli|Saint Nicholas))(?:,|\.|\s+bordering)/i) ||
         sentence.match(/\bsituated in (?:the )?(?:neighborhood of |place called |district of )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
-        sentence.match(/\blocated in (?:the )?(?:neighborhood of |place called )?([^,.]+?)(?:\s+neighborhood|,|\.|\s+bordering)/i) ||
+        sentence.match(/\blocated in (?:the )?(?:neighborhood of |place called |district of )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+        sentence.match(/\bin (?:the )?(?:neighborhood|district|place)\s+of\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
         sentence.match(/\bplace called ([^,.]+?)(?:,|\.|\s+bordering)/i);
-      const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:\.|\n)/i);
       return {
-        place: placeMatch ? normalizeName(placeMatch[1]) : null,
+        place: placeMatch ? normalizeResidencePlace(placeMatch[1]) : null,
         description: sentence.trim() || null,
-        adjacent_to: borderMatch ? expandNeighborNames(borderMatch[1]) : []
+        adjacent_to: adjacentTo
       };
     }
 
@@ -1470,24 +2094,89 @@
       return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line)));
     }
 
-    function parsePlainText(text) {
-      const prepared = extractEnglishTranslationText(text);
-      const entries = splitEntries(prepared.text);
-      const records = entries.map((entry, index) => {
+    function segmentHouseholds(text) {
+      return splitEntries(text).map((entry, index) => {
         const memberBlock = entry.split("\n").map(line => line.trim()).filter(Boolean);
         const members = memberBlock.filter(isMemberLine);
         const headLine = members[0] || memberBlock[0] || `Household ${index + 1}, age ?`;
         const head = headLine.split(",")[0].trim();
         return {
-          id: slugify(head || `household-${index + 1}`),
-          household_head: head,
-          source_pages: [],
-          members_text: members.join("\n") || headLine,
-          residence: parseResidence(entry),
-          source_entry: entry
+          index,
+          entry,
+          memberBlock,
+          members,
+          headLine,
+          head
         };
       });
+    }
+
+    function extractResidenceFacts(segments) {
+      return segments.map(segment => ({
+        ...segment,
+        residence: parseResidence(segment.entry)
+      }));
+    }
+
+    function normalizeNeighborhoodFacts(records) {
+      return records.map(record => ({
+        ...record,
+        residence: {
+          ...record.residence,
+          place: record.residence?.place ? normalizeResidencePlace(record.residence.place) : record.residence?.place || null,
+          adjacent_to: [...new Set((record.residence?.adjacent_to || []).map(normalizeName).filter(Boolean))]
+        }
+      }));
+    }
+
+    function resolveHouseholdIdentities(records) {
+      return records.map(record => ({
+        ...record,
+        id: slugify(record.head || `household-${record.index + 1}`)
+      }));
+    }
+
+    function linkResidenceAdjacency(records) {
+      const knownHeads = new Map(records.map(record => [personKey(record.head), record.id]));
+      return records.map(record => ({
+        ...record,
+        residence_links: (record.residence?.adjacent_to || [])
+          .map(name => ({
+            name,
+            kind: isPublicAnchor(name) ? "public-anchor" : "person",
+            household_id: knownHeads.get(personKey(name)) || null
+          }))
+      }));
+    }
+
+    function cleanedGraphRecordsFromText(text) {
+      const segments = segmentHouseholds(text);
+      const withResidence = extractResidenceFacts(segments);
+      const normalized = normalizeNeighborhoodFacts(withResidence);
+      const withIdentities = resolveHouseholdIdentities(normalized);
+      return linkResidenceAdjacency(withIdentities).map(record => ({
+        id: record.id,
+        household_head: record.head,
+        source_pages: [],
+        members_text: record.members.join("\n") || record.headLine,
+        residence: record.residence,
+        residence_links: record.residence_links,
+        source_entry: record.entry
+      }));
+    }
+
+    function parsePlainText(text) {
+      const prepared = extractEnglishTranslationText(text);
+      const records = cleanedGraphRecordsFromText(prepared.text);
       return {
+        pipeline_version: "semantic-cleaning-v0",
+        cleaning_pipeline: [
+          "segment_households",
+          "extract_residence_facts",
+          "normalize_neighborhoods",
+          "resolve_household_identities",
+          "link_residence_adjacency"
+        ],
         source_document: "Uploaded plain text",
         source_range: "Uploaded text",
         source_language_used: prepared.usedEnglishSectionsOnly ? "English Translation sections only" : "Plain text",
@@ -1500,10 +2189,178 @@
       };
     }
 
+    function withUniqueRecordIds(data) {
+      const seen = new Map();
+      return {
+        ...data,
+        households: data.households.map((record, index) => {
+          const baseId = slugify(record.id || record.household_head || `household-${index + 1}`) || `household-${index + 1}`;
+          const count = seen.get(baseId) || 0;
+          seen.set(baseId, count + 1);
+          return {
+            ...record,
+            id: count ? `${baseId}-${count + 1}` : baseId
+          };
+        })
+      };
+    }
+
+    function residenceSentence(record) {
+      return record.residence?.description ||
+        record.source_entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n)/i)?.[0]?.trim() ||
+        "";
+    }
+
+    function likelyPlaceFromResidence(sentence) {
+      const match =
+        sentence.match(/\b(?:San Nicola|San Nicolo|Saint Nicholas|St\.?\s+Nicholas|Li Pasolani|Pasolani|Li Malvitani|Malvitani|Pajoli)\b/i) ||
+        sentence.match(/\bin\s+(?:the )?([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})\s+(?:district|neighborhood)\b/);
+      return match ? normalizeResidencePlace(match[1] || match[0]) : "";
+    }
+
+    function qualityProblemForRecord(record) {
+      const sentence = residenceSentence(record);
+      const hasResidenceLanguage = /\b(lives|resides)\b/i.test(sentence);
+      const suggestedPlace = !record.residence?.place ? likelyPlaceFromResidence(sentence) : "";
+      const possibleSplitName = (record.residence?.adjacent_to || []).find(name => /^\S+$/.test(name) && !isPublicAnchor(name));
+
+      if (suggestedPlace) {
+        return {
+          type: "missing-place",
+          label: "Residence place missing",
+          detail: `The residence sentence appears to name ${suggestedPlace}, but the parsed residence is blank.`,
+          suggestedPlace
+        };
+      }
+
+      if (hasResidenceLanguage && !record.residence?.place && !record.residence?.adjacent_to?.length) {
+        return {
+          type: "ambiguous-residence",
+          label: "Ambiguous residence",
+          detail: "Residence language was found, but no district or residence neighbors were parsed.",
+          suggestedPlace: ""
+        };
+      }
+
+      if (possibleSplitName) {
+        return {
+          type: "possible-partial-neighbor",
+          label: "Possible partial neighbor name",
+          detail: `${possibleSplitName} may need a surname inferred from surrounding neighbor names.`,
+          suggestedPlace: record.residence?.place || ""
+        };
+      }
+
+      return null;
+    }
+
+    function buildReviewIssues(data) {
+      return data.households
+        .map((record, index) => {
+          const problem = qualityProblemForRecord(record);
+          if (!problem) return null;
+          return {
+            id: `${record.id}-${index}`,
+            index,
+            head: record.household_head,
+            problem,
+            sentence: residenceSentence(record),
+            place: record.residence?.place || "",
+            neighbors: record.residence?.adjacent_to || []
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function renderReviewIssues(data, issues) {
+      pendingReviewData = data;
+      pendingReviewIssues = issues;
+      dataReview.classList.toggle("open", Boolean(issues.length));
+      stage.classList.toggle("reviewing", Boolean(issues.length));
+      llmPrompt.value = "";
+
+      if (!issues.length) {
+        reviewSummary.textContent = `${data.households.length} households parsed. No review issues detected.`;
+        reviewList.innerHTML = "";
+        return;
+      }
+
+      reviewSummary.textContent = `${issues.length} possible issue${issues.length === 1 ? "" : "s"} found in ${data.households.length} parsed households.`;
+      reviewList.innerHTML = issues.map(issue => `
+        <div class="review-card" data-issue-id="${escapeHtml(issue.id)}">
+          <div class="review-card-main">
+            <h3>${escapeHtml(issue.head)}</h3>
+            <p class="review-problem">${escapeHtml(issue.problem.label)}: ${escapeHtml(issue.problem.detail)}</p>
+            <p class="review-source">${escapeHtml(issue.sentence || issue.problem.detail)}</p>
+          </div>
+          <div class="review-fields">
+            <label for="place-${escapeHtml(issue.id)}">Residence</label>
+            <input class="review-input" id="place-${escapeHtml(issue.id)}" data-field="place" value="${escapeHtml(issue.problem.suggestedPlace || issue.place)}">
+            <label for="neighbors-${escapeHtml(issue.id)}">Neighbors</label>
+            <input class="review-input" id="neighbors-${escapeHtml(issue.id)}" data-field="neighbors" value="${escapeHtml(issue.neighbors.join(", "))}">
+            <label for="note-${escapeHtml(issue.id)}">Instruction</label>
+            <textarea class="review-note" id="note-${escapeHtml(issue.id)}" data-field="note" placeholder="Tell the parser/LLM how to resolve this case."></textarea>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function reviewedData() {
+      if (!pendingReviewData) return null;
+      const data = JSON.parse(JSON.stringify(pendingReviewData));
+      pendingReviewIssues.forEach(issue => {
+        const card = [...reviewList.querySelectorAll(".review-card")].find(item => item.dataset.issueId === issue.id);
+        if (!card) return;
+        const place = card.querySelector('[data-field="place"]').value.trim();
+        const neighbors = card.querySelector('[data-field="neighbors"]').value
+          .split(",")
+          .map(name => normalizeName(name))
+          .filter(Boolean);
+        const note = card.querySelector('[data-field="note"]').value.trim();
+        const record = data.households[issue.index];
+        record.residence = record.residence || {};
+        record.residence.place = place || null;
+        record.residence.adjacent_to = neighbors;
+        if (note) record.review_note = note;
+      });
+      data.note = `${data.note || "Generated in browser from uploaded plain text."} Reviewed before visualization.`;
+      return data;
+    }
+
+    function compactLlmPrompt() {
+      const unresolved = pendingReviewIssues.slice(0, 20).map(issue => ({
+        id: issue.id,
+        household_head: issue.head,
+        problem: issue.problem.label,
+        residence_sentence: issue.sentence,
+        parsed_residence_place: issue.place || null,
+        parsed_neighbors: issue.neighbors
+      }));
+      const route = modelRoute.value === "balanced" ? "balanced low-cost extraction model" :
+        modelRoute.value === "manual" ? "no model; user/manual review only" :
+        "cheapest structured extraction model";
+      return JSON.stringify({
+        task: "Resolve ambiguous residence fields for Catasto Onciario household records. Return only JSON.",
+        compute_policy: `Use ${route}. Do not rewrite complete entries. Only resolve listed fields.`,
+        user_instructions: reviewInstructions.value.trim(),
+        output_schema: {
+          id: "issue id",
+          residence_place: "district/place name or null",
+          residence_neighbors: ["person names or public road"],
+          confidence: "high|medium|low",
+          explanation: "short reason"
+        },
+        records: unresolved
+      }, null, 2);
+    }
+
     function useData(data, preferredPersonName = null) {
-      activeData = data;
+      const preparedData = withUniqueRecordIds(data);
+      activeData = preparedData;
+      stage.classList.remove("reviewing");
+      dataReview.classList.remove("open");
       renderLayerToggle();
-      households = buildUnits(data);
+      households = buildUnits(preparedData);
       householdById = new Map(households.map(household => [household.id, household]));
       view.selectedId = matchingUnitIdForPerson(preferredPersonName) || households[0]?.id || null;
       if (view.selectedId) {
@@ -1525,16 +2382,25 @@
     function resetData() {
       selectedUploadName = "";
       activeData = null;
+      pendingReviewData = null;
+      pendingReviewIssues = [];
       households = [];
       householdById = new Map();
       districtZones = [];
       view.selectedId = null;
       view.layer = "household";
+      view.search = "";
       view.x = 500;
       view.y = 325;
       view.scale = 1;
+      personSearch.value = "";
       plainTextInput.value = "";
       textFileInput.value = "";
+      reviewInstructions.value = "";
+      reviewList.innerHTML = "";
+      llmPrompt.value = "";
+      dataReview.classList.remove("open");
+      stage.classList.remove("reviewing");
       ingestStatus.textContent = "The parser uses English Translation sections when present, then looks for household member lines, residence sentences, and residence-neighbor names.";
       renderLayerToggle();
       list.innerHTML = "";
@@ -1557,6 +2423,24 @@
     }
 
     document.querySelector("#uploadOpen").addEventListener("click", openUploadModal);
+    function submitPersonSearch() {
+      view.search = personSearch.value.trim();
+      renderList();
+    }
+
+    function clearSidebarSearch() {
+      personSearch.value = "";
+      view.search = "";
+      renderList();
+    }
+
+    runPersonSearch.addEventListener("click", submitPersonSearch);
+    clearPersonSearch.addEventListener("click", clearSidebarSearch);
+    personSearch.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      submitPersonSearch();
+    });
     document.querySelectorAll(".layer-toggle button").forEach(button => {
       button.addEventListener("click", () => {
         const selectedPerson = householdById.get(view.selectedId)?.head || null;
@@ -1577,7 +2461,10 @@
       const reader = new FileReader();
       reader.addEventListener("load", () => {
         plainTextInput.value = String(reader.result || "");
-        ingestStatus.textContent = `${file.name} loaded. Click Ingest Text to visualize it.`;
+        dataReview.classList.remove("open");
+        stage.classList.remove("reviewing");
+        llmPrompt.value = "";
+        ingestStatus.textContent = `${file.name} loaded. Click Parse for Review to inspect it.`;
       });
       reader.readAsText(file);
     });
@@ -1592,6 +2479,40 @@
         ingestStatus.textContent = "No household entries were detected. Check that member lines include names and ages.";
         return;
       }
+      const issues = buildReviewIssues(data);
+      renderReviewIssues(data, issues);
+      if (!issues.length) {
+        useData(data);
+        setFilenameLabel(selectedUploadName || "pasted plain text");
+        closeUploadModal();
+        return;
+      }
+      closeUploadModal();
+      setFilenameLabel(`${selectedUploadName || "pasted plain text"} - review`);
+      document.querySelector("#selectedTitle").textContent = "Review parsed issues";
+      list.innerHTML = "";
+      ingestStatus.textContent = "Resolve flagged issues, generate a compact LLM prompt, or visualize as-is.";
+    });
+
+    document.querySelector("#generatePrompt").addEventListener("click", () => {
+      if (!pendingReviewIssues.length) {
+        llmPrompt.value = "No unresolved issues are available for an LLM prompt.";
+        return;
+      }
+      llmPrompt.value = compactLlmPrompt();
+      llmPrompt.select();
+    });
+
+    document.querySelector("#visualizeAnyway").addEventListener("click", () => {
+      if (!pendingReviewData) return;
+      useData(pendingReviewData);
+      setFilenameLabel(selectedUploadName || "pasted plain text");
+      closeUploadModal();
+    });
+
+    document.querySelector("#applyReview").addEventListener("click", () => {
+      const data = reviewedData();
+      if (!data) return;
       useData(data);
       setFilenameLabel(selectedUploadName || "pasted plain text");
       closeUploadModal();
