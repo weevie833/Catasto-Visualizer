@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Catasto Visualizer</title>
+  <style>
+    :root { color-scheme: light; --ink:#1e293b; --muted:#64748b; --line:#cbd5e1; --blue:#2563eb; --ground:#fbfaf5; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--ground); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 24px; border-bottom:1px solid #d7dee8; background:#fff; }
+    header h1 { margin:0; font-size:21px; }
+    header a { color:var(--blue); font-weight:750; text-decoration:none; }
+    main { width:min(1040px,calc(100% - 32px)); margin:24px auto 48px; display:grid; gap:20px; }
+    .intro { color:var(--muted); margin:-10px 0 0; }
+    .panel { border:1px solid #d7dee8; border-radius:10px; background:#fff; box-shadow:0 8px 24px rgba(15,23,42,.06); padding:18px; }
+    .panel h2 { margin:0 0 14px; font-size:18px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    label { display:block; margin:0 0 6px; color:var(--muted); font-size:12px; font-weight:750; }
+    input[type="text"], textarea { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; color:var(--ink); font:inherit; }
+    textarea { min-height:220px; resize:vertical; font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .field { margin-bottom:12px; }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    button, .button { border:1px solid var(--blue); border-radius:8px; background:var(--blue); color:#fff; padding:8px 12px; font:750 13px/1.2 inherit; cursor:pointer; text-decoration:none; }
+    button.secondary { border-color:var(--line); background:#fff; color:var(--ink); }
+    button.danger { border-color:#fecaca; background:#fff; color:#b91c1c; }
+    .status { min-height:20px; margin:10px 0 0; color:var(--muted); font-size:13px; }
+    .project-list { display:grid; gap:10px; }
+    .project { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:center; border:1px solid #e2e8f0; border-radius:8px; padding:13px 14px; }
+    .project h3 { margin:0 0 4px; font-size:15px; }
+    .meta { color:var(--muted); font-size:12px; }
+    .empty { color:var(--muted); padding:12px 0; }
+    @media (max-width:720px) { .grid { grid-template-columns:1fr; } .project { grid-template-columns:1fr; } header { align-items:flex-start; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Catasto Admin</h1>
+    <a href="index.html">Return to Visualizer</a>
+  </header>
+  <main>
+    <p class="intro">Create, import, export, and remove locally stored Catasto projects.</p>
+
+    <section class="panel">
+      <h2>Project Library</h2>
+      <div class="actions">
+        <button id="importButton" class="secondary" type="button">Import project</button>
+        <input id="importFile" type="file" accept=".json,.catasto,application/json" hidden>
+      </div>
+      <p class="status" id="libraryStatus"></p>
+      <div class="project-list" id="projectList"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Create Project from Catasto Text</h2>
+      <div class="grid">
+        <div>
+          <div class="field">
+            <label for="projectName">Project name</label>
+            <input id="projectName" type="text" placeholder="Marano Marchesato 1754">
+          </div>
+          <div class="field">
+            <label for="textFile">Source text file</label>
+            <input id="textFile" type="file" accept=".txt,text/plain">
+          </div>
+        </div>
+        <div>
+          <label for="plainText">Plain text</label>
+          <textarea id="plainText" placeholder="Paste translated Catasto text here, or choose a text file."></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="createProject" type="button">Create project</button>
+      </div>
+      <p class="status" id="createStatus">Projects are stored in this browser's IndexedDB database.</p>
+    </section>
+  </main>
+  <script src="catasto-storage.js"></script>
+  <script src="catasto-parser.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

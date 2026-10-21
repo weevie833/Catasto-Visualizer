@@ -95,6 +95,51 @@
       gap: 6px;
     }
 
+    .search-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 1px 0 0;
+      border: 0;
+      padding: 0;
+    }
+
+    .search-filters legend {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    .search-filters label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #b8c5d4;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #334155;
+      padding: 4px 7px;
+      font-size: 10px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .search-filters label:has(input:checked) {
+      border-color: #2f6658;
+      background: #e7f1ed;
+      color: #21483e;
+    }
+
+    .search-filters input {
+      width: 13px;
+      height: 13px;
+      margin: 0;
+      accent-color: #2f6658;
+    }
+
     .search-button,
     .clear-search-button {
       min-height: 34px;
@@ -124,6 +169,8 @@
 
     .household-list {
       display: grid;
+      grid-auto-rows: max-content;
+      align-content: start;
       gap: 8px;
       flex: 1;
       min-height: 0;
@@ -143,7 +190,12 @@
     }
 
     .household-button {
+      display: grid;
+      grid-template-rows: auto auto auto;
+      align-content: start;
+      justify-items: stretch;
       width: 100%;
+      height: max-content;
       min-height: 76px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
@@ -151,6 +203,8 @@
       color: var(--ink);
       padding: 10px 11px;
       text-align: left;
+      white-space: normal;
+      overflow-wrap: anywhere;
       cursor: pointer;
       transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
@@ -178,6 +232,27 @@
       color: var(--muted);
       font-size: 12px;
       line-height: 1.35;
+    }
+
+    .search-result-type {
+      display: inline-block;
+      justify-self: start;
+      margin-top: 5px;
+      border-radius: 999px;
+      background: #e7f1ed;
+      color: #21483e;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+
+    .source-highlight {
+      border-radius: 3px;
+      background: #fde68a;
+      color: #422006;
+      padding: 0 2px;
     }
 
     .placeholder-label {
@@ -242,6 +317,30 @@
       align-items: center;
     }
 
+    .project-picker {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 14px;
+    }
+
+    .project-picker label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .project-picker select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--ink);
+      padding: 9px 10px;
+      font: inherit;
+    }
+
     .language-switch { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #d8d6cb; border-radius: 8px; background: #fffef9; }
     .language-button { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 5px; padding: 6px 7px; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 750; }
     .language-button[aria-pressed="true"] { background: #256b62; color: white; }
@@ -263,7 +362,7 @@
       text-transform: uppercase;
     }
 
-    .upload-button,
+    .admin-button,
     .modal-button {
       border: 1px solid #2563eb;
       border-radius: 8px;
@@ -274,6 +373,11 @@
       font-weight: 750;
       cursor: pointer;
       white-space: nowrap;
+    }
+
+    .admin-button {
+      display: inline-block;
+      text-decoration: none;
     }
 
     .modal-button.secondary {
@@ -311,6 +415,39 @@
       margin: 0 0 5px;
       font-size: 13px;
       line-height: 1.2;
+    }
+
+    .evidence-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 5px;
+    }
+
+    .evidence-heading h3 {
+      margin: 0;
+    }
+
+    .source-edit-button {
+      border: 1px solid #21483e;
+      border-radius: 6px;
+      background: #2f6658;
+      color: #ffffff;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .source-edit-button:hover {
+      border-color: #183a32;
+      background: #244f45;
+    }
+
+    .source-edit-button:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, .35);
+      outline-offset: 2px;
     }
 
     .evidence-block p {
@@ -370,11 +507,60 @@
       font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
+    .modal input[type="text"] {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--ink);
+      font: 14px/1.4 ui-sans-serif, system-ui, sans-serif;
+      padding: 9px 10px;
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       margin-top: 12px;
+    }
+
+    .duplicate-comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .duplicate-record {
+      min-width: 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 12px;
+    }
+
+    .duplicate-record h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .duplicate-record p {
+      margin: 5px 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .duplicate-record .duplicate-source {
+      max-height: 150px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .duplicate-comparison { grid-template-columns: 1fr; }
     }
 
     .ingest-status {
@@ -519,10 +705,6 @@
         flex-direction: column;
       }
 
-      .upload-button {
-        white-space: normal;
-      }
-
       .top-actions {
         align-items: start;
         justify-items: start;
@@ -549,13 +731,19 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="./scene3d.css">
+  <link rel="stylesheet" href="./scene3d.css?v=8">
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
       <h1 id="sidebarTitle">Households</h1>
+      <div class="project-picker">
+        <label for="projectSelect">Catasto project</label>
+        <select id="projectSelect" aria-label="Select a Catasto project">
+          <option value="">Loading projects…</option>
+        </select>
+      </div>
       <div class="sidebar-search">
         <label id="searchPeopleLabel" for="personSearch">Search people</label>
         <input id="personSearch" type="search" autocomplete="off" placeholder="Name, surname, or role">
@@ -563,6 +751,12 @@
           <button class="search-button" id="runPersonSearch" type="button">SEARCH</button>
           <button class="clear-search-button" id="clearPersonSearch" type="button">Clear</button>
         </div>
+        <fieldset class="search-filters">
+          <legend id="searchFiltersLegend">Filter search results</legend>
+          <label><input id="filterHouseholdHead" type="checkbox" checked> <span id="filterHouseholdHeadLabel">Household head</span></label>
+          <label><input id="filterFamilyMember" type="checkbox" checked> <span id="filterFamilyMemberLabel">Family member</span></label>
+          <label><input id="filterReference" type="checkbox" checked> <span id="filterReferenceLabel">Reference</span></label>
+        </fieldset>
       </div>
       <div class="household-list" id="householdList"></div>
     </aside>
@@ -570,12 +764,8 @@
     <main class="workspace">
       <div class="topbar">
         <div>
-          <p class="kicker" id="selectedUnitLabel">Selected unit</p>
-          <h2 id="selectedTitle">Loading...</h2>
-        </div>
-        <div class="layer-toggle" aria-label="Visualization layer">
-          <button class="active" data-layer="household" type="button">Households</button>
-          <button data-layer="land" type="button">Landholdings</button>
+          <h2 id="catastoTitle">Marano Marchesato Catasto Onciario 1754</h2>
+          <span id="selectedTitle" hidden></span>
         </div>
         <div class="top-actions">
           <div class="top-buttons">
@@ -583,46 +773,51 @@
               <button class="language-button" id="languageEnglish" type="button" aria-label="English" aria-pressed="true"><span aria-hidden="true">🇬🇧</span> ENG</button>
               <button class="language-button" id="languageItalian" type="button" aria-label="Italiano" aria-pressed="false"><span aria-hidden="true">🇮🇹</span> IT</button>
             </div>
-            <button class="upload-button" id="uploadOpen" type="button">UPLOAD</button>
+            <a class="admin-button" href="admin.html" target="_blank" rel="noopener">ADMIN ↗</a>
           </div>
-          <div class="filename-line" id="filenameLine">Current file: sample extracted data</div>
+          <div class="filename-line" id="filenameLine" hidden></div>
         </div>
       </div>
 
       <section class="stage" id="stage" aria-label="Household proximity visualization">
         <div class="visualization-view">
-          <div class="environment-bar">
-            <div><span class="environment-title">Marano Marchesato</span><span class="environment-year">Catasto Onciario · 1754</span></div>
+          <div class="environment-bar" role="toolbar" aria-label="Neighborhood controls">
+            <div class="scene-location">
+              <select id="district3d" aria-label="Explore district"><option value="all">All districts</option></select>
+              <span id="sceneStats" hidden aria-live="polite"></span>
+            </div>
+            <span class="environment-divider" aria-hidden="true"></span>
+            <div class="environment-controls">
+              <div class="layer-toggle" aria-label="Visualization layer">
+                <button class="active" data-layer="household" type="button">Households</button>
+                <button data-layer="land" type="button">Landholdings</button>
+              </div>
+              <span class="environment-divider" aria-hidden="true"></span>
+              <div class="scene-camera" role="group" aria-label="3D camera controls">
+                <button id="focus3d" type="button" title="Focus selected household (F)">Focus</button>
+                <button id="fit3d" type="button" title="Fit visible district (H)">Overview</button>
+                <button id="plan3d" type="button" aria-pressed="false" title="Toggle overhead view (T)">Top view</button>
+                <button id="details3d" type="button" aria-pressed="true">Details</button>
+                <button id="expand3d" type="button" aria-pressed="false">Expand</button>
+                <button id="closer3d" type="button" aria-label="Zoom 3D view in">+</button>
+                <button id="farther3d" type="button" aria-label="Zoom 3D view out">−</button>
+              </div>
+            </div>
           </div>
           <section id="scene3d" class="scene3d" aria-label="Interactive 3D household environment">
             <div id="sceneCanvas" class="scene-canvas"></div>
-            <div class="scene-top">
-              <div class="scene-location"><label id="districtLabel" for="district3d">Explore district</label><select id="district3d"><option value="all">All districts</option></select><span id="sceneStats" aria-live="polite"></span></div>
-              <div class="scene-options">
-                <label><input id="labels3d" type="checkbox" checked> <span id="namesLabel">Names</span></label>
-                <label><input id="links3d" type="checkbox" checked> <span id="boundariesLabel">Boundaries</span></label>
-                <label><input id="people3d" type="checkbox" checked> <span id="peopleLabel">People</span></label>
-              </div>
-            </div>
-            <div class="scene-camera" role="group" aria-label="3D camera controls">
-              <button id="focus3d" type="button" title="Focus selected household (F)">Focus</button>
-              <button id="fit3d" type="button" title="Fit visible district (H)">Overview</button>
-              <button id="plan3d" type="button" aria-pressed="false" title="Toggle overhead view (T)">Top view</button>
-              <button id="details3d" type="button" aria-pressed="true">Details</button>
-              <button id="expand3d" type="button" aria-pressed="false">Expand</button>
-              <button id="closer3d" type="button" aria-label="Zoom 3D view in">+</button>
-              <button id="farther3d" type="button" aria-label="Zoom 3D view out">−</button>
-            </div>
             <div id="sceneLabels" class="scene-labels"></div>
             <div id="sceneHover" class="scene-hover" hidden></div>
             <aside id="sceneInspector" class="scene-inspector" aria-label="Selected household details"></aside>
             <div class="scene-bottom"><span id="navigationHelp">Drag to pan · Right-drag to orbit · Scroll to zoom<br>Touch: one finger to pan; two fingers to pan / zoom</span><span class="scene-key"><i></i> Selected <i></i> Named neighbor</span></div>
-            <p class="scene-disclaimer" id="sceneDisclaimer">Schematic environment. Positions, terrain and architecture are illustrative; boundary links come from the parsed records.</p>
           </section>
           <p id="sceneStatus" class="scene-status" role="status" hidden></p>
           <div class="evidence">
             <div class="evidence-block">
-              <h3 id="sourceEntryLabel">Source tax entry</h3>
+              <div class="evidence-heading">
+                <h3 id="sourceEntryLabel">Source tax entry</h3>
+                <button class="source-edit-button" id="editSourceEntry" type="button" hidden>Edit</button>
+              </div>
               <p id="sourceEntry">Loading extracted household data...</p>
             </div>
           </div>
@@ -654,6 +849,39 @@
     </main>
   </div>
 
+  <div class="modal-backdrop" id="sourceEditModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sourceEditTitle">
+      <h2 id="sourceEditTitle">Edit source tax entry</h2>
+      <label id="sourceEditPlaceLabel" for="sourceEditPlace">Residence place</label>
+      <input id="sourceEditPlace" type="text" autocomplete="off">
+      <label id="sourceEditTextLabel" for="sourceEditText">Source tax entry</label>
+      <textarea id="sourceEditText"></textarea>
+      <p class="ingest-status" id="sourceEditStatus" role="status">Changes are saved locally in this Catasto project.</p>
+      <div class="modal-actions">
+        <button class="modal-button secondary" id="sourceEditCancel" type="button">Cancel</button>
+        <button class="modal-button" id="sourceEditSave" type="button">Save changes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="duplicateModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="duplicateTitle" aria-describedby="duplicateDescription">
+      <h2 id="duplicateTitle">Possible duplicate household</h2>
+      <p id="duplicateDescription" class="ingest-status">The corrected name matches another household. Compare the source evidence before deciding whether they represent the same person.</p>
+      <div class="duplicate-comparison" id="duplicateComparison"></div>
+      <p class="ingest-status" id="duplicateStatus" role="status"></p>
+      <div class="modal-actions" id="duplicateDecisionActions">
+        <button class="modal-button secondary" id="duplicateLater" type="button">Review later</button>
+        <button class="modal-button secondary" id="duplicateSeparate" type="button">Keep separate</button>
+        <button class="modal-button" id="duplicateMerge" type="button">Merge records</button>
+      </div>
+      <div class="modal-actions" id="duplicateUndoActions" hidden>
+        <button class="modal-button secondary" id="duplicateDone" type="button">Done</button>
+        <button class="modal-button" id="duplicateUndo" type="button">Undo merge</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="uploadModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
       <h2 id="uploadTitle">Upload Catasto Text</h2>
@@ -668,6 +896,8 @@
     </div>
   </div>
 
+  <script src="./catasto-parser.js"></script>
+  <script src="./catasto-storage.js"></script>
   <script>
     const EMBEDDED_DATA = { households: [] };
 
@@ -684,50 +914,75 @@
     const ingestStatus = document.querySelector("#ingestStatus");
     const filenameLine = document.querySelector("#filenameLine");
     const textFileInput = document.querySelector("#textFile");
+    const projectSelect = document.querySelector("#projectSelect");
     const dataReview = document.querySelector("#dataReview");
     const reviewSummary = document.querySelector("#reviewSummary");
     const reviewInstructions = document.querySelector("#reviewInstructions");
     const reviewList = document.querySelector("#reviewList");
     const modelRoute = document.querySelector("#modelRoute");
     const llmPrompt = document.querySelector("#llmPrompt");
+    const sourceEditModal = document.querySelector("#sourceEditModal");
+    const sourceEditText = document.querySelector("#sourceEditText");
+    const sourceEditPlace = document.querySelector("#sourceEditPlace");
+    const sourceEditStatus = document.querySelector("#sourceEditStatus");
+    const sourceEditButton = document.querySelector("#editSourceEntry");
+    const duplicateModal = document.querySelector("#duplicateModal");
+    const duplicateComparison = document.querySelector("#duplicateComparison");
+    const duplicateStatus = document.querySelector("#duplicateStatus");
+    const duplicateDecisionActions = document.querySelector("#duplicateDecisionActions");
+    const duplicateUndoActions = document.querySelector("#duplicateUndoActions");
+    let duplicateReview = null;
+    const searchFilterInputs = {
+      head: document.querySelector("#filterHouseholdHead"),
+      member: document.querySelector("#filterFamilyMember"),
+      reference: document.querySelector("#filterReference")
+    };
     const UI_STRINGS = {
       en: {
         households: "Households", landholdings: "Landholdings", landowners: "Landowners",
-        searchPeople: "Search people", searchPlaceholder: "Name, surname, or role", search: "SEARCH", clear: "Clear",
+        searchPeople: "Search entire Catasto", searchPlaceholder: "Any person named anywhere", search: "SEARCH", clear: "Clear",
         selectedUnit: "Selected unit", upload: "UPLOAD", currentFile: "Current file",
         exploreDistrict: "Explore district", allDistricts: "All districts", names: "Names", boundaries: "Boundaries", people: "People",
         focus: "Focus", overview: "Overview", topView: "Top view", perspective: "Perspective", details: "Details", expand: "Expand", exitExpanded: "Exit expanded",
         zoomIn: "Zoom 3D view in", zoomOut: "Zoom 3D view out", selected: "Selected", namedNeighbor: "Named neighbor",
         navigation: "Drag to pan · Right-drag to orbit · Scroll to zoom<br>Touch: one finger to pan; two fingers to pan / zoom",
-        disclaimer: "Schematic environment. Positions, terrain and architecture are illustrative; boundary links come from the parsed records.",
         sourceEntry: "Source tax entry", loading: "Loading extracted household data...", noResidence: "No residence listed", notListed: "Not Listed",
-        noMatch: "No people match this search.", noHouseholds: "No households found.", noLandholdings: "No landholdings found",
+        noMatch: "No people or references match this search.", noHouseholds: "No households found.", noLandholdings: "No landholdings found",
         noLandSource: "No landholding clauses with bordering language were detected in this source.", noHouseholdSource: "No household entries were detected in this source.",
         uploadTitle: "Upload Catasto Text", plainText: "Plain text", pastePrompt: "Paste a translated Catasto text here, or choose a .txt file above.",
         parserStatus: "The parser uses English Translation sections when present, then looks for household member lines, residence sentences, and residence-neighbor names.",
         cancel: "Cancel", parseReview: "Parse for Review", noIssues: "No review issues detected.", llmRoute: "LLM route",
         economy: "Economy extraction", balanced: "Balanced extraction", manual: "Manual only", ambiguousInstructions: "User instructions for ambiguous records",
         generatePrompt: "Generate LLM Prompt", visualizeAnyway: "Visualize Anyway", applyReview: "Apply Review & Visualize",
-        noRecordsLoaded: "No data loaded", uploadToBegin: "Upload or paste Catasto text to begin."
+        noRecordsLoaded: "No data loaded", uploadToBegin: "Upload or paste Catasto text to begin.",
+        edit: "Edit", editSourceTitle: "Edit source tax entry", residencePlace: "Residence place", saveChanges: "Save changes",
+        editStoredLocally: "Changes are saved locally in this Catasto project.",
+        householdHeadMatch: "Household head", householdMemberMatch: "Household member", residenceReferenceMatch: "Residence reference",
+        landReferenceMatch: "Land reference", financialReferenceMatch: "Financial reference", sourceReferenceMatch: "Source reference",
+        filterResults: "Filter search results", familyMember: "Family member", reference: "Reference"
       },
       it: {
         households: "Famiglie", landholdings: "Terreni", landowners: "Proprietari",
-        searchPeople: "Cerca persone", searchPlaceholder: "Nome, cognome o ruolo", search: "CERCA", clear: "Cancella",
+        searchPeople: "Cerca nell’intero Catasto", searchPlaceholder: "Qualsiasi persona citata nel Catasto", search: "CERCA", clear: "Cancella",
         selectedUnit: "Unità selezionata", upload: "CARICA", currentFile: "File corrente",
         exploreDistrict: "Esplora il rione", allDistricts: "Tutti i rioni", names: "Nomi", boundaries: "Confini", people: "Persone",
         focus: "Metti a fuoco", overview: "Panoramica", topView: "Vista dall’alto", perspective: "Prospettiva", details: "Dettagli", expand: "Espandi", exitExpanded: "Esci da schermo intero",
         zoomIn: "Ingrandisci la vista 3D", zoomOut: "Riduci la vista 3D", selected: "Selezionato", namedNeighbor: "Vicino citato",
         navigation: "Trascina per spostarti · Trascina col tasto destro per ruotare · Rotellina per zoom<br>Touch: un dito per spostarsi; due dita per spostarsi / zoom",
-        disclaimer: "Ambiente schematico. Posizioni, terreno e architettura sono illustrative; i confini derivano dai dati trascritti.",
         sourceEntry: "Voce catastale originale", loading: "Caricamento dei dati estratti...", noResidence: "Residenza non indicata", notListed: "Non indicato",
-        noMatch: "Nessuna persona corrisponde alla ricerca.", noHouseholds: "Nessuna famiglia trovata.", noLandholdings: "Nessun terreno trovato",
+        noMatch: "Nessuna persona o riferimento corrisponde alla ricerca.", noHouseholds: "Nessuna famiglia trovata.", noLandholdings: "Nessun terreno trovato",
         noLandSource: "Nel documento non sono state rilevate voci catastali con confini dei terreni.", noHouseholdSource: "Nel documento non sono state rilevate voci familiari.",
         uploadTitle: "Carica il testo del Catasto", plainText: "Testo semplice", pastePrompt: "Incolla qui il testo del Catasto tradotto oppure scegli un file .txt qui sopra.",
         parserStatus: "Il parser usa le sezioni di traduzione inglese, quando presenti, e cerca le righe dei componenti familiari, le frasi sulla residenza e i vicini citati.",
         cancel: "Annulla", parseReview: "Analizza e rivedi", noIssues: "Nessun problema da rivedere.", llmRoute: "Modalità di estrazione",
         economy: "Estrazione essenziale", balanced: "Estrazione bilanciata", manual: "Solo manuale", ambiguousInstructions: "Istruzioni per le voci ambigue",
         generatePrompt: "Genera prompt LLM", visualizeAnyway: "Visualizza comunque", applyReview: "Applica revisione e visualizza",
-        noRecordsLoaded: "Nessun dato caricato", uploadToBegin: "Carica o incolla il testo del Catasto per iniziare."
+        noRecordsLoaded: "Nessun dato caricato", uploadToBegin: "Carica o incolla il testo del Catasto per iniziare.",
+        edit: "Modifica", editSourceTitle: "Modifica la voce catastale", residencePlace: "Luogo di residenza", saveChanges: "Salva modifiche",
+        editStoredLocally: "Le modifiche vengono salvate localmente in questo progetto catastale.",
+        householdHeadMatch: "Capofamiglia", householdMemberMatch: "Componente familiare", residenceReferenceMatch: "Riferimento di residenza",
+        landReferenceMatch: "Riferimento fondiario", financialReferenceMatch: "Riferimento finanziario", sourceReferenceMatch: "Riferimento nella fonte",
+        filterResults: "Filtra i risultati", familyMember: "Familiare", reference: "Riferimento"
       }
     };
     let language = localStorage.getItem("catasto-language") === "it" ? "it" : "en";
@@ -829,15 +1084,20 @@
       const textById = {
         sidebarTitle: view.layer === "land" ? t("landowners") : t("households"),
         searchPeopleLabel: t("searchPeople"), runPersonSearch: t("search"), clearPersonSearch: t("clear"),
-        selectedUnitLabel: t("selectedUnit"), uploadOpen: t("upload"),
-        districtLabel: t("exploreDistrict"), namesLabel: t("names"), boundariesLabel: t("boundaries"), peopleLabel: t("people"),
+        selectedUnitLabel: t("selectedUnit"),
+        districtLabel: t("exploreDistrict"),
         focus3d: t("focus"), fit3d: t("overview"), plan3d: document.querySelector("#plan3d").getAttribute("aria-pressed") === "true" ? t("perspective") : t("topView"),
         details3d: t("details"), expand3d: document.querySelector("#expand3d").getAttribute("aria-pressed") === "true" ? t("exitExpanded") : t("expand"),
         sourceEntryLabel: t("sourceEntry"), uploadTitle: t("uploadTitle"), uploadCancel: t("cancel"), ingestText: t("parseReview"),
-        generatePrompt: t("generatePrompt"), visualizeAnyway: t("visualizeAnyway"), applyReview: t("applyReview")
+        generatePrompt: t("generatePrompt"), visualizeAnyway: t("visualizeAnyway"), applyReview: t("applyReview"),
+        editSourceEntry: t("edit"), sourceEditTitle: t("editSourceTitle"), sourceEditPlaceLabel: t("residencePlace"),
+        sourceEditTextLabel: t("sourceEntry"), sourceEditCancel: t("cancel"), sourceEditSave: t("saveChanges"),
+        searchFiltersLegend: t("filterResults"), filterHouseholdHeadLabel: t("householdHeadMatch"),
+        filterFamilyMemberLabel: t("familyMember"), filterReferenceLabel: t("reference")
       };
       Object.entries(textById).forEach(([id, value]) => { const element = document.getElementById(id); if (element) element.textContent = value; });
       personSearch.placeholder = t("searchPlaceholder");
+      document.querySelector("#district3d").setAttribute("aria-label", t("exploreDistrict"));
       document.querySelector(".layer-toggle").setAttribute("aria-label", t("landholdings"));
       document.querySelector("#stage").setAttribute("aria-label", language === "it" ? "Visualizzazione della prossimità tra le famiglie" : "Household proximity visualization");
       document.querySelector("#scene3d").setAttribute("aria-label", language === "it" ? "Ambiente 3D interattivo delle famiglie" : "Interactive 3D household environment");
@@ -848,7 +1108,6 @@
       document.querySelector("#fit3d").title = t("overview") + " (H)";
       document.querySelector("#plan3d").title = (language === "it" ? "Attiva la vista dall’alto" : "Toggle overhead view") + " (T)";
       document.querySelector("#navigationHelp").innerHTML = t("navigation");
-      document.querySelector("#sceneDisclaimer").textContent = t("disclaimer");
       document.querySelector(".scene-key").innerHTML = '<i></i> ' + t("selected") + ' <i></i> ' + t("namedNeighbor");
       document.querySelector("#uploadModal label[for='plainTextInput']").textContent = t("plainText");
       plainTextInput.placeholder = t("pastePrompt");
@@ -858,6 +1117,7 @@
       document.querySelector("label[for='reviewInstructions']").textContent = t("ambiguousInstructions");
       llmPrompt.placeholder = language === "it" ? "Genera un breve prompt LLM per i problemi ancora da risolvere." : "Generate a compact LLM prompt for unresolved issues.";
       document.querySelector("#uploadModal .ingest-status").textContent = t("parserStatus");
+      sourceEditStatus.textContent = t("editStoredLocally");
       document.querySelector("#languageEnglish").setAttribute("aria-pressed", String(language === "en"));
       document.querySelector("#languageItalian").setAttribute("aria-pressed", String(language === "it"));
       document.querySelector("#languageEnglish").setAttribute("aria-label", language === "it" ? "Inglese" : "English");
@@ -881,6 +1141,7 @@
 
     let selectedUploadName = "";
     let activeData = null;
+    let activeProject = null;
     let pendingReviewData = null;
     let pendingReviewIssues = [];
 
@@ -929,7 +1190,7 @@
 
     function surnameFromName(name) {
       const parts = stripNamePrefixes(name).replace(/[.,]/g, "").trim().split(/\s+/);
-      return parts.length > 1 ? parts[parts.length - 1] : parts[0] || "";
+      return parts.length > 1 ? surnamePhrase(parts) : parts[0] || "";
     }
 
     function firstAndSurname(name, householdSurname) {
@@ -955,7 +1216,7 @@
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\b(neighborhood|district|contrada|place called|place|called|located|situated)\b/g, " ")
+        .replace(/\b(neighborhood|district|contrada|place called|place|called|located|situated|said|aforementioned)\b/g, " ")
         .replace(/\b(?:a|an|cluster|group)\b/g, " ")
         .replace(/\b(li|lo|la|le|il|i|l)\b/g, " ")
         .replace(/[^a-z0-9]+/g, " ")
@@ -975,7 +1236,9 @@
         "not listed": "not listed",
         "no residence listed": "no residence listed"
       };
-      key = aliases[key] || key || "no residence listed";
+      if (/\bpagliara\b/.test(key)) key = "costa della pagliara";
+      else if (/^(?:san\s+|li\s+)?(?:juani|guanni|janni|giovanni)$/.test(key)) key = "san janni";
+      else key = aliases[key] || key || "no residence listed";
       return {
         key,
         label: key === "no residence listed" ? "No residence listed" : titleCasePlace(key)
@@ -1017,10 +1280,11 @@
     }
 
     function memberLines(record) {
-      return record.members_text
+      const lines = record.members_text
         .split("\n")
         .map(line => line.trim())
         .filter(Boolean);
+      return window.CatastoParser.inferFamilyRelationships(lines).members;
     }
 
     function parseMemberLine(line, householdSurname, index) {
@@ -1049,6 +1313,51 @@
       return memberLines(record).map((line, index) => parseMemberLine(line, surname, index));
     }
 
+    function householdMemberIdentities(record, surname) {
+      const lines = memberLines(record);
+      const displays = lines.map((line, index) => parseMemberLine(line, surname, index));
+      return lines.map((line, index) => {
+        const rawName = line.replace(/\[[^\]]+\]/g, "").split(",")[0].trim();
+        return {
+          id: index === 0 ? record.id : `${record.id}-member-${String(index).padStart(2, "0")}`,
+          householdId: record.id,
+          identityType: index === 0 ? "household-head" : "household-member",
+          position: index,
+          name: firstAndSurname(rawName, surname),
+          display: displays[index]
+        };
+      });
+    }
+
+    function headIdentityEvidence(record) {
+      const headLine = memberLines(record)[0] || record.members_text?.split("\n")[0] || record.household_head || "";
+      const patronymic = headLine.match(/\b(?:son|daughter)\s+of\s+(?:the\s+late\s+)?([^,—;]+?)(?=,|—|;|\bage(?:d)?\b|$)/i)?.[0]?.trim() || "";
+      const age = headLine.match(/\b(?:age|aged)\s+(\d+)\b/i)?.[1] || "";
+      const spouseLine = memberLines(record).slice(1).find(line => /\b(?:wife|husband)\b/i.test(line));
+      const spouse = spouseLine ? spouseLine.split(",")[0].trim() : "";
+      return { patronymic, age, spouse };
+    }
+
+    function householdIdentityLabels(records) {
+      const byName = recordsByPersonName(records);
+      const labels = new Map();
+      records.forEach((record, index) => {
+        const peers = byName.get(personKey(record.household_head)) || [record];
+        if (peers.length === 1) {
+          labels.set(record.id, record.household_head);
+          return;
+        }
+        const evidence = headIdentityEvidence(record);
+        const peerEvidence = peers.map(headIdentityEvidence);
+        const patronymicUnique = evidence.patronymic && peerEvidence.filter(item => searchKey(item.patronymic) === searchKey(evidence.patronymic)).length === 1;
+        const ageUnique = evidence.age && peerEvidence.filter(item => item.age === evidence.age).length === 1;
+        const spouseUnique = evidence.spouse && peerEvidence.filter(item => personKey(item.spouse) === personKey(evidence.spouse)).length === 1;
+        const qualifier = patronymicUnique ? evidence.patronymic : ageUnique ? `age ${evidence.age}` : spouseUnique ? `spouse ${evidence.spouse}` : `household ${record.projectRecordIndex ?? index + 1}`;
+        labels.set(record.id, `${record.household_head} — ${qualifier}`);
+      });
+      return labels;
+    }
+
     function sentenceList(text) {
       return text
         .replace(/\r/g, "")
@@ -1066,48 +1375,97 @@
     function landholdingName(sentence, index) {
       const quoted = sentence.match(/"([^"]+)"/);
       if (quoted) return quoted[1];
-      const called = sentence.match(/\bcalled\s+([^,;]+?)(?:\s+of\b|,|;| bordering|\.)/i);
+      const called = sentence.match(/\bcalled\s+([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|\s+bordering|\.)/i);
       if (called) return normalizeName(called[1]);
-      const located = sentence.match(/\bin\s+([^,;]+?)(?:\s+with|\s+of|,|;| bordering|\.)/i);
+      const located = sentence.match(/\bin\s+(?:the\s+)?(?:district\s+of\s+)?([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|\s+bordering|\.)/i);
       if (located) return normalizeName(located[1]);
+      const slopes = sentence.match(/\bon\s+(?:the\s+)?slopes?\s+of\s+([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|\s+bordering|\.)/i);
+      if (slopes) return normalizeName(slopes[1]);
       return `Landholding ${index + 1}`;
     }
 
+    function landholdingPlace(sentence, name, previousPlace = null) {
+      if (/\b(?:same|said|aforementioned) place\b/i.test(sentence) && previousPlace) return previousPlace;
+      if (!/^Landholding\s+\d+$/i.test(name)) return canonicalPlace(name);
+      const locationClause = sentence.split(/\bbordering\b/i)[0];
+      const explicit =
+        locationClause.match(/\bin\s+(?:the\s+)?(?:place|district|neighborhood|contrada)\s+(?:called\s+|of\s+)?([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|$)/i) ||
+        locationClause.match(/\bin\s+(?:the\s+)?([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|$)/i) ||
+        locationClause.match(/\bon\s+(?:the\s+)?slopes?\s+of\s+([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|$)/i);
+      return canonicalPlace(explicit?.[1] || "District not listed");
+    }
+
+    function landholdingType(sentence) {
+      if (/chestnut grove|castagneto|castaneto/i.test(sentence)) return "chestnut grove";
+      if (/vineyard|vigna/i.test(sentence)) return "vineyard";
+      if (/garden|orto/i.test(sentence)) return "garden";
+      if (/grove/i.test(sentence)) return "grove";
+      return "property";
+    }
+
+    function landholdingCapacity(sentence) {
+      const match = sentence.match(/\b(?:capacity of|measuring)\s+([^,;]+?)(?=\s+bordering|,|;|\.|$)/i);
+      return match ? match[1].trim() : "Capacity not listed";
+    }
+
+    function landholdingIncome(sentence) {
+      const match = sentence.match(/\b(?:annual\s+)?income\s+(?:is\s+|amounts?\s+to\s+|from\s+which\s+is\s+)?([^.;]+(?:[.;]|$))/i);
+      return match ? match[0].replace(/[.;]\s*$/, "").trim() : "Income not listed";
+    }
+
     function parseLandholdings(record) {
+      let previousPlace = null;
       return sentenceList(record.source_entry)
         .filter(isLandholdingSentence)
         .map((sentence, index) => {
           const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|$)/i);
           const rawAdjacentNames = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
+          const name = landholdingName(sentence, index);
+          const placeInfo = landholdingPlace(sentence, name, previousPlace);
+          previousPlace = placeInfo;
           return {
             id: `${record.id}-land-${index + 1}`,
             owner: record.household_head,
-            name: landholdingName(sentence, index),
+            name,
+            place: placeInfo.label,
+            placeKey: placeInfo.key,
+            type: landholdingType(sentence),
+            capacity: landholdingCapacity(sentence),
+            income: landholdingIncome(sentence),
             source_entry: sentence,
             adjacent_to: rawAdjacentNames,
+            boundary_features: rawAdjacentNames.filter(isPublicAnchor),
             hasPublicRoad: rawAdjacentNames.some(isPublicRoad)
           };
         });
     }
 
-    function createHouseholdFromRecord(record, x, y) {
+    function createHouseholdFromRecord(record, x, y, displayHead = record.household_head) {
       const rawAdjacentNames = record.residence?.adjacent_to || [];
       const adjacentNames = rawAdjacentNames.filter(name => !isPublicAnchor(name));
       const placeInfo = canonicalPlace(record.residence?.place || "No residence listed");
+      const surname = surnameFromName(record.household_head);
+      const memberIdentities = householdMemberIdentities(record, surname);
       return {
         id: record.id,
+        householdId: record.id,
+        identityType: "household-head",
         source: "extracted",
         head: record.household_head,
-        surname: surnameFromName(record.household_head),
+        displayHead,
+        identityEvidence: headIdentityEvidence(record),
+        surname,
         role: memberLines(record)[0]?.replace(record.household_head, "").replace(/^,\s*/, "") || "household",
         place: placeInfo.label,
         placeKey: placeInfo.key,
         x,
         y,
-        members: displayMembers(record, surnameFromName(record.household_head)),
+        members: memberIdentities.map(member => member.display),
+        memberIdentities,
         assets: detectAssets(record.source_entry, Boolean(record.residence?.description)),
         signal: adjacentNames.length ? `${adjacentNames.length} residence neighbor${adjacentNames.length === 1 ? "" : "s"} from source` : "No residence adjacency listed",
         sourceEntry: record.source_entry,
+        recordIndex: record.projectRecordIndex,
         neighbors: [],
         sourcePages: record.source_pages,
         adjacentNames,
@@ -1116,7 +1474,7 @@
     }
 
     function personKey(name) {
-      return normalizeName(name).toLowerCase();
+      return normalizeName(stripNamePrefixes(name)).toLowerCase();
     }
 
     function recordsByPersonName(records) {
@@ -1132,8 +1490,19 @@
     function bestMatchingRecord(records, sourceRecord) {
       if (!records?.length) return null;
       if (records.length === 1 || !sourceRecord) return records[0];
+      const storedLink = (sourceRecord.residence_links || []).find(link =>
+        link.household_id && records.some(record => record.id === link.household_id) &&
+        personKey(link.name) === personKey(records[0].household_head)
+      );
+      if (storedLink) return records.find(record => record.id === storedLink.household_id) || null;
+      const sourceName = personKey(sourceRecord.household_head);
+      const reciprocal = records.filter(record =>
+        (record.residence?.adjacent_to || []).some(name => personKey(name) === sourceName)
+      );
+      if (reciprocal.length === 1) return reciprocal[0];
       const sourcePlace = canonicalPlace(sourceRecord.residence?.place || "No residence listed").key;
-      return records.find(record => canonicalPlace(record.residence?.place || "No residence listed").key === sourcePlace) || records[0];
+      const samePlace = records.filter(record => canonicalPlace(record.residence?.place || "No residence listed").key === sourcePlace);
+      return samePlace.length === 1 ? samePlace[0] : null;
     }
 
     function residenceLinks(records) {
@@ -1365,20 +1734,28 @@
     function buildHouseholds(data) {
       const records = data.households;
       const actualByName = recordsByPersonName(records);
-      const all = records.map(record => createHouseholdFromRecord(record, 0, 0));
+      const identityLabels = householdIdentityLabels(records);
+      const all = records.map(record => createHouseholdFromRecord(record, 0, 0, identityLabels.get(record.id)));
       const byId = new Map(all.map(household => [household.id, household]));
 
       const ensurePlaceholder = (name, sourceHousehold) => {
-        const actualRecord = bestMatchingRecord(actualByName.get(personKey(name)), records.find(record => record.id === sourceHousehold.id));
+        const candidates = actualByName.get(personKey(name)) || [];
+        const actualRecord = bestMatchingRecord(candidates, records.find(record => record.id === sourceHousehold.id));
         if (actualRecord) return actualRecord.id;
 
-        const id = `adjacent-${slugify(name)}`;
+        const ambiguous = candidates.length > 1;
+        const id = ambiguous ? `adjacent-ambiguous-${slugify(name)}-${slugify(sourceHousehold.id)}` : `adjacent-${slugify(name)}`;
         if (byId.has(id)) return id;
 
         const placeholder = {
           id,
+          householdId: null,
+          identityType: ambiguous ? "ambiguous-household-reference" : "unresolved-household-reference",
+          resolutionStatus: ambiguous ? "ambiguous" : "unresolved",
+          candidateHouseholdIds: candidates.map(record => record.id),
           source: "adjacent-placeholder",
           head: name,
+          displayHead: ambiguous ? `${name} — unresolved identity` : name,
           surname: surnameFromName(name),
           role: "adjacent property owner",
           place: sourceHousehold.place,
@@ -1387,7 +1764,9 @@
           members: [name],
           assets: [{ type: "house" }],
           signal: `Named residence neighbor of ${sourceHousehold.head}`,
-          sourceEntry: `${name} is named as an adjacent residence/property owner in ${sourceHousehold.head}'s extracted tax entry. A full household entry for this person was not extracted in Pages 5-13.`,
+          sourceEntry: ambiguous
+            ? `${name} is named as an adjacent residence/property owner in ${sourceHousehold.head}'s extracted tax entry. Multiple household heads have this name, and the source does not identify which one is intended.`
+            : `${name} is named as an adjacent residence/property owner in ${sourceHousehold.head}'s extracted tax entry. A matching household entry was not found.`,
           neighbors: [sourceHousehold.id],
           sourcePages: sourceHousehold.sourcePages,
           adjacentNames: [],
@@ -1414,58 +1793,127 @@
       return all;
     }
 
-    function createLandownerUnit(record, holdings) {
-      const rawAdjacentNames = holdings.flatMap(holding => holding.adjacent_to);
+    function createLandParcelUnit(record, holding, holdingIndex, holdingCount, displayHead = record.household_head) {
+      const rawAdjacentNames = holding.adjacent_to;
       const adjacentNames = [...new Set(rawAdjacentNames.filter(name => !isPublicAnchor(name)))];
       return {
-        id: `landowner-${record.id}`,
+        id: holding.id,
+        householdId: record.id,
+        identityType: "household-head-landholding",
         source: "extracted",
         head: record.household_head,
+        displayHead,
+        ownerName: record.household_head,
+        ownerKey: record.id,
         surname: surnameFromName(record.household_head),
-        role: "landowner",
-        place: `${holdings.length} landholding${holdings.length === 1 ? "" : "s"}`,
+        role: holding.type,
+        parcelName: holding.name,
+        parcelIndex: holdingIndex,
+        parcelCount: holdingCount,
+        place: holding.place,
+        placeKey: holding.placeKey,
+        capacity: holding.capacity,
+        income: holding.income,
+        boundaryFeatures: holding.boundary_features,
         x: 0,
         y: 0,
-        members: [record.household_head, `${holdings.length} landholding${holdings.length === 1 ? "" : "s"}`],
-        assets: [{ type: "land" }],
+        members: [record.household_head, holding.name, holding.capacity],
+        assets: [{ type: "land" }, ...(holding.type.includes("grove") ? [{ type: "trees" }] : [])],
         signal: adjacentNames.length ? `${adjacentNames.length} land neighbor${adjacentNames.length === 1 ? "" : "s"} from source` : "No land adjacency listed",
-        sourceEntry: holdings.map(holding => holding.source_entry).join("\n\n"),
+        sourceEntry: holding.source_entry,
+        recordIndex: record.projectRecordIndex,
         neighbors: [],
-        sourcePages: [],
+        neighborEvidence: {},
+        sourcePages: record.source_pages || [],
         adjacentNames,
         hasPublicRoad: rawAdjacentNames.some(isPublicRoad)
       };
     }
 
     function buildLandholdings(data) {
+      const identityLabels = householdIdentityLabels(data.households);
       const ownerRecords = data.households
         .map(record => ({ record, holdings: parseLandholdings(record) }))
         .filter(item => item.holdings.length);
-      const actualByName = recordsByPersonName(ownerRecords.map(item => item.record));
-      const all = ownerRecords.map(({ record, holdings }) => createLandownerUnit(record, holdings));
+      const all = ownerRecords.flatMap(({ record, holdings }) =>
+        holdings.map((holding, index) => createLandParcelUnit(record, holding, index, holdings.length, identityLabels.get(record.id)))
+      );
       const byId = new Map(all.map(unit => [unit.id, unit]));
+      const parcelsByOwner = new Map();
+      all.forEach(unit => {
+        if (!parcelsByOwner.has(unit.ownerKey)) parcelsByOwner.set(unit.ownerKey, []);
+        parcelsByOwner.get(unit.ownerKey).push(unit);
+      });
+      const ownersByName = new Map();
+      ownerRecords.forEach(owner => {
+        const key = personKey(owner.record.household_head);
+        if (!ownersByName.has(key)) ownersByName.set(key, []);
+        ownersByName.get(key).push(owner);
+      });
 
       const ensurePlaceholder = (name, sourceUnit) => {
-        const actualRecord = bestMatchingRecord(actualByName.get(personKey(name)), null);
-        if (actualRecord) return `landowner-${actualRecord.id}`;
+        const candidateOwners = ownersByName.get(personKey(name)) || [];
+        const reciprocalOwners = candidateOwners.filter(owner =>
+          (parcelsByOwner.get(owner.record.id) || []).some(parcel =>
+            parcel.placeKey === sourceUnit.placeKey &&
+            parcel.adjacentNames.some(adjacent => personKey(adjacent) === personKey(sourceUnit.head))
+          )
+        );
+        const sameDistrictOwners = candidateOwners.filter(owner =>
+          (parcelsByOwner.get(owner.record.id) || []).some(parcel => parcel.placeKey === sourceUnit.placeKey)
+        );
+        const resolvedOwner = reciprocalOwners.length === 1
+          ? reciprocalOwners[0]
+          : candidateOwners.length === 1
+            ? candidateOwners[0]
+            : sameDistrictOwners.length === 1
+              ? sameDistrictOwners[0]
+              : null;
+        const ownerParcels = resolvedOwner ? parcelsByOwner.get(resolvedOwner.record.id) || [] : [];
+        const sameDistrict = ownerParcels.filter(parcel => parcel.placeKey === sourceUnit.placeKey);
+        const reciprocal = sameDistrict.filter(parcel =>
+          parcel.adjacentNames.some(adjacent => personKey(adjacent) === personKey(sourceUnit.head))
+        );
+        if (reciprocal.length === 1) return reciprocal[0].id;
+        if (!reciprocal.length && sameDistrict.length === 1) return sameDistrict[0].id;
 
-        const id = `land-adjacent-${slugify(name)}`;
+        const ambiguousOwner = candidateOwners.length > 1 && !resolvedOwner;
+        const id = resolvedOwner
+          ? `land-unassigned-${slugify(resolvedOwner.record.id)}-${slugify(sourceUnit.placeKey)}`
+          : `land-adjacent-${ambiguousOwner ? "ambiguous-" : ""}${slugify(name)}-${slugify(sourceUnit.id)}`;
         if (byId.has(id)) return id;
 
         const placeholder = {
           id,
+          householdId: resolvedOwner?.record.id || null,
+          identityType: ambiguousOwner ? "ambiguous-landowner-reference" : "unresolved-landholding-reference",
+          resolutionStatus: ambiguousOwner ? "ambiguous" : "unresolved",
+          candidateHouseholdIds: candidateOwners.map(owner => owner.record.id),
           source: "adjacent-placeholder",
           head: name,
+          displayHead: resolvedOwner ? identityLabels.get(resolvedOwner.record.id) : ambiguousOwner ? `${name} — unresolved identity` : name,
           surname: surnameFromName(name),
           role: "adjacent landowner",
-          place: "Adjacent land",
+          parcelName: "Adjacent property",
+          ownerName: name,
+          ownerKey: resolvedOwner?.record.id || `unresolved:${personKey(name)}:${sourceUnit.id}`,
+          place: sourceUnit.place,
+          placeKey: sourceUnit.placeKey,
+          capacity: "Capacity not listed",
+          income: "Income not listed",
+          boundaryFeatures: [],
           x: 0,
           y: 0,
           members: [name],
           assets: [{ type: "land" }],
           signal: `Named land neighbor of ${sourceUnit.head}`,
-          sourceEntry: `${name} is named as an adjacent landowner in ${sourceUnit.head}'s extracted landholding entry. A full landholding entry for this person is not shown in this layer.`,
+          sourceEntry: ambiguousOwner
+            ? `${name} is named as an adjacent landowner in ${sourceUnit.head}'s extracted landholding entry. Multiple household heads have this name, and the source does not identify which one is intended.`
+            : resolvedOwner
+              ? `${name} is named as an adjacent landowner in ${sourceUnit.head}'s extracted landholding entry, but the reference cannot be assigned to a specific parcel.`
+              : `${name} is named as an adjacent landowner in ${sourceUnit.head}'s extracted landholding entry. A matching household head with landholdings was not found.`,
           neighbors: [sourceUnit.id],
+          neighborEvidence: { [sourceUnit.id]: { inbound: true, outbound: false } },
           sourcePages: [],
           adjacentNames: [],
           hasPublicRoad: false
@@ -1481,9 +1929,20 @@
           if (neighborId !== unit.id && !unit.neighbors.includes(neighborId)) {
             unit.neighbors.push(neighborId);
           }
+          unit.neighborEvidence[neighborId] = {
+            ...(unit.neighborEvidence[neighborId] || {}),
+            outbound: true
+          };
           const neighbor = byId.get(neighborId);
           if (neighbor && !neighbor.neighbors.includes(unit.id)) {
             neighbor.neighbors.push(unit.id);
+          }
+          if (neighbor) {
+            neighbor.neighborEvidence = neighbor.neighborEvidence || {};
+            neighbor.neighborEvidence[unit.id] = {
+              ...(neighbor.neighborEvidence[unit.id] || {}),
+              inbound: true
+            };
           }
         });
       });
@@ -1495,8 +1954,16 @@
       return view.layer === "land" ? buildLandholdings(data) : buildHouseholds(data);
     }
 
-    function matchingUnitIdForPerson(personName) {
-      if (!personName) return null;
+    function matchingUnitIdForPerson(person) {
+      if (!person) return null;
+      const householdId = typeof person === "object" ? person.householdId : null;
+      const personName = typeof person === "object" ? person.name : person;
+      if (householdId) {
+        const identityMatch = households.find(household =>
+          household.source === "extracted" && household.householdId === householdId
+        );
+        if (identityMatch) return identityMatch.id;
+      }
       const match = households.find(household =>
         household.source === "extracted" &&
         household.head.toLowerCase() === personName.toLowerCase()
@@ -1514,40 +1981,198 @@
       return `${surname.toLowerCase()} ${String(household.head || "").toLowerCase()}`;
     }
 
-    function householdSearchText(household) {
-      return [
-        household.head,
-        household.surname,
-        household.role,
-        household.place,
-        ...(household.members || [])
-      ].filter(Boolean).join(" ").toLowerCase();
+    function searchKey(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
+    }
+
+    function sourceMatchContext(sourceEntry, query) {
+      const source = String(sourceEntry || "");
+      const exactIndex = source.toLowerCase().indexOf(String(query || "").toLowerCase());
+      const start = exactIndex >= 0 ? Math.max(0, source.lastIndexOf("\n", exactIndex) + 1) : 0;
+      const endLine = exactIndex >= 0 ? source.indexOf("\n", exactIndex) : -1;
+      const end = endLine >= 0 ? endLine : source.length;
+      return source.slice(start, end).replace(/\s+/g, " ").trim();
+    }
+
+    function sourceMatchDetail(context, query) {
+      const line = String(context || "");
+      if (line.length <= 180) return line;
+      const matchIndex = searchKey(line).indexOf(searchKey(query));
+      const start = matchIndex > 60 ? matchIndex - 60 : 0;
+      const excerpt = line.slice(start, start + 174);
+      return `${start ? "…" : ""}${excerpt}${start + excerpt.length < line.length ? "…" : ""}`;
+    }
+
+    function sourceReferenceType(context) {
+      if (/\b(?:bordering|adjacent|neighbor|property of)\b/i.test(context)) return view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch";
+      if (/\b(?:pays? to|collects? from|receives? from|creditor|debtor|principal|interest|rent)\b/i.test(context)) return "financialReferenceMatch";
+      return "sourceReferenceMatch";
+    }
+
+    function sourceReferenceName(context, query) {
+      const source = String(context || "");
+      const needle = searchKey(query);
+      if (!needle) return String(query || "").trim();
+
+      const knownNames = new Set();
+      households.forEach(record => {
+        if (record.head) knownNames.add(record.head.trim());
+        (record.members || []).forEach(member => {
+          const name = String(member).split(",")[0].trim();
+          if (name) knownNames.add(name);
+        });
+        (record.adjacentNames || []).forEach(name => {
+          if (name) knownNames.add(String(name).trim());
+        });
+      });
+
+      const sourceKey = searchKey(source);
+      const knownMatch = [...knownNames]
+        .filter(name => {
+          const key = searchKey(name);
+          return key.includes(needle) && sourceKey.includes(key) && key.split(" ").length > 1;
+        })
+        .sort((a, b) => b.length - a.length)[0];
+      if (knownMatch) {
+        const pattern = knownMatch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+        return source.match(new RegExp(pattern, "i"))?.[0] || knownMatch;
+      }
+
+      const words = [...source.matchAll(/\p{L}[\p{L}’'’-]*/gu)];
+      let first = -1;
+      let last = -1;
+      const rawQuery = String(query || "").trim();
+      if (rawQuery) {
+        const pattern = rawQuery
+          .split(/\s+/)
+          .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+          .join("\\s+");
+        const directMatch = source.match(new RegExp(pattern, "i"));
+        if (directMatch?.index !== undefined) {
+          const start = directMatch.index;
+          const end = start + directMatch[0].length;
+          first = words.findIndex(word => word.index + word[0].length > start);
+          last = words.findLastIndex(word => word.index < end);
+        }
+      }
+      if (first < 0 || last < first) {
+        outer: for (let start = 0; start < words.length; start++) {
+          for (let end = start; end < Math.min(words.length, start + 6); end++) {
+            const phrase = source.slice(words[start].index, words[end].index + words[end][0].length);
+            if (searchKey(phrase) !== needle) continue;
+            first = start;
+            last = end;
+            break outer;
+          }
+        }
+      }
+      if (first < 0 || last < first) return rawQuery;
+
+      const isNameWord = word => /^[A-ZÀ-ÖØ-Þ]/.test(word) || /^(?:da|de|del|della|di)$/i.test(word);
+      const matchedFirst = first;
+      const matchedLast = last;
+      while (first > 0 && matchedFirst - first < 3) {
+        const previous = words[first - 1];
+        const separator = source.slice(previous.index + previous[0].length, words[first].index);
+        if (!/^\s+$/.test(separator) || !isNameWord(previous[0])) break;
+        first -= 1;
+      }
+      while (last < words.length - 1 && last - matchedLast < 5) {
+        const next = words[last + 1];
+        const separator = source.slice(words[last].index + words[last][0].length, next.index);
+        if (!/^\s+$/.test(separator) || !isNameWord(next[0])) break;
+        last += 1;
+      }
+      return source.slice(words[first].index, words[last].index + words[last][0].length);
+    }
+
+    function householdSearchMatches(household, query) {
+      const needle = searchKey(query);
+      if (!needle) return [];
+      const matches = [];
+      if (searchKey(household.head).includes(needle)) {
+        matches.push({ primary: household.head, detail: household.role || "household", type: "householdHeadMatch", category: "head", highlight: household.head });
+      }
+      (household.members || []).slice(1).forEach((member, index) => {
+        if (!searchKey(member).includes(needle)) return;
+        const [name, ...details] = member.split(",");
+        matches.push({ primary: name.trim(), personId: household.memberIdentities?.[index + 1]?.id || null, detail: `${details.join(",").trim()} · ${household.displayHead || household.head} household`, type: "householdMemberMatch", category: "member", highlight: name.trim().split(/\s+/)[0] });
+      });
+      (household.adjacentNames || []).forEach(name => {
+        if (!searchKey(name).includes(needle)) return;
+        matches.push({ primary: name, detail: `Mentioned in ${household.head}'s entry`, type: view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch", category: "reference", highlight: name });
+      });
+      if (!matches.length && searchKey(household.sourceEntry).includes(needle)) {
+        const context = sourceMatchContext(household.sourceEntry, query);
+        const referenceName = sourceReferenceName(context, query);
+        matches.push({ primary: referenceName, detail: sourceMatchDetail(context, query) || `Mentioned in ${household.head}'s entry`, type: sourceReferenceType(context), category: "reference", highlight: referenceName });
+      }
+      return matches;
     }
 
     function filteredHouseholdList() {
-      const query = view.search.trim().toLowerCase();
-      return households
-        .filter(household => household.source === "extracted")
-        .filter(household => !query || householdSearchText(household).includes(query))
-        .sort((a, b) => surnameSortKey(a).localeCompare(surnameSortKey(b), undefined, { sensitivity: "base" }));
+      const query = view.search.trim();
+      const extracted = households.filter(household => household.source === "extracted");
+      if (view.layer === "land") {
+        const byOwner = new Map();
+        extracted.forEach(parcel => {
+          if (!byOwner.has(parcel.ownerKey)) byOwner.set(parcel.ownerKey, []);
+          byOwner.get(parcel.ownerKey).push(parcel);
+        });
+        const ownerResults = [...byOwner.values()].map(parcels => {
+          const representative = parcels.find(parcel => parcel.id === view.selectedId) || parcels[0];
+          const districts = new Set(parcels.map(parcel => parcel.placeKey));
+          return {
+            household: representative,
+            match: null,
+            summary: `${parcels.length} landholding${parcels.length === 1 ? "" : "s"} · ${districts.size} district${districts.size === 1 ? "" : "s"}`
+          };
+        });
+        if (!query) {
+          return ownerResults.sort((a, b) => surnameSortKey(a.household).localeCompare(surnameSortKey(b.household), undefined, { sensitivity: "base" }));
+        }
+        const needle = searchKey(query);
+        const matchingOwners = ownerResults.filter(result => searchKey(result.household.head).includes(needle));
+        if (matchingOwners.length) {
+          return matchingOwners.sort((a, b) => surnameSortKey(a.household).localeCompare(surnameSortKey(b.household), undefined, { sensitivity: "base" }));
+        }
+        return extracted.flatMap(parcel => householdSearchMatches(parcel, query)
+          .filter(match => searchFilterInputs[match.category]?.checked !== false)
+          .map(match => ({ household: parcel, match, summary: `${parcel.parcelName} · ${parcel.place}` })))
+          .sort((a, b) => a.match.primary.localeCompare(b.match.primary, undefined, { sensitivity: "base" }));
+      }
+      if (!query) {
+        return extracted
+          .sort((a, b) => surnameSortKey(a).localeCompare(surnameSortKey(b), undefined, { sensitivity: "base" }))
+          .map(household => ({ household, match: null }));
+      }
+      return extracted.flatMap(household => householdSearchMatches(household, query)
+        .filter(match => searchFilterInputs[match.category]?.checked !== false)
+        .map(match => ({ household, match })))
+        .sort((a, b) => a.match.primary.localeCompare(b.match.primary, undefined, { sensitivity: "base" }) || surnameSortKey(a.household).localeCompare(surnameSortKey(b.household)));
     }
 
     function renderList() {
-      const extracted = filteredHouseholdList();
-      if (!extracted.length) {
+      const results = filteredHouseholdList();
+      if (!results.length) {
         list.innerHTML = `<p class="list-empty">${view.search ? t("noMatch") : t("noHouseholds")}</p>`;
         return;
       }
 
-      list.innerHTML = extracted.map(household => `
-        <button class="household-button ${household.id === view.selectedId ? "active" : ""}" data-id="${household.id}">
-          <span class="household-name">${escapeHtml(localizedRole(household.head))}</span>
-          <span class="household-meta">${escapeHtml(localizedRole(household.role || "household"))}<br>${escapeHtml(localizedPlace(household.place))}</span>
+      const selectedOwnerKey = view.layer === "land" ? householdById.get(view.selectedId)?.ownerKey : null;
+      list.innerHTML = results.map(({ household, match, summary }, index) => `
+        <button class="household-button ${household.id === view.selectedId || (view.layer === "land" && household.ownerKey === selectedOwnerKey) ? "active" : ""}" data-id="${household.id}" data-result-index="${index}">
+          <span class="household-name">${escapeHtml(localizedRole(match?.primary || household.displayHead || household.head))}</span>
+          <span class="household-meta">${escapeHtml(localizedRole(match?.detail || summary || household.role || "household"))}${match || summary ? "" : `<br>${escapeHtml(localizedPlace(household.place))}`}</span>
+          ${match ? `<span class="search-result-type">${escapeHtml(t(match.type))}</span>` : ""}
         </button>
       `).join("");
 
       list.querySelectorAll("button").forEach(button => {
-        button.addEventListener("click", () => selectHousehold(button.dataset.id));
+        button.addEventListener("click", () => {
+          const result = results[Number(button.dataset.resultIndex)];
+          selectHousehold(button.dataset.id, result?.match?.highlight || "");
+        });
       });
     }
 
@@ -1559,20 +2184,79 @@
       document.querySelector("#sidebarTitle").textContent = view.layer === "land" ? t("landowners") : t("households");
     }
 
-    function selectHousehold(id) {
+    function showSourceEntry(text, highlight = "") {
+      const source = document.querySelector("#sourceEntry");
+      const raw = String(text || "");
+      const requested = String(highlight || "").trim();
+      let index = requested ? raw.toLowerCase().indexOf(requested.toLowerCase()) : -1;
+      let matchedText = requested;
+      if (index < 0 && requested.includes(" ")) {
+        matchedText = requested.split(/\s+/)[0];
+        index = raw.toLowerCase().indexOf(matchedText.toLowerCase());
+      }
+      if (index < 0 || !matchedText) {
+        source.textContent = raw;
+        return;
+      }
+      const mark = document.createElement("mark");
+      mark.className = "source-highlight";
+      mark.textContent = raw.slice(index, index + matchedText.length);
+      source.replaceChildren(document.createTextNode(raw.slice(0, index)), mark, document.createTextNode(raw.slice(index + matchedText.length)));
+      mark.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    function updateSourceEntryLabel(household) {
+      const pages = [...new Set((household?.sourcePages || []).filter(Number.isFinite))].sort((a, b) => a - b);
+      if (!pages.length) {
+        document.querySelector("#sourceEntryLabel").textContent = t("sourceEntry");
+        return;
+      }
+      const sourceTitle = activeData?.source_title || activeProject?.name?.replace(/\s*·\s*/g, " ") || "Catasto";
+      const pageLabel = pages.length === 1 ? `Page ${pages[0]}` : `Pages ${pages.join(", ")}`;
+      document.querySelector("#sourceEntryLabel").textContent = `${t("sourceEntry")}: ${sourceTitle}: ${pageLabel}`;
+    }
+
+    function selectHousehold(id, sourceHighlight = "") {
       const household = householdById.get(id);
       if (!household) return;
       view.selectedId = id;
       document.querySelector("#selectedTitle").textContent = view.layer === "land"
-        ? `${household.head} - ${household.role}`
-        : `${household.head} - ${localizedPlace(household.place)}`;
-      document.querySelector("#sourceEntry").textContent = household.sourceEntry;
+        ? `${household.displayHead || household.head} - ${household.parcelName} · ${localizedPlace(household.place)}`
+        : `${household.displayHead || household.head} - ${localizedPlace(household.place)}`;
+      updateSourceEntryLabel(household);
+      showSourceEntry(household.sourceEntry, sourceHighlight);
+      sourceEditButton.hidden = view.layer !== "household" || household.source !== "extracted" || !Number.isInteger(household.recordIndex);
       renderList();
       announceScene();
     }
 
     function isMemberLine(line) {
-      return /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+(?:\s+(?:di|de|del|della|[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+))*\s*,.*\b(age|aged)\s+\d+/i.test(line.trim());
+      return /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+.*\b(?:age|aged)\s+\d+\b/i.test(line.trim()) &&
+        !/\b(?:annual|income|ounces?|oncie|grana|ducats?|carlini|moggi|capacity)\b/i.test(line);
+    }
+
+    function memberPersonName(line) {
+      const text = String(line || "").trim();
+      if (text.includes(",")) return text.split(",")[0].trim();
+      return text
+        .replace(/\b(?:age|aged)\s+\d+.*$/i, "")
+        .replace(/[—–-]+\s*$/, "")
+        .replace(/\s+\b(?:wife|husband|son|daughter|brother|sister|mother|father|niece|nephew|servant|laborer|day laborer|shepherd|manager|shoemaker|miller|moglie|marito|figlio|figlia|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b.*$/i, "")
+        .trim();
+    }
+
+    function isDependentHouseholdMember(line) {
+      const parts = String(line || "").split(",");
+      const nameField = parts[0] || "";
+      const roleText = parts.slice(1).join(",");
+      const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|marito|figlio(?!\s+di\b)|figlia(?!\s+di\b)|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b/i;
+      const untitledNameField = nameField.replace(/^(?:Sister|Brother|Father)\s+/i, "");
+      return relationship.test(roleText) || (!parts.slice(1).length && relationship.test(untitledNameField)) ||
+        new RegExp(`${relationship.source}\\s*$`, "i").test(nameField);
+    }
+
+    function isHouseholdNarrativeLine(line) {
+      return /\b(?:tax(?:able)?|heads?|industry|assessment|lives?|resides?|dwells?|inhabits?|possesses?|owns?|house|landholding|property|portion|garden|vineyard|chestnut|grove|livestock|sheep|goats?|mules?|mares?|income|total|deductions?|liabilit|pays?|debt|carried forward|brought forward|recorded|oncie|ounces?|grana|carlini|ducats?|moggi|capacity|teste|industria|abita|possiede|confina|rendita|sono in tutto|pesi|riporto)\b/i.test(line);
     }
 
     function normalizeName(name) {
@@ -1612,7 +2296,18 @@
     }
 
     function expandNeighborNames(raw) {
-      const cleaned = raw
+      const name = "[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ'’.-]*";
+      const person = `${name}(?:\\s+(?:(?:di|de|del|della|lo|la)\\s+)?${name}){0,3}`;
+      const kinshipPattern = new RegExp(`(^|\\band\\s+)(${person}),\\s*(son|daughter)\\s+of\\s+(the\\s+late\\s+)?(${person})(?=\\s*(?:,|;|\\band\\b|$))`, "gi");
+      const normalizedKinship = String(raw || "").replace(kinshipPattern, (match, prefix, child, relationship, deceased, parent) => {
+        const childName = normalizeName(child);
+        const inheritedSurname = surnameFromName(parent);
+        const resolvedChild = childName.split(/\s+/).length > 1 || !inheritedSurname
+          ? childName
+          : `${childName} ${inheritedSurname}`;
+        return `${prefix || ""}${resolvedChild}`;
+      });
+      const cleaned = normalizedKinship
         .replace(/\bthe property of\b/gi, "")
         .replace(/\bproperties of\b/gi, "")
         .replace(/\bthe public road\b/gi, "public road")
@@ -1620,7 +2315,9 @@
         .replace(/\b(?:with|for|and pays|paying|who pays)\b[\s\S]*$/i, "")
         .replace(/\s+/g, " ")
         .trim();
-      const parts = cleaned.split(/\s*(?:,|;|\band\b)\s*/i).map(normalizeName).filter(Boolean);
+      const parts = cleaned.split(/\s*(?:,|;|\band\b)\s*/i).map(normalizeName).filter(name =>
+        name && !/\b(?:annual|income|estimated|equals?|oncie|ounces?|grana|carlini|ducats?|capacity|moggi)\b/i.test(name)
+      );
       const expanded = [];
       parts.forEach((part, index) => {
         if (part.toLowerCase() === "public road") {
@@ -1640,12 +2337,12 @@
     }
 
     function parseResidence(entry) {
-      const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[^\n]*(?:\.|$)/i)?.[0] ||
+      const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[^\n]*?(?:\.|$)/i)?.[0] ||
         entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n\n|$)/i)?.[0] ||
         entry.match(/\b(?:He|She|They)\s+(?:possesses|owns)\s+(?:the|a)\s+house[\s\S]*?(?:\.|\n\n|$)/i)?.[0] ||
         entry.match(/\b(?:The|His|Her|Their)\s+(?:house|residence|home|dwelling)[^\n]*(?:\.|$)/i)?.[0] ||
         "";
-      const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:\.|\n|$)/i);
+      const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|\n|$)/i);
       const adjacentTo = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
       const placeMatch =
         sentence.match(/\bin (?:a |his |her |their |own )?(?:group of houses|cluster of houses|casaggio|house|houses)(?:\s+\[[^\]]+\])?\s+in\s+(?:the )?(?:neighborhood|district|place)\s+of\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
@@ -1679,17 +2376,24 @@
       const englishLines = [];
       let mode = "unknown";
       let foundEnglishHeading = false;
+      let currentPage = null;
+      let sourceTitle = "";
 
       lines.forEach(line => {
         const trimmed = line.trim();
         const heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/__/g, "").trim();
         const englishMatch = heading.match(/^English\s+Translation\s*:?\s*(.*)$/i);
         const italianMatch = heading.match(/^(Italian\s+Transcription|Italian)\s*:?\s*(.*)$/i);
-        const pageMatch = /^Marano\s+Marchesato\s+1754:\s*Page\s+\d+/i.test(heading);
+        const pageMatch = heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
+        if (pageMatch) {
+          sourceTitle = pageMatch[1].trim();
+          currentPage = Number(pageMatch[2]);
+        }
 
         if (englishMatch) {
           foundEnglishHeading = true;
           mode = "english";
+          if (currentPage) englishLines.push(`[[SOURCE_PAGE:${currentPage}]]`);
           if (englishMatch[1]) englishLines.push(englishMatch[1]);
           return;
         }
@@ -1706,7 +2410,8 @@
 
       return {
         text: foundEnglishHeading ? englishLines.join("\n").trim() : text,
-        usedEnglishSectionsOnly: foundEnglishHeading
+        usedEnglishSectionsOnly: foundEnglishHeading,
+        sourceTitle
       };
     }
 
@@ -1714,17 +2419,31 @@
       const lines = text.replace(/\r/g, "").split("\n");
       const entries = [];
       let current = [];
-      let sawResidence = false;
+      let sawMember = false;
+      let narrativeStarted = false;
+      let pendingPageMarker = "";
       lines.forEach(line => {
         const trimmed = line.trim();
-        const startsNext = isMemberLine(trimmed) && current.length && sawResidence;
+        if (/^\[\[SOURCE_PAGE:\d+\]\]$/.test(trimmed)) {
+          pendingPageMarker = trimmed;
+          return;
+        }
+        if (pendingPageMarker && !trimmed) return;
+        const memberLine = isMemberLine(trimmed);
+        const startsNext = memberLine && current.length && sawMember && narrativeStarted && !isDependentHouseholdMember(trimmed);
         if (startsNext) {
           entries.push(current.join("\n").trim());
           current = [];
-          sawResidence = false;
+          sawMember = false;
+          narrativeStarted = false;
+        }
+        if (pendingPageMarker) {
+          current.push(pendingPageMarker);
+          pendingPageMarker = "";
         }
         current.push(line);
-        if (/\b(lives|resides)\b/i.test(trimmed)) sawResidence = true;
+        if (memberLine) sawMember = true;
+        else if (sawMember && isHouseholdNarrativeLine(trimmed)) narrativeStarted = true;
       });
       if (current.join("").trim()) entries.push(current.join("\n").trim());
       return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line)));
@@ -1732,16 +2451,19 @@
 
     function segmentHouseholds(text) {
       return splitEntries(text).map((entry, index) => {
-        const memberBlock = entry.split("\n").map(line => line.trim()).filter(Boolean);
+        const sourcePages = [...entry.matchAll(/\[\[SOURCE_PAGE:(\d+)\]\]/g)].map(match => Number(match[1]));
+        const cleanEntry = entry.replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim();
+        const memberBlock = cleanEntry.split("\n").map(line => line.trim()).filter(Boolean);
         const members = memberBlock.filter(isMemberLine);
         const headLine = members[0] || memberBlock[0] || `Household ${index + 1}, age ?`;
-        const rawHead = headLine.split(",")[0].trim();
+        const rawHead = memberPersonName(headLine) || headLine.split(",")[0].trim();
         const landResidence = rawHead.match(/\s+of\s+(?:the\s+)?land\s+of\s+(.+)$/i);
         const head = landResidence ? rawHead.slice(0, landResidence.index).trim() : rawHead;
         const cleanedMembers = members.map(line => line.replace(/\s+of\s+(?:the\s+)?land\s+of\s+[^,]+/i, ""));
         return {
           index,
-          entry,
+          entry: cleanEntry,
+          sourcePages: [...new Set(sourcePages)],
           memberBlock,
           members: cleanedMembers,
           headLine,
@@ -1776,23 +2498,111 @@
     }
 
     function resolveHouseholdIdentities(records) {
-      return records.map(record => ({
-        ...record,
-        id: slugify(record.head || `household-${record.index + 1}`)
-      }));
+      const seen = new Map();
+      return records.map(record => {
+        const baseId = slugify(record.head || `household-${record.index + 1}`) || `household-${record.index + 1}`;
+        const count = seen.get(baseId) || 0;
+        seen.set(baseId, count + 1);
+        return { ...record, id: count ? `${baseId}-${count + 1}` : baseId };
+      });
     }
 
     function linkResidenceAdjacency(records) {
-      const knownHeads = new Map(records.map(record => [personKey(record.head), record.id]));
+      const knownHeads = new Map();
+      records.forEach(record => {
+        const key = personKey(record.head);
+        if (!knownHeads.has(key)) knownHeads.set(key, []);
+        knownHeads.get(key).push(record);
+      });
       return records.map(record => ({
         ...record,
         residence_links: (record.residence?.adjacent_to || [])
-          .map(name => ({
-            name,
-            kind: isPublicAnchor(name) ? "public-anchor" : "person",
-            household_id: knownHeads.get(personKey(name)) || null
-          }))
+          .map(name => {
+            if (isPublicAnchor(name)) return { name, kind: "public-anchor", household_id: null, candidate_household_ids: [] };
+            const candidates = knownHeads.get(personKey(name)) || [];
+            const reciprocal = candidates.filter(candidate =>
+              (candidate.residence?.adjacent_to || []).some(adjacent => personKey(adjacent) === personKey(record.head))
+            );
+            const sourcePlace = canonicalPlace(record.residence?.place || "No residence listed").key;
+            const samePlace = candidates.filter(candidate => canonicalPlace(candidate.residence?.place || "No residence listed").key === sourcePlace);
+            const resolved = candidates.length === 1 ? candidates[0] : reciprocal.length === 1 ? reciprocal[0] : samePlace.length === 1 ? samePlace[0] : null;
+            return {
+              name,
+              kind: "person",
+              household_id: resolved?.id || null,
+              candidate_household_ids: candidates.map(candidate => candidate.id),
+              resolution_status: resolved ? "resolved" : candidates.length > 1 ? "ambiguous" : "unresolved"
+            };
+          })
       }));
+    }
+
+    function triangulateResidenceAdjacency(records) {
+      const byId = new Map(records.map(record => [record.id, record]));
+      let changed = true;
+      let pass = 0;
+
+      while (changed && pass < records.length) {
+        changed = false;
+        pass += 1;
+        const inboundNeighbors = new Map(records.map(record => [record.id, new Set()]));
+        records.forEach(source => {
+          (source.residence_links || []).forEach(link => {
+            if (link.household_id && inboundNeighbors.has(link.household_id)) {
+              inboundNeighbors.get(link.household_id).add(personKey(source.head || source.household_head));
+            }
+          });
+        });
+
+        records.forEach(source => {
+          const links = source.residence_links || [];
+          links.forEach(link => {
+            if (link.resolution_status !== "ambiguous" || link.household_id) return;
+            const contextKeys = [...new Set(links
+              .filter(other => other !== link && other.kind === "person")
+              .map(other => personKey(other.name))
+              .filter(Boolean))];
+            if (!contextKeys.length) return;
+
+            const scored = (link.candidate_household_ids || []).map(id => {
+              const candidate = byId.get(id);
+              if (!candidate) return null;
+              const candidateNeighborKeys = new Set((candidate.residence?.adjacent_to || [])
+                .filter(name => !isPublicAnchor(name))
+                .map(personKey));
+              (inboundNeighbors.get(id) || []).forEach(key => candidateNeighborKeys.add(key));
+              const sharedNeighbors = contextKeys.filter(key => candidateNeighborKeys.has(key));
+              const sourceHead = source.head || source.household_head;
+              const reciprocal = candidateNeighborKeys.has(personKey(sourceHead));
+              const samePlace = canonicalPlace(candidate.residence?.place || "No residence listed").key ===
+                canonicalPlace(source.residence?.place || "No residence listed").key;
+              return {
+                candidate,
+                sharedNeighbors,
+                reciprocal,
+                samePlace,
+                score: sharedNeighbors.length * 6 + (reciprocal ? 5 : 0) + (samePlace ? 2 : 0)
+              };
+            }).filter(Boolean).sort((a, b) => b.score - a.score);
+
+            const best = scored[0];
+            const runnerUp = scored[1];
+            if (!best?.sharedNeighbors.length || best.score < 6 || best.score - (runnerUp?.score || 0) < 4) return;
+            link.household_id = best.candidate.id;
+            link.resolution_status = "inferred";
+            link.resolution_method = "shared-neighbor-triangulation";
+            link.resolution_score = best.score;
+            link.confidence = best.score >= 8 ? "high" : "medium";
+            link.resolution_evidence = [
+              ...best.sharedNeighbors.map(key => `Shared residence neighbor: ${links.find(other => personKey(other.name) === key)?.name || key}`),
+              ...(best.samePlace ? [`Same residence district: ${source.residence?.place}`] : []),
+              ...(best.reciprocal ? [`Reciprocal residence reference: ${source.head || source.household_head}`] : [])
+            ];
+            changed = true;
+          });
+        });
+      }
+      return records;
     }
 
     function cleanedGraphRecordsFromText(text) {
@@ -1800,15 +2610,28 @@
       const withResidence = extractResidenceFacts(segments);
       const normalized = normalizeNeighborhoodFacts(withResidence);
       const withIdentities = resolveHouseholdIdentities(normalized);
-      return linkResidenceAdjacency(withIdentities).map(record => ({
-        id: record.id,
-        household_head: record.head,
-        source_pages: [],
-        members_text: record.members.join("\n") || record.headLine,
-        residence: record.residence,
-        residence_links: record.residence_links,
-        source_entry: record.entry
-      }));
+      return triangulateResidenceAdjacency(linkResidenceAdjacency(withIdentities)).map(record => {
+        const family = window.CatastoParser.inferFamilyRelationships(record.members);
+        const memberIdentities = family.members.map((line, index) => ({
+          id: index === 0 ? record.id : `${record.id}-member-${String(index).padStart(2, "0")}`,
+          household_id: record.id,
+          identity_type: index === 0 ? "household-head" : "household-member",
+          position: index,
+          source_line: line
+        }));
+        return {
+          id: record.id,
+          household_id: record.id,
+          household_head: record.head,
+          source_pages: record.sourcePages,
+          members_text: family.members.join("\n") || record.headLine,
+          family_relationships: family.relationships,
+          member_identities: memberIdentities,
+          residence: record.residence,
+          residence_links: record.residence_links,
+          source_entry: record.entry
+        };
+      });
     }
 
     function parsePlainText(text) {
@@ -1816,13 +2639,16 @@
       const prepared = extractEnglishTranslationText(unescapedText);
       const records = cleanedGraphRecordsFromText(prepared.text);
       return {
-        pipeline_version: "semantic-cleaning-v0",
+        pipeline_version: "semantic-cleaning-v2-identity-triangulation",
+        entry_boundary_version: 5,
+        source_title: prepared.sourceTitle,
         cleaning_pipeline: [
           "segment_households",
           "extract_residence_facts",
           "normalize_neighborhoods",
           "resolve_household_identities",
-          "link_residence_adjacency"
+          "link_residence_adjacency",
+          "triangulate_ambiguous_identities"
         ],
         source_document: "Uploaded plain text",
         source_range: "Uploaded text",
@@ -2001,7 +2827,7 @@
       }, null, 2);
     }
 
-    function useData(data, preferredPersonName = null) {
+    function useData(data, preferredPerson = null) {
       const preparedData = withUniqueRecordIds(data);
       activeData = preparedData;
       stage.classList.remove("reviewing");
@@ -2009,7 +2835,7 @@
       renderLayerToggle();
       households = buildUnits(preparedData);
       householdById = new Map(households.map(household => [household.id, household]));
-      view.selectedId = matchingUnitIdForPerson(preferredPersonName) || households[0]?.id || null;
+      view.selectedId = matchingUnitIdForPerson(preferredPerson) || households[0]?.id || null;
       if (view.selectedId) {
         selectHousehold(view.selectedId);
       } else {
@@ -2027,6 +2853,210 @@
       filenameLine.textContent = `${t("currentFile")}: ${name}`;
     }
 
+    function renderProjectOptions(projects, selectedId) {
+      projectSelect.innerHTML = "";
+      if (!projects.length) {
+        projectSelect.add(new Option("No projects saved", ""));
+        projectSelect.disabled = true;
+        return;
+      }
+      projectSelect.disabled = false;
+      projects.forEach(project => projectSelect.add(new Option(project.name, project.id)));
+      projectSelect.value = selectedId;
+    }
+
+    function projectScopedData(project) {
+      const data = JSON.parse(JSON.stringify(project.data));
+      data.households = data.households.map((record, index) => ({
+        ...record,
+        projectRecordIndex: index,
+        id: `${project.id}-${record.id || record.household_head || index + 1}`,
+        household_id: `${project.id}-${record.household_id || record.id || record.household_head || index + 1}`,
+        residence_links: (record.residence_links || []).map(link => ({
+          ...link,
+          household_id: link.household_id ? `${project.id}-${link.household_id}` : null,
+          candidate_household_ids: (link.candidate_household_ids || []).map(id => `${project.id}-${id}`)
+        }))
+      }));
+      return data;
+    }
+
+    function recalculateStoredIdentityGraph(data) {
+      if (!Array.isArray(data?.households)) return false;
+      data.households.forEach(record => {
+        const reparsed = parseResidence(record.source_entry || "");
+        if (!reparsed.description) return;
+        record.residence = {
+          ...record.residence,
+          description: reparsed.description,
+          adjacent_to: reparsed.adjacent_to,
+          place: record.residence?.place || reparsed.place || null
+        };
+      });
+      const seen = new Map();
+      const records = data.households.map((record, index) => {
+        const baseId = slugify(record.household_head || `household-${index + 1}`) || `household-${index + 1}`;
+        const count = seen.get(baseId) || 0;
+        seen.set(baseId, count + 1);
+        const id = count ? `${baseId}-${count + 1}` : baseId;
+        return { ...record, id, household_id: id, head: record.household_head };
+      });
+      const resolved = triangulateResidenceAdjacency(linkResidenceAdjacency(records));
+      resolved.forEach((record, index) => {
+        data.households[index].id = record.id;
+        data.households[index].household_id = record.id;
+        data.households[index].residence_links = record.residence_links;
+        data.households[index].member_identities = householdMemberIdentities(data.households[index], surnameFromName(record.household_head)).map(member => ({
+          id: member.id,
+          household_id: record.id,
+          identity_type: member.identityType,
+          position: member.position,
+          source_line: member.sourceLine
+        }));
+      });
+      data.identity_resolution_version = 4;
+      data.pipeline_version = "semantic-cleaning-v2-identity-triangulation";
+      return true;
+    }
+
+    async function loadMaranoResidenceCorrections() {
+      const response = await fetch("./marano-residence-corrections.json");
+      if (!response.ok) throw new Error(`Residence corrections could not be loaded (${response.status}).`);
+      return response.json();
+    }
+
+    function applyMaranoResidenceCorrections(data, correctionSet) {
+      if (!data?.households || data.residence_corrections_version === correctionSet.version) return false;
+      correctionSet.corrections.forEach(correction => {
+        const record = data.households.find(candidate =>
+          candidate.household_head === correction.household_head &&
+          (!correction.source_contains || candidate.source_entry?.includes(correction.source_contains))
+        );
+        if (!record) return;
+        record.residence = record.residence || {};
+        record.residence.place = correction.residence_place;
+        if (correction.set_household_head) {
+          record.household_head = correction.set_household_head;
+          record.id = slugify(correction.set_household_head);
+        }
+      });
+      data.residence_corrections_version = correctionSet.version;
+      return true;
+    }
+
+    function backfillSourcePages(project) {
+      if (!project.sourceText || !project.data?.households?.length) return false;
+      const pageMappingVersion = 2;
+      if (project.data.source_pages_version === pageMappingVersion) return false;
+      const parsed = parsePlainText(project.sourceText);
+      project.data.source_title = parsed.source_title || project.data.source_title;
+      const candidatesByName = new Map();
+      parsed.households.forEach((record, index) => {
+        const key = personKey(record.household_head);
+        if (!candidatesByName.has(key)) candidatesByName.set(key, []);
+        candidatesByName.get(key).push({ record, index });
+      });
+      const usedCandidates = new Set();
+      project.data.households.forEach((record, index) => {
+        const names = [record.household_head, ...(record.aliases || [])];
+        const matching = names.flatMap(name => candidatesByName.get(personKey(name)) || [])
+          .find(candidate => !usedCandidates.has(candidate.index));
+        const candidate = matching || (!usedCandidates.has(index) ? { record: parsed.households[index], index } : null);
+        if (!candidate?.record) return;
+        usedCandidates.add(candidate.index);
+        record.source_pages = candidate.record.source_pages || [];
+      });
+      project.data.source_pages_version = pageMappingVersion;
+      return true;
+    }
+
+    function isMaranoDefaultProject(project) {
+      return project.sourceFile === "MM 1754 Catasto Onciario Transcription 300.md";
+    }
+
+    function rebuildStoredProjectBoundaries(project) {
+      if (!project.sourceText || project.data?.entry_boundary_version === 5) return false;
+      const parsed = parsePlainText(project.sourceText);
+      if (!parsed.households.length) return false;
+      if (!project.entryBoundaryMigrationBackup) {
+        project.entryBoundaryMigrationBackup = {
+          createdAt: new Date().toISOString(),
+          reason: "Before state-machine household boundary migration",
+          data: project.data
+        };
+      }
+      const previousData = project.data || {};
+      parsed.source_document = previousData.source_document || project.sourceFile;
+      parsed.source_range = previousData.source_range || "Complete bilingual transcription supplied in Markdown";
+      parsed.note = `Parsed ${parsed.households.length} household records with state-machine entry boundaries; the pre-migration data is retained on the project.`;
+      parsed.requested_household_count = parsed.households.length;
+      parsed.extracted_household_count = parsed.households.length;
+      parsed.entry_boundary_version = 5;
+      if (previousData.merge_history) parsed.merge_history = previousData.merge_history;
+      if (previousData.duplicate_decisions) parsed.duplicate_decisions = previousData.duplicate_decisions;
+      project.data = parsed;
+      return true;
+    }
+
+    async function activateProject(id) {
+      const project = id ? await CatastoStorage.getProject(id) : null;
+      if (!project) return;
+      activeProject = project;
+      view.layer = "household";
+      view.search = "";
+      personSearch.value = "";
+      useData(projectScopedData(project));
+      const projectParts = project.name.split(/\s*·\s*/);
+      document.querySelector("#catastoTitle").textContent = `${projectParts[0] || project.name} Catasto Onciario${projectParts[1] ? ` ${projectParts.slice(1).join(" ")}` : ""}`;
+      setFilenameLabel(`${project.name} · ${project.data.households.length} households`);
+      localStorage.setItem("catasto-active-project", project.id);
+    }
+
+    async function createDefaultProject(correctionSet) {
+      const response = await fetch("./MM%201754%20Catasto%20Onciario%20Transcription%20300.md");
+      if (!response.ok) throw new Error(`Source Markdown could not be loaded (${response.status}).`);
+      const sourceText = await response.text();
+      const data = parsePlainText(sourceText);
+      if (!data.households.length) throw new Error("No household records were found in the English Translation sections.");
+      data.source_document = "MM 1754 Catasto Onciario Transcription 300.md";
+      data.source_range = "Complete bilingual transcription supplied in Markdown";
+      data.note = `Parsed ${data.households.length} household records from the English Translation sections; the Italian transcription remains in the paired source file.`;
+      data.requested_household_count = data.households.length;
+      data.extracted_household_count = data.households.length;
+      applyMaranoResidenceCorrections(data, correctionSet);
+      const project = CatastoStorage.createProject({
+        name: "Marano Marchesato · 1754",
+        sourceFile: "MM 1754 Catasto Onciario Transcription 300.md",
+        sourceText,
+        data
+      });
+      await CatastoStorage.saveProject(project);
+      return project;
+    }
+
+    async function refreshProjects(preferredId = null) {
+      const correctionSet = await loadMaranoResidenceCorrections();
+      let projects = await CatastoStorage.listProjects();
+      if (!projects.length) {
+        projects = [await createDefaultProject(correctionSet)];
+      } else {
+        for (const project of projects.filter(isMaranoDefaultProject)) {
+          const boundariesRebuilt = rebuildStoredProjectBoundaries(project);
+          const corrected = applyMaranoResidenceCorrections(project.data, correctionSet);
+          const pagesAdded = backfillSourcePages(project);
+          const identitiesRecalculated = project.data.identity_resolution_version !== 4 && recalculateStoredIdentityGraph(project.data);
+          if (boundariesRebuilt || corrected || pagesAdded || identitiesRecalculated) {
+            await CatastoStorage.saveProject(project);
+          }
+        }
+      }
+      const rememberedId = localStorage.getItem("catasto-active-project");
+      const selectedId = [preferredId, rememberedId, projects[0].id]
+        .find(id => id && projects.some(project => project.id === id));
+      renderProjectOptions(projects, selectedId);
+      await activateProject(selectedId);
+    }
+
     function openUploadModal() {
       uploadModal.classList.add("open");
       uploadModal.setAttribute("aria-hidden", "false");
@@ -2038,7 +3068,283 @@
       uploadModal.setAttribute("aria-hidden", "true");
     }
 
-    document.querySelector("#uploadOpen").addEventListener("click", openUploadModal);
+    function selectedProjectRecord() {
+      const selected = householdById.get(view.selectedId);
+      if (!activeProject || view.layer !== "household" || !Number.isInteger(selected?.recordIndex)) return null;
+      return activeProject.data.households[selected.recordIndex] || null;
+    }
+
+    function openSourceEditor() {
+      const record = selectedProjectRecord();
+      if (!record) return;
+      sourceEditText.value = record.source_entry || "";
+      sourceEditPlace.value = record.residence?.place || "";
+      sourceEditStatus.textContent = t("editStoredLocally");
+      sourceEditModal.classList.add("open");
+      sourceEditModal.setAttribute("aria-hidden", "false");
+      sourceEditPlace.focus();
+    }
+
+    function closeSourceEditor() {
+      sourceEditModal.classList.remove("open");
+      sourceEditModal.setAttribute("aria-hidden", "true");
+      sourceEditButton.focus();
+    }
+
+    function duplicateDecisionKey(first, second) {
+      return [first.id, second.id].sort().join("|");
+    }
+
+    function findStrongDuplicate(record) {
+      const key = personKey(record.household_head);
+      if (!key) return null;
+      return activeProject.data.households.find(candidate => {
+        if (candidate === record || personKey(candidate.household_head) !== key) return false;
+        const decisionKey = duplicateDecisionKey(record, candidate);
+        return !(activeProject.data.duplicate_decisions || []).some(decision => decision.key === decisionKey && decision.status === "separate");
+      }) || null;
+    }
+
+    function recordPageSummary(record) {
+      const pages = [...new Set(record.source_pages || [])].sort((a, b) => a - b);
+      return pages.length ? `${pages.length === 1 ? "Page" : "Pages"} ${pages.join(", ")}` : "Page not recorded";
+    }
+
+    function duplicateRecordCard(record, label) {
+      const members = memberLines(record).slice(1).join("; ") || "No additional household members listed";
+      const references = (record.residence?.adjacent_to || []).join(", ") || "No residence references listed";
+      return `<section class="duplicate-record" aria-label="${escapeHtml(label)}">
+        <h3>${escapeHtml(record.household_head)}</h3>
+        <p><strong>${escapeHtml(label)}</strong> · ${escapeHtml(recordPageSummary(record))}</p>
+        <p><strong>Residence:</strong> ${escapeHtml(record.residence?.place || "Not listed")}</p>
+        <p><strong>Household:</strong> ${escapeHtml(members)}</p>
+        <p><strong>References:</strong> ${escapeHtml(references)}</p>
+        <p class="duplicate-source">${escapeHtml(record.source_entry || "")}</p>
+      </section>`;
+    }
+
+    function focusableElements(modal) {
+      return [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')]
+        .filter(element => !element.closest("[hidden]"));
+    }
+
+    function trapModalFocus(event, modal) {
+      if (event.key !== "Tab") return;
+      const focusable = focusableElements(modal);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    function openDuplicateReview(editedRecord, candidateRecord) {
+      duplicateReview = { editedId: editedRecord.id, candidateId: candidateRecord.id, mergeId: null };
+      duplicateComparison.innerHTML = duplicateRecordCard(editedRecord, "Corrected record") + duplicateRecordCard(candidateRecord, "Existing record");
+      duplicateStatus.textContent = `Both records normalize to “${candidateRecord.household_head}”. No merge will occur without your confirmation.`;
+      duplicateDecisionActions.hidden = false;
+      duplicateUndoActions.hidden = true;
+      duplicateModal.classList.add("open");
+      duplicateModal.setAttribute("aria-hidden", "false");
+      document.querySelector("#duplicateLater").focus();
+    }
+
+    function closeDuplicateReview() {
+      duplicateModal.classList.remove("open");
+      duplicateModal.setAttribute("aria-hidden", "true");
+      duplicateReview = null;
+      sourceEditButton.focus();
+    }
+
+    function uniqueLines(...values) {
+      const seen = new Set();
+      return values.flatMap(value => String(value || "").split("\n"))
+        .map(line => line.trim()).filter(line => {
+          const key = line.toLowerCase();
+          if (!line || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
+
+    function sourceEvidence(record) {
+      return record.source_entries?.length ? record.source_entries : [{
+        text: record.source_entry || "",
+        pages: record.source_pages || []
+      }];
+    }
+
+    async function mergeDuplicateRecords() {
+      if (!duplicateReview) return;
+      const records = activeProject.data.households;
+      const editedIndex = records.findIndex(record => record.id === duplicateReview.editedId);
+      const candidateIndex = records.findIndex(record => record.id === duplicateReview.candidateId);
+      if (editedIndex < 0 || candidateIndex < 0 || editedIndex === candidateIndex) return;
+      const edited = records[editedIndex];
+      const canonical = records[candidateIndex];
+      const mergeId = `merge-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const history = {
+        id: mergeId,
+        mergedAt: new Date().toISOString(),
+        canonicalIndex: candidateIndex,
+        duplicateIndex: editedIndex,
+        canonicalBefore: JSON.parse(JSON.stringify(canonical)),
+        duplicateBefore: JSON.parse(JSON.stringify(edited))
+      };
+      const evidence = [...sourceEvidence(canonical), ...sourceEvidence(edited)];
+      canonical.source_entries = evidence;
+      canonical.source_pages = [...new Set(evidence.flatMap(item => item.pages || []))].sort((a, b) => a - b);
+      canonical.source_entry = evidence.map(item => {
+        const pages = item.pages?.length ? `${item.pages.length === 1 ? "Page" : "Pages"} ${item.pages.join(", ")}` : "Additional source entry";
+        return `${pages}\n${item.text}`;
+      }).join("\n\n");
+      canonical.members_text = uniqueLines(canonical.members_text, edited.members_text).join("\n");
+      canonical.aliases = [...new Set([...(canonical.aliases || []), ...(edited.aliases || []), edited.household_head])]
+        .filter(name => personKey(name) !== personKey(canonical.household_head));
+      canonical.residence = canonical.residence || {};
+      canonical.residence.adjacent_to = [...new Set([...(canonical.residence.adjacent_to || []), ...(edited.residence?.adjacent_to || [])])];
+      if (!canonical.residence.place && edited.residence?.place) canonical.residence.place = edited.residence.place;
+      canonical.family_relationships = [...(canonical.family_relationships || []), ...(edited.family_relationships || [])];
+      activeProject.data.merge_history = [...(activeProject.data.merge_history || []), history];
+      records.splice(editedIndex, 1);
+      activeProject.data.requested_household_count = records.length;
+      activeProject.data.extracted_household_count = records.length;
+      await CatastoStorage.saveProject(activeProject);
+      duplicateReview.mergeId = mergeId;
+      useData(projectScopedData(activeProject), canonical.household_head);
+      setFilenameLabel(`${activeProject.name} · ${records.length} households`);
+      duplicateStatus.textContent = `Merged into “${canonical.household_head}”. Both source entries, page citations, and former names were preserved.`;
+      duplicateDecisionActions.hidden = true;
+      duplicateUndoActions.hidden = false;
+      document.querySelector("#duplicateUndo").focus();
+    }
+
+    async function undoDuplicateMerge() {
+      const mergeId = duplicateReview?.mergeId;
+      const historyIndex = (activeProject.data.merge_history || []).findIndex(item => item.id === mergeId);
+      if (historyIndex < 0) return;
+      const history = activeProject.data.merge_history[historyIndex];
+      const records = activeProject.data.households;
+      const canonicalIndex = records.findIndex(record => record.id === history.canonicalBefore.id);
+      if (canonicalIndex >= 0) records.splice(canonicalIndex, 1);
+      const restored = [
+        { index: history.canonicalIndex, record: history.canonicalBefore },
+        { index: history.duplicateIndex, record: history.duplicateBefore }
+      ].sort((a, b) => a.index - b.index);
+      restored.forEach(item => records.splice(Math.min(item.index, records.length), 0, item.record));
+      activeProject.data.merge_history.splice(historyIndex, 1);
+      activeProject.data.requested_household_count = records.length;
+      activeProject.data.extracted_household_count = records.length;
+      await CatastoStorage.saveProject(activeProject);
+      const selectedName = history.duplicateBefore.household_head;
+      closeDuplicateReview();
+      useData(projectScopedData(activeProject), selectedName);
+      setFilenameLabel(`${activeProject.name} · ${records.length} households`);
+    }
+
+    async function keepDuplicateSeparate() {
+      if (!duplicateReview) return;
+      const first = activeProject.data.households.find(record => record.id === duplicateReview.editedId);
+      const second = activeProject.data.households.find(record => record.id === duplicateReview.candidateId);
+      if (first && second) {
+        activeProject.data.duplicate_decisions = [...(activeProject.data.duplicate_decisions || []), {
+          key: duplicateDecisionKey(first, second), status: "separate", decidedAt: new Date().toISOString()
+        }];
+        await CatastoStorage.saveProject(activeProject);
+      }
+      closeDuplicateReview();
+    }
+
+    async function saveSourceEntry() {
+      const record = selectedProjectRecord();
+      if (!record) return;
+      const sourceEntry = sourceEditText.value.trim();
+      if (!sourceEntry) {
+        sourceEditStatus.textContent = language === "it" ? "La voce catastale non può essere vuota." : "The source tax entry cannot be empty.";
+        sourceEditText.focus();
+        return;
+      }
+
+      const previousHead = record.household_head;
+      const parsedResidence = parseResidence(sourceEntry);
+      const residencePlace = sourceEditPlace.value.trim();
+      const parsedMembers = sourceEntry.split("\n").map(line => line.trim()).filter(isMemberLine);
+      record.source_entry = sourceEntry;
+      record.source_edited_at = new Date().toISOString();
+      record.residence = {
+        ...record.residence,
+        ...parsedResidence,
+        place: residencePlace || parsedResidence.place || null
+      };
+      if (parsedMembers.length) {
+        const family = window.CatastoParser.inferFamilyRelationships(parsedMembers);
+        record.members_text = family.members.join("\n");
+        record.family_relationships = family.relationships;
+        const correctedHead = parsedMembers[0].split(",")[0].trim();
+        if (correctedHead && correctedHead !== previousHead) {
+          record.household_head = correctedHead;
+          record.aliases = [...new Set([...(record.aliases || []), previousHead])];
+        }
+      }
+
+      sourceEditStatus.textContent = language === "it" ? "Salvataggio…" : "Saving…";
+      document.querySelector("#sourceEditSave").disabled = true;
+      try {
+        recalculateStoredIdentityGraph(activeProject.data);
+        await CatastoStorage.saveProject(activeProject);
+        const selectedName = record.household_head;
+        const duplicate = findStrongDuplicate(record);
+        closeSourceEditor();
+        useData(projectScopedData(activeProject), selectedName);
+        setFilenameLabel(`${activeProject.name} · ${activeProject.data.households.length} households`);
+        if (duplicate) openDuplicateReview(record, duplicate);
+      } catch (error) {
+        sourceEditStatus.textContent = error.message;
+      } finally {
+        document.querySelector("#sourceEditSave").disabled = false;
+      }
+    }
+
+    sourceEditButton.addEventListener("click", openSourceEditor);
+    document.querySelector("#sourceEditCancel").addEventListener("click", closeSourceEditor);
+    document.querySelector("#sourceEditSave").addEventListener("click", () => {
+      saveSourceEntry();
+    });
+    document.querySelector("#duplicateLater").addEventListener("click", closeDuplicateReview);
+    document.querySelector("#duplicateDone").addEventListener("click", closeDuplicateReview);
+    document.querySelector("#duplicateSeparate").addEventListener("click", () => {
+      keepDuplicateSeparate().catch(error => { duplicateStatus.textContent = error.message; });
+    });
+    document.querySelector("#duplicateMerge").addEventListener("click", () => {
+      mergeDuplicateRecords().catch(error => { duplicateStatus.textContent = error.message; });
+    });
+    document.querySelector("#duplicateUndo").addEventListener("click", () => {
+      undoDuplicateMerge().catch(error => { duplicateStatus.textContent = error.message; });
+    });
+    sourceEditModal.addEventListener("click", event => {
+      if (event.target === sourceEditModal) closeSourceEditor();
+    });
+    sourceEditModal.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeSourceEditor();
+      trapModalFocus(event, sourceEditModal);
+    });
+    duplicateModal.addEventListener("click", event => {
+      if (event.target === duplicateModal) closeDuplicateReview();
+    });
+    duplicateModal.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeDuplicateReview();
+      trapModalFocus(event, duplicateModal);
+    });
+    projectSelect.addEventListener("change", event => {
+      activateProject(event.target.value).catch(error => {
+        filenameLine.textContent = error.message;
+      });
+    });
     document.querySelector("#languageEnglish").addEventListener("click", () => {
       if (language === "en") return;
       language = "en";
@@ -2066,6 +3372,11 @@
 
     runPersonSearch.addEventListener("click", submitPersonSearch);
     clearPersonSearch.addEventListener("click", clearSidebarSearch);
+    Object.values(searchFilterInputs).forEach(input => {
+      input.addEventListener("change", () => {
+        renderList();
+      });
+    });
     personSearch.addEventListener("keydown", event => {
       if (event.key !== "Enter") return;
       event.preventDefault();
@@ -2073,7 +3384,8 @@
     });
     document.querySelectorAll(".layer-toggle button").forEach(button => {
       button.addEventListener("click", () => {
-        const selectedPerson = householdById.get(view.selectedId)?.head || null;
+        const selectedUnit = householdById.get(view.selectedId);
+        const selectedPerson = selectedUnit ? { householdId: selectedUnit.householdId, name: selectedUnit.head } : null;
         view.layer = button.dataset.layer;
         if (activeData) {
           useData(activeData, selectedPerson);
@@ -2149,18 +3461,7 @@
 
     async function loadData() {
       try {
-        const response = await fetch("./MM%201754%20Catasto%20Onciario%20Transcription%20300.md");
-        if (!response.ok) throw new Error(`Source Markdown could not be loaded (${response.status}).`);
-        const sourceText = await response.text();
-        const data = parsePlainText(sourceText);
-        if (!data.households.length) throw new Error("No household records were found in the English Translation sections.");
-        data.source_document = "MM 1754 Catasto Onciario Transcription 300.md";
-        data.source_range = "Complete bilingual transcription supplied in Markdown";
-        data.note = `Parsed ${data.households.length} household records from the English Translation sections; the Italian transcription remains in the paired source file.`;
-        data.requested_household_count = data.households.length;
-        data.extracted_household_count = data.households.length;
-        useData(data);
-        setFilenameLabel(`MM 1754 Catasto Onciario Transcription 300.md · ${data.households.length} households`);
+        await refreshProjects();
       } catch (error) {
         document.querySelector("#selectedTitle").textContent = "Could not load extracted data";
         document.querySelector("#sourceEntry").textContent = error.message;
@@ -2181,7 +3482,7 @@
     loadData();
   </script>
   <script type="module">
-    import('./scene3d.js?v=2').catch(error => {
+    import('./scene3d.js?v=8').catch(error => {
       const status = document.querySelector('#sceneStatus');
       status.hidden = false;
       status.textContent = 'The 3D environment could not be initialized in this browser. Reload the page or try a browser with WebGL support.';

@@ -15,9 +15,8 @@ Project folder: ``
   excerpts remain unchanged; the detail/source panel still shows English text.
 - Reset was removed because it cleared the active dataset. There is no Reset
   control or reset handler now.
-- Upload currently replaces the active dataset. Multiple Catasto projects are
-  not implemented yet, so uploading Castelfranco would replace Marano in the
-  current session.
+- Multiple Catasto projects are stored locally in IndexedDB and selected from
+  the sidebar. Admin opens in a new tab for creation, import, export, and deletion.
 - The 2D view is gone. Drag pans, right-drag orbits; touch gestures pan and
   zoom. The environment, rural landscape, house styles, and boundaries are
   schematic and not geographic reconstruction.
@@ -40,23 +39,11 @@ node --test building-types.test.mjs
 No build step or network access is required at runtime; Three.js and controls
 are vendored under `vendor/`.
 
-## Suggested next work: multiple Catasto projects
+## Multiple Catasto projects
 
-1. Change Upload into an “Add Catasto” flow. Each file should create a distinct
-   project rather than overwrite the active dataset.
-2. Store project metadata and data separately in IndexedDB: stable project ID,
-   display name/locality/year, original filename and source text, parsed records,
-   and any project-specific review or view state.
-3. Add a project picker near the filename. Switching projects should reload its
-   saved data and view state without deleting or mutating other projects.
-4. Namespace record IDs with the project ID so the same person/record IDs in
-   different Catasti never collide.
-5. Keep destructive project deletion separate from switching, with an explicit
-   confirmation and no global “reset everything” action.
-6. Test the workflow by importing Castelfranco, switching back to Marano, and
-   confirming both datasets and their counts remain intact after a reload.
-
-The project picker should display the active Catasto clearly (for example,
-“Marano Marchesato · 1754” or “Castelfranco · 1754”). Existing 3D rendering and
-parsing should consume the selected project's records, not a shared global
-dataset.
+- `catasto-storage.js` owns persistent project records and exchange files.
+- `admin.html` opens in a new tab and manages the local project library.
+- `index.html` selects a project and feeds only that project's namespaced records
+  into the existing 3D renderer.
+- The original Marano Markdown is seeded as the first local project when the
+  library is empty.

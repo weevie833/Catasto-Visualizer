@@ -15,11 +15,20 @@ uncluttered scene (Escape exits), and Details toggles the household card. With t
 focused, use arrow keys to pan, +/− to zoom, F to focus, H for overview, and T for
 the overhead view.
 
-At startup, the app reads `MM 1754 Catasto Onciario Transcription 300.md`,
-extracts the English Translation sections, and builds the household view from
-those records. The matching Italian transcription stays in the Markdown source;
-the current detail panel displays the English source text. The Upload dialog
-accepts `.txt` and `.md` files for review.
+At startup, the app opens the last selected Catasto project from browser-local
+IndexedDB. On first use it creates the Marano 1754 project from
+`MM 1754 Catasto Onciario Transcription 300.md`. The Admin page creates,
+imports, exports, and deletes projects without coupling user data to app files.
+The Source tax entry panel can edit a household's transcription and residence;
+saving updates that project's IndexedDB record and the visualization immediately.
+Leaving and returning to the browser does not reload the project or reset the
+selected household and camera; Focus and Overview reposition the view only when
+the user requests it.
+Search covers household heads, surname-inferred household members, residence and
+land references, financial references, and full source-entry text. Results show
+the matching person or reference and open the household entry where it appears.
+Search results can be filtered to household heads, family members, or references;
+district labels remain in the normal household list but are omitted from results.
 
 Architecture, terrain, plot size, and placement are schematic, not a geographic
 or architectural reconstruction. Building styles follow illustrative source cues:
@@ -37,8 +46,12 @@ and [historic iron balconies](https://dati.cultura.gov.it/lodview-arco/resource/
 Figures represent
 up to twelve listed members of the selected household. Translucent buildings
 represent people named as boundary neighbors without full extracted records.
-Landholdings retain the existing owner-level aggregation: each field represents
-an owner's parsed holdings, not a separately geolocated parcel.
+The landholding view is a selected-owner relationship network rather than a
+geographic reconstruction. Each parsed parcel belongs to the unique household
+head record that owns it, and adjacent properties are connected around it.
+Same-name household heads remain separate; patronymics or ages distinguish them
+where available. References that cannot identify one same-name household remain
+explicitly unresolved instead of being assigned by guesswork.
 
 The visual style evokes modest rural dwellings: low stone-and-plaster walls,
 small shuttered openings, plank doors, and weathered terracotta coppi roofs.
@@ -79,7 +92,10 @@ http://127.0.0.1:8000/index.html
 
 ## Current Files
 
-- `index.html` - single-file interactive prototype
+- `index.html` - interactive visualization and project selector
+- `admin.html` / `admin.js` - project administration opened in a new tab
+- `catasto-storage.js` - IndexedDB persistence and portable project exchange
+- `catasto-parser.js` - plain-text parser used by project administration
 - `scene3d.js` / `scene3d.css` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
 - `building-types.test.mjs` - style-rule regression checks (`node --test building-types.test.mjs`)
@@ -92,10 +108,9 @@ http://127.0.0.1:8000/index.html
 - `MM 1754 Catasto Onciario Transcription EDIT.docx` - earlier transcription source document
 - `MM 1754 Catasto Onciario Transcription.docx` - earlier transcription source document
 
-## Future Direction
+## Project Data
 
-The next major step is multi-Catasto project management. Each imported Catasto
-should be saved as its own project, with a project picker to switch datasets
-without replacing or losing the current one. Use IndexedDB for persistent local
-storage and namespace record IDs by project. The current Upload flow replaces
-the active dataset; Reset has been removed to avoid accidental data loss.
+Projects are stored locally in IndexedDB and remain separate from application
+files. Export a `.catasto.json` file for backup or exchange with another user.
+Browser storage is tied to the app origin, so continue serving the project from
+the same host and port to access the same local library.

@@ -72,6 +72,7 @@ const labels = [];
 let state = window.catasto.getState();
 let unitReference = null;
 let layerReference = null;
+let landOwnerReference = null;
 let scope = 'all';
 let mode = '3d';
 let overhead = false;
@@ -505,9 +506,20 @@ function createNode(unit, groupKey, x, z) {
   container.add(border);
   const apron = mesh(yard, materials.ground, container, -.2, .025, .05, 3.2, 1, 2.9); apron.castShadow = false;
   if (state.layer === 'land') {
-    for (let i = 0; i < 5; i++) mesh(box, i % 2 ? materials.field : materials.soil, container, -2.3 + i * 1.08, .18, 0, .62, .13, 4.2);
+    const grove = /grove/i.test(unit.role);
+    const vineyard = /vineyard/i.test(unit.role);
+    const garden = /garden/i.test(unit.role);
+    for (let i = 0; i < 5; i++) {
+      const material = grove || garden ? materials.field : i % 2 ? materials.field : materials.soil;
+      mesh(box, material, container, -2.3 + i * 1.08, .18, 0, .62, .13, 4.2);
+    }
     if (isReference) mesh(box, materials.reference, container, 0, .65, 0, 1, 1.3, 1);
-    else addTree(container, -1.8, -1.5, .85);
+    else if (grove) {
+      [[-2, -1.7], [0, -1.5], [2, -1.8], [-1, 1.4], [1.4, 1.5]].forEach(([tx, tz], index) => addTree(container, tx, tz, .68 + index % 2 * .12, 'chestnut'));
+    } else if (vineyard) {
+      for (let i = -2; i <= 2; i++) mesh(cylinder, materials.trunk, container, i * 1.05, .45, 0, .05, .8, .05);
+    } else addTree(container, -1.8, -1.5, .85);
+    container.scale.setScalar(1.15);
   } else {
     if (!/no residence|not (?:listed|specified)|unknown/i.test(unit.place)) addBuilding(container, unit, building);
     else mesh(cylinder, materials.reference, container, 0, .45, 0, .5, .9, .5);
@@ -519,12 +531,18 @@ function createNode(unit, groupKey, x, z) {
   }
   world.add(container);
   const label = document.createElement('span');
-  label.className = `scene-label${isReference ? ' reference' : ''}`;
-  label.textContent = unit.head;
+  const selectedOwnerKey = state.units.find(candidate => candidate.id === state.selectedId)?.ownerKey;
+  const isSelectedOwnerParcel = state.layer === 'land' && unit.ownerKey === selectedOwnerKey;
+  label.className = `scene-label${isReference ? ' reference' : ''}${state.layer === 'land' ? ` land ${isSelectedOwnerParcel ? 'land-owner' : 'land-neighbor'}` : ''}`;
+  if (state.layer === 'land') {
+    label.textContent = isSelectedOwnerParcel && isReference
+      ? `${unit.displayHead || unit.head} · unassigned reference`
+      : unit.displayHead || unit.head;
+  } else label.textContent = unit.head;
   labelRoot.append(label);
   const node = { unit, container, plot, border, groupKey, label, building, position: new THREE.Vector3(x, elevation, z) };
   nodes.set(unit.id, node);
-  labels.push({ element: label, position: new THREE.Vector3(x, elevation + building.height, z), node });
+  labels.push({ element: label, position: new THREE.Vector3(x, state.layer === 'land' ? elevation + .1 : elevation + building.height, z), node });
 }
 
 function localLayout(units) {
@@ -581,8 +599,17 @@ function rebuild() {
   disposeGroup(world); disposeGroup(linksGroup); disposeGroup(peopleGroup);
   labelRoot.replaceChildren(); nodes.clear(); groups.clear(); labels.length = 0;
   hover.hidden = true;
+  root.classList.toggle('land-network', state.layer === 'land');
+  scene.background.set(state.layer === 'land' ? 0xf1efe8 : 0xdce3d5);
+  renderer.setClearColor(state.layer === 'land' ? 0xf1efe8 : 0xdce3d5);
+  if (state.layer === 'land') {
+    rebuildLandNetwork();
+    return;
+  }
+  landOwnerReference = null;
+  districtSelect.disabled = false;
   state.units.forEach(unit => {
-    const key = state.layer === 'land' ? 'Landowners' : unit.place || 'No residence listed';
+    const key = unit.place || (state.layer === 'land' ? 'District not listed' : 'No residence listed');
     if (!groups.has(key)) groups.set(key, { key, units: [] });
     groups.get(key).units.push(unit);
   });
@@ -604,9 +631,123 @@ function rebuild() {
     labels.push({ element: label, position: new THREE.Vector3(x + width / 2, .5, z + depth - 2), group });
     x += width + 24; rowDepth = Math.max(rowDepth, depth);
   });
-  districtSelect.innerHTML = `<option value="all">${state.layer === 'land' ? tr('allLandowners') : tr('allDistricts')}</option>` + [...groups.values()].sort((a, b) => a.key.localeCompare(b.key)).map(g => `<option value="${escape(g.key)}">${escape(displayPlace(g.key))} (${g.units.filter(u => u.source === 'extracted').length})</option>`).join('');
+  districtSelect.innerHTML = `<option value="all">${tr('allDistricts')}</option>` + [...groups.values()].sort((a, b) => a.key.localeCompare(b.key)).map(g => `<option value="${escape(g.key)}">${escape(displayPlace(g.key))} (${g.units.filter(u => u.source === 'extracted').length})</option>`).join('');
   const selected = nodes.get(state.selectedId);
-  scope = selected?.groupKey || 'all';
+  scope = state.layer === 'land' ? 'all' : selected?.groupKey || 'all';
+  districtSelect.value = scope;
+  applyScope();
+}
+
+function rebuildLandNetwork() {
+  districtSelect.disabled = true;
+  const selected = state.units.find(unit => unit.id === state.selectedId) || state.units.find(unit => unit.source === 'extracted');
+  if (!selected) {
+    landOwnerReference = null;
+    districtSelect.innerHTML = '<option value="all"></option>';
+    applyScope();
+    return;
+  }
+  landOwnerReference = selected.ownerKey || selected.id;
+  const ownerParcels = state.units.filter(unit => unit.ownerKey === selected.ownerKey && unit.source === 'extracted');
+  if (!ownerParcels.length) ownerParcels.push(selected);
+  const ownerReferences = state.units.filter(unit => unit.ownerKey === selected.ownerKey && unit.source !== 'extracted' && !ownerParcels.some(parcel => parcel.id === unit.id));
+  const ownerNodes = [...ownerParcels, ...ownerReferences];
+  const ownerIds = new Set(ownerNodes.map(unit => unit.id));
+  const unitsById = new Map(state.units.map(unit => [unit.id, unit]));
+  const visibleById = new Map(ownerNodes.map(unit => [unit.id, unit]));
+  ownerNodes.forEach(parcel => parcel.neighbors.forEach(id => {
+    const neighbor = unitsById.get(id);
+    if (neighbor && !ownerIds.has(id)) visibleById.set(id, neighbor);
+  }));
+
+  const parcelsByPlace = new Map();
+  ownerParcels.forEach(parcel => {
+    const placeKey = parcel.placeKey || parcel.place || 'not-listed';
+    if (!parcelsByPlace.has(placeKey)) parcelsByPlace.set(placeKey, []);
+    parcelsByPlace.get(placeKey).push(parcel);
+  });
+  const placeGroups = [...parcelsByPlace.values()];
+  const columns = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(placeGroups.length))));
+  const rows = Math.ceil(placeGroups.length / columns);
+  const clusterWidth = 31;
+  const clusterDepth = 27;
+  const positions = new Map();
+  const fixed = new Set();
+  placeGroups.forEach((parcels, groupIndex) => {
+    const column = groupIndex % columns;
+    const row = Math.floor(groupIndex / columns);
+    const centerX = (column - (columns - 1) / 2) * clusterWidth;
+    const centerZ = (row - (rows - 1) / 2) * clusterDepth;
+    const innerColumns = Math.min(2, parcels.length);
+    parcels.forEach((parcel, parcelIndex) => {
+      const innerColumn = parcelIndex % innerColumns;
+      const innerRow = Math.floor(parcelIndex / innerColumns);
+      positions.set(parcel.id, {
+        x: centerX + (innerColumn - (innerColumns - 1) / 2) * 10.8,
+        z: centerZ + innerRow * 10.8
+      });
+      fixed.add(parcel.id);
+    });
+  });
+  ownerReferences.forEach((reference, index) => {
+    positions.set(reference.id, {
+      x: (index - (ownerReferences.length - 1) / 2) * 12,
+      z: (rows - .35) * clusterDepth
+    });
+    fixed.add(reference.id);
+  });
+
+  const suggestions = new Map();
+  ownerNodes.forEach((parcel, parcelIndex) => {
+    const center = positions.get(parcel.id);
+    const neighborIds = parcel.neighbors.filter(id => visibleById.has(id) && !ownerIds.has(id));
+    neighborIds.forEach((id, index) => {
+      const angle = -Math.PI / 2 + Math.PI * 2 * index / Math.max(1, neighborIds.length) + (parcelIndex % 2 ? Math.PI / 7 : 0);
+      if (!suggestions.has(id)) suggestions.set(id, []);
+      suggestions.get(id).push({ x: center.x + Math.cos(angle) * 11.5, z: center.z + Math.sin(angle) * 11.5 });
+    });
+  });
+  suggestions.forEach((points, id) => positions.set(id, {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    z: points.reduce((sum, point) => sum + point.z, 0) / points.length
+  }));
+
+  // Separate overlapping icons without implying geographic distance.
+  const positionEntries = [...positions.entries()];
+  for (let pass = 0; pass < 24; pass++) {
+    for (let i = 0; i < positionEntries.length; i++) for (let j = i + 1; j < positionEntries.length; j++) {
+      const [idA, a] = positionEntries[i], [idB, b] = positionEntries[j];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const distance = Math.hypot(dx, dz) || .001;
+      if (distance >= 9.8) continue;
+      const push = (9.8 - distance) / 2;
+      const ux = dx / distance, uz = dz / distance;
+      if (!fixed.has(idA)) { a.x -= ux * push; a.z -= uz * push; }
+      if (!fixed.has(idB)) { b.x += ux * push; b.z += uz * push; }
+    }
+  }
+
+  const group = {
+    key: 'selected-owner',
+    units: [...visibleById.values()],
+    heightAt: () => 0,
+    island: new THREE.Group()
+  };
+  world.add(group.island);
+  groups.set(group.key, group);
+  group.units.forEach(unit => {
+    const point = positions.get(unit.id);
+    if (point) createNode(unit, group.key, point.x, point.z);
+  });
+  const placed = [...positions.values()];
+  const minX = Math.min(...placed.map(point => point.x)) - 8;
+  const maxX = Math.max(...placed.map(point => point.x)) + 8;
+  const minZ = Math.min(...placed.map(point => point.z)) - 8;
+  const maxZ = Math.max(...placed.map(point => point.z)) + 8;
+  group.bounds = new THREE.Box3(new THREE.Vector3(minX, -2, minZ), new THREE.Vector3(maxX, 8, maxZ));
+  districtSelect.disabled = true;
+  districtSelect.innerHTML = '<option value="all"></option>';
+  scope = 'all';
   districtSelect.value = scope;
   applyScope();
 }
@@ -620,7 +761,7 @@ function applyScope() {
   groups.forEach(group => group.island.visible = scope === 'all' || group.key === scope);
   const records = visibleUnits.filter(n => n.unit.source === 'extracted').length;
   const references = visibleUnits.length - records;
-  const noun = state.layer === 'land' ? (records === 1 ? tr('landowner') : tr('landownerPlural')) : (records === 1 ? tr('household') : tr('households'));
+  const noun = state.layer === 'land' ? (records === 1 ? 'parcel' : 'parcels') : (records === 1 ? tr('household') : tr('households'));
   $('#sceneStats').textContent = `${records} ${noun} · ${references} ${references === 1 ? tr('boundaryReference') : tr('boundaryReferences')}`;
   updateSelection();
   fitView();
@@ -638,35 +779,62 @@ function addPeople(node) {
     mesh(cylinder, materials.person, peopleGroup, x, node.position.y + .5, z, .15, .65, .15);
     mesh(sphere, materials.skin, peopleGroup, x, node.position.y + .98, z, .2, .2, .2);
   }
-  peopleGroup.visible = $('#people3d').checked && node.container.visible;
+  peopleGroup.visible = node.container.visible;
+}
+
+function ownerSelectionNodes(node) {
+  if (!node) return [];
+  if (state.layer !== 'land' || !node.unit.ownerKey) return [node];
+  return [...nodes.values()].filter(candidate => candidate.unit.ownerKey === node.unit.ownerKey);
 }
 
 function updateLinks(node) {
   disposeGroup(linksGroup);
-  if (!node || !$('#links3d').checked || !node.container.visible) return;
+  if (!node) return;
   const points = [];
-  for (const id of node.unit.neighbors) {
-    const other = nodes.get(id);
-    if (!other?.container.visible) continue;
-    const start = node.position.clone().add(new THREE.Vector3(0, .35, 0));
-    const end = other.position.clone().add(new THREE.Vector3(0, .35, 0));
-    const mid = start.clone().lerp(end, .5); mid.y += Math.min(6, start.distanceTo(end) * .12 + 1);
-    const curve = new THREE.QuadraticBezierCurve3(start, mid, end).getPoints(36);
-    for (let i = 1; i < curve.length; i++) points.push(curve[i - 1], curve[i]);
+  const curves = [];
+  const seen = new Set();
+  for (const source of ownerSelectionNodes(node)) {
+    if (!source.container.visible) continue;
+    for (const id of source.unit.neighbors) {
+      const other = nodes.get(id);
+      if (!other?.container.visible) continue;
+      const edgeKey = [source.unit.id, id].sort().join('|');
+      if (seen.has(edgeKey)) continue;
+      seen.add(edgeKey);
+      const start = source.position.clone().add(new THREE.Vector3(0, .35, 0));
+      const end = other.position.clone().add(new THREE.Vector3(0, .35, 0));
+      const mid = start.clone().lerp(end, .5); mid.y += Math.min(6, start.distanceTo(end) * .12 + 1);
+      const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+      curves.push(curve);
+      const samples = curve.getPoints(36);
+      for (let i = 1; i < samples.length; i++) points.push(samples[i - 1], samples[i]);
+    }
+  }
+  if (state.layer === 'land' && curves.length) {
+    const material = new THREE.MeshBasicMaterial({ color: '#9a7433', transparent: true, opacity: .82, depthTest: false });
+    curves.forEach(curve => {
+      const link = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, .075, 5, false), material);
+      link.renderOrder = 5;
+      linksGroup.add(link);
+    });
+    return;
   }
   if (points.length) {
-    const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineDashedMaterial({ color: '#9f7b36', dashSize: .45, gapSize: .22, transparent: true, opacity: .9, depthTest: false }));
+    const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineDashedMaterial({ color: '#ffffff', dashSize: .45, gapSize: .22, transparent: true, opacity: 1, depthTest: false }));
     line.computeLineDistances(); line.renderOrder = 5; linksGroup.add(line);
   }
 }
 
 function updateSelection() {
   const selected = nodes.get(state.selectedId);
-  const neighbors = new Set(selected?.unit.neighbors || []);
+  const selectedNodes = ownerSelectionNodes(selected);
+  const selectedIds = new Set(selectedNodes.map(node => node.unit.id));
+  const neighbors = new Set(selectedNodes.flatMap(node => node.unit.neighbors || []));
   const query = state.search?.toLowerCase().trim();
   nodes.forEach(node => {
-    const active = node === selected, neighbor = neighbors.has(node.unit.id);
-    const match = !query || [node.unit.head, node.unit.place, node.unit.role, ...node.unit.members].join(' ').toLowerCase().includes(query);
+    const active = selectedIds.has(node.unit.id), neighbor = neighbors.has(node.unit.id) && !active;
+    const match = !query || [node.unit.head, node.unit.parcelName, node.unit.place, node.unit.role, ...node.unit.members].join(' ').toLowerCase().includes(query);
     node.plot.material.color.set(active ? '#57a88c' : neighbor ? '#cbb578' : !match ? '#c4c8bb' : node.unit.source === 'extracted' ? '#c4cfa7' : '#c9cbb8');
     node.plot.material.opacity = active ? .42 : neighbor ? .22 : !match ? .03 : .045;
     node.border.material.color.set(active ? '#196451' : neighbor ? '#997232' : '#8d9e76');
@@ -679,20 +847,33 @@ function updateSelection() {
   if (!selected) { inspector.innerHTML = `<h3>${tr('noRecords')}</h3><p>${tr('uploadToExplore')}</p>`; return; }
   const u = selected.unit;
   const reference = u.source !== 'extracted';
+  const buildingCue = visibleBuildingCue(selected.building);
   const neighborNodes = u.neighbors.map(id => nodes.get(id)).filter(Boolean);
   const crossDistrict = neighborNodes.filter(n => !n.container.visible).length;
-  inspector.innerHTML = `<p class="inspector-kicker">${reference ? 'Named in a boundary record' : state.layer === 'land' ? 'Landowner record' : 'Household record'}</p>
-    <h3>${escape(u.head)}</h3><p>${escape(u.place)}${!reference && u.role ? ` · ${escape(u.role)}` : ''}</p>
-    ${state.layer !== 'land' && !reference ? `<p class="building-style"><strong>${escape(selected.building.label)}</strong>${selected.building.cue ? `<br>${escape(selected.building.cue)}` : ''}</p>` : ''}
-    ${reference ? '<p>Only a boundary reference is available. This marker does not establish a complete household.</p>' : `<details><summary>${state.layer === 'land' ? 'Landholding summary' : `${u.members.length} household members`}</summary><ul>${u.members.map(m => `<li>${escape(m)}</li>`).join('')}</ul></details>`}
+  const landRecord = state.layer === 'land' && !reference;
+  const unresolvedOwnerReferences = landRecord ? ownerSelectionNodes(selected).filter(node => node.unit.source !== 'extracted').length : 0;
+  inspector.innerHTML = `<p class="inspector-kicker">${reference ? 'Named in a boundary record' : landRecord ? 'Landholding record' : 'Household record'}</p>
+    <h3>${escape(landRecord ? u.parcelName : u.displayHead || u.head)}</h3><p>${escape(landRecord ? `${u.displayHead || u.head} · ${u.place}` : u.place)}${!reference && !landRecord && u.role ? ` · ${escape(u.role)}` : ''}</p>
+    ${state.layer !== 'land' && !reference ? `<p class="building-style"><strong>${escape(selected.building.label)}</strong>${buildingCue ? `<br>${escape(buildingCue)}` : ''}</p>` : ''}
+    ${reference ? '<p>Only a boundary reference is available. This marker does not establish a complete parcel.</p>' : landRecord ? `<details open><summary>Landholding details</summary><ul><li>${escape(u.role)}</li><li>${escape(u.capacity)}</li><li>${escape(u.income)}</li>${(u.boundaryFeatures || []).map(feature => `<li>${escape(feature)} boundary</li>`).join('')}</ul></details>` : `<details><summary>${u.members.length} household members</summary><ul>${u.members.map(m => `<li>${escape(m)}</li>`).join('')}</ul></details>`}
     <details${neighborNodes.length ? ' open' : ''}><summary>${neighborNodes.length} recorded ${state.layer === 'land' ? 'land' : 'residence'} neighbor${neighborNodes.length === 1 ? '' : 's'}</summary>
-      <div class="neighbor-list">${neighborNodes.map(n => `<button type="button" data-select="${escape(n.unit.id)}">${escape(n.unit.head)}${n.unit.source !== 'extracted' ? ' · reference' : ''}</button>`).join('')}</div>
+      <div class="neighbor-list">${neighborNodes.map(n => {
+        const evidence = u.neighborEvidence?.[n.unit.id] || {};
+        const evidenceLabel = evidence.outbound && evidence.inbound ? ' · mutual reference' : evidence.outbound ? ' · named here' : evidence.inbound ? ' · names this owner' : '';
+        return `<button type="button" data-select="${escape(n.unit.id)}">${escape(n.unit.displayHead || n.unit.head)}${state.layer === 'land' ? '' : n.unit.source !== 'extracted' ? ' · unresolved parcel' : evidenceLabel}</button>`;
+      }).join('')}</div>
       ${crossDistrict ? `<p>${crossDistrict} in another district. Select a name to visit.</p>` : ''}
       ${!neighborNodes.length ? '<p>No named neighbors were parsed. Nearby placement is illustrative.</p>' : ''}</details>
+    ${unresolvedOwnerReferences ? `<p>${unresolvedOwnerReferences} additional boundary reference${unresolvedOwnerReferences === 1 ? '' : 's'} to ${escape(u.head)} could not be assigned to a specific parcel.</p>` : ''}
     ${u.hasPublicRoad ? '<p>Public road mentioned in the record.</p>' : ''}`;
   localizeInspector(selected);
   inspector.querySelectorAll('[data-select]').forEach(button => button.addEventListener('click', () => window.catasto.select(button.dataset.select)));
   dirty = true;
+}
+
+function visibleBuildingCue(building) {
+  const cue = building?.cue || '';
+  return /^Style cue:\s*the household head is titled Magnificent\.\s*$/i.test(cue) ? '' : cue;
 }
 
 function localizeInspector(selected) {
@@ -705,9 +886,11 @@ function localizeInspector(selected) {
   const unit = selected.unit;
   const reference = unit.source !== 'extracted';
   const kicker = inspector.querySelector('.inspector-kicker');
-  if (kicker) kicker.textContent = reference ? tr('namedBoundary') : state.layer === 'land' ? tr('landownerRecord') : tr('householdRecord');
+  if (kicker) kicker.textContent = reference ? tr('namedBoundary') : state.layer === 'land' ? 'Voce del terreno' : tr('householdRecord');
   const identity = inspector.querySelector('h3 + p');
-  if (identity) identity.textContent = displayPlace(unit.place) + (!reference && unit.role ? ' · ' + unit.role : '');
+  if (identity) identity.textContent = state.layer === 'land' && !reference
+    ? (unit.displayHead || unit.head) + ' · ' + displayPlace(unit.place)
+    : displayPlace(unit.place) + (!reference && unit.role ? ' · ' + unit.role : '');
   const details = [...inspector.querySelectorAll('details')];
   const neighborDetails = details.at(-1);
   if (!reference && state.layer !== 'land' && details[0]) details[0].querySelector('summary').textContent = unit.members.length + ' ' + tr('members');
@@ -726,7 +909,7 @@ function localizeInspector(selected) {
   const buildingStyle = inspector.querySelector('.building-style');
   if (buildingStyle) {
     const label = selected.building.type === 'parish' ? tr('parish') : selected.building.type === 'manor' ? tr('manor') : tr('ruralDwelling');
-    const cue = selected.building.cue || '';
+    const cue = visibleBuildingCue(selected.building);
     let detail = cue.replace(/^Style cue:\s*/i, '').replace(/ mentioned in the source\.$/i, '').replace(/ menzionato nella fonte\.$/i, '').replace(/^the household head is titled\s+/i, '').replace(/\.$/, '');
     if (selected.building.type === 'parish') detail = 'la chiesa parrocchiale';
     if (selected.building.type === 'manor') detail = detail.replace(/^Magnificent$/i, 'Magnifico').replace(/^Illustrious$/i, 'Illustre');
@@ -774,12 +957,30 @@ function fitView() {
   sun.shadow.camera.left = -radius; sun.shadow.camera.right = radius;
   sun.shadow.camera.top = radius; sun.shadow.camera.bottom = -radius;
   sun.shadow.camera.far = 1000; sun.shadow.camera.updateProjectionMatrix();
-  scene.fog.density = .04 / Math.max(30, size.length());
+  scene.fog.density = state.layer === 'land' ? 0 : .04 / Math.max(30, size.length());
 }
 
 function focusSelection() {
   const node = nodes.get(state.selectedId);
   if (!node) return;
+  if (state.layer === 'land') {
+    if (scope !== 'all') {
+      scope = 'all';
+      districtSelect.value = scope;
+      applyScope();
+    }
+    const ownerNodes = visibleUnits.filter(candidate => candidate.container.visible);
+    const bounds = new THREE.Box3();
+    ownerNodes.forEach(candidate => bounds.expandByPoint(candidate.position));
+    if (bounds.isEmpty()) return;
+    bounds.expandByScalar(9);
+    const size = bounds.getSize(new THREE.Vector3());
+    const target = bounds.getCenter(new THREE.Vector3()); target.y += 1;
+    const aspect = Math.max(1, root.clientWidth) / Math.max(1, root.clientHeight);
+    const distance = Math.max(size.x / aspect, size.z, 18) / (2 * Math.tan(THREE.MathUtils.degToRad(21))) * 1.08;
+    moveCamera(target, distance, overhead ? new THREE.Vector3(0, 1, .001).normalize() : new THREE.Vector3(.35, 1, .45).normalize());
+    return;
+  }
   if (!node.container.visible) { scope = node.groupKey; districtSelect.value = scope; applyScope(); }
   const large = ['manor', 'parish'].includes(node.building.type);
   const target = node.position.clone(); target.y += large ? 2 : 1;
@@ -789,12 +990,16 @@ function focusSelection() {
 function sync() {
   const previous = state;
   state = window.catasto.getState();
-  if (unitReference !== state.units || layerReference !== state.layer) {
+  const selectedLandOwner = state.layer === 'land'
+    ? state.units.find(unit => unit.id === state.selectedId)?.ownerKey || state.selectedId
+    : null;
+  if (unitReference !== state.units || layerReference !== state.layer || (state.layer === 'land' && selectedLandOwner !== landOwnerReference)) {
     unitReference = state.units; layerReference = state.layer;
     rebuild();
+    if (state.layer === 'land') focusSelection();
   } else {
     const node = nodes.get(state.selectedId);
-    if (node && scope !== 'all' && node.groupKey !== scope) {
+    if (state.layer !== 'land' && node && scope !== 'all' && node.groupKey !== scope) {
       scope = node.groupKey; districtSelect.value = scope; applyScope();
     } else updateSelection();
     if (previous.selectedId !== state.selectedId) focusSelection();
@@ -829,14 +1034,15 @@ function pick(event) {
 
 function projectLabels() {
   let count = 0;
-  const showNames = $('#labels3d').checked;
   const selected = nodes.get(state.selectedId);
-  const neighbors = new Set(selected?.unit.neighbors || []);
+  const selectedNodes = ownerSelectionNodes(selected);
+  const selectedIds = new Set(selectedNodes.map(node => node.unit.id));
+  const neighbors = new Set(selectedNodes.flatMap(node => node.unit.neighbors || []));
   for (const label of labels) {
     let visible = label.node ? label.node.container.visible : label.group.island.visible;
     if (label.node) {
       const distance = camera.position.distanceTo(label.position);
-      visible &&= showNames && label.node.matchesSearch && (label.node === selected || neighbors.has(label.node.unit.id) || distance < 95) && count < 75;
+      visible &&= label.node.matchesSearch && (selectedIds.has(label.node.unit.id) || neighbors.has(label.node.unit.id) || distance < 95) && count < 75;
     }
     projected.copy(label.position).project(camera);
     const x = (projected.x * .5 + .5) * root.clientWidth;
@@ -864,7 +1070,9 @@ canvas.addEventListener('pointermove', event => {
   hover.hidden = !node;
   canvas.style.cursor = node ? 'pointer' : 'grab';
   if (!node) return;
-  hover.textContent = node.unit.head;
+  hover.textContent = state.layer === 'land'
+    ? `${node.unit.displayHead || node.unit.head} · ${node.unit.parcelName || node.unit.place || 'Adjacent property'}`
+    : node.unit.displayHead || node.unit.head;
   const rect = root.getBoundingClientRect();
   hover.style.left = `${Math.max(5, Math.min(root.clientWidth - 215, event.clientX - rect.left + 14))}px`;
   hover.style.top = `${Math.max(180, Math.min(root.clientHeight - 80, event.clientY - rect.top - 32))}px`;
@@ -908,7 +1116,11 @@ $('#details3d').addEventListener('click', () => {
 });
 function toggleExpanded(force) {
   const expanded = typeof force === 'boolean' ? force : !root.classList.contains('expanded');
+  const environmentBar = document.querySelector('.environment-bar');
   root.classList.toggle('expanded', expanded);
+  environmentBar?.classList.toggle('expanded', expanded);
+  if (expanded && environmentBar) root.style.setProperty('--environment-header-height', `${environmentBar.offsetHeight}px`);
+  else root.style.removeProperty('--environment-header-height');
   $('#expand3d').textContent = expanded ? 'Exit expanded' : 'Expand';
   $('#expand3d').setAttribute('aria-pressed', String(expanded));
   canvas.focus(); resize();
@@ -922,22 +1134,23 @@ $('#plan3d').addEventListener('click', () => {
   $('#plan3d').title = (language === 'it' ? 'Attiva la vista dall’alto' : 'Toggle overhead view') + ' (T)';
   moveCamera(controls.target.clone(), camera.position.distanceTo(controls.target), overhead ? new THREE.Vector3(0, 1, .001).normalize() : new THREE.Vector3(.5, .95, 1).normalize());
 });
-$('#labels3d').addEventListener('change', () => { dirty = true; });
-$('#links3d').addEventListener('change', () => { updateLinks(nodes.get(state.selectedId)); dirty = true; });
-$('#people3d').addEventListener('change', () => { peopleGroup.visible = $('#people3d').checked && !!nodes.get(state.selectedId)?.container.visible; dirty = true; });
 window.addEventListener('catasto:change', sync);
 window.addEventListener('catasto:language-change', event => {
   language = event.detail?.language === 'it' ? 'it' : 'en';
-  if (districtSelect.options.length) districtSelect.options[0].textContent = state.layer === 'land' ? tr('allLandowners') : tr('allDistricts');
-  [...districtSelect.options].slice(1).forEach(option => {
-    const count = option.textContent.match(/\s+\(\d+\)$/)?.[0] || '';
-    option.textContent = displayPlace(option.value) + count;
-  });
+  if (state.layer === 'land') {
+    if (districtSelect.options.length) districtSelect.options[0].textContent = '';
+  } else {
+    if (districtSelect.options.length) districtSelect.options[0].textContent = tr('allDistricts');
+    [...districtSelect.options].slice(1).forEach(option => {
+      const count = option.textContent.match(/\s+\(\d+\)$/)?.[0] || '';
+      option.textContent = displayPlace(option.value) + count;
+    });
+  }
   labels.filter(label => label.group).forEach(label => { label.element.textContent = displayPlace(label.group.key); });
   $('#expand3d').textContent = $('#expand3d').getAttribute('aria-pressed') === 'true' ? tr('exitExpanded') : tr('expand');
   const records = visibleUnits.filter(node => node.unit.source === 'extracted').length;
   const references = visibleUnits.length - records;
-  const noun = state.layer === 'land' ? (records === 1 ? tr('landowner') : tr('landownerPlural')) : (records === 1 ? tr('household') : tr('households'));
+  const noun = state.layer === 'land' ? (records === 1 ? 'parcel' : 'parcels') : (records === 1 ? tr('household') : tr('households'));
   $('#sceneStats').textContent = records + ' ' + noun + ' · ' + references + ' ' + (references === 1 ? tr('boundaryReference') : tr('boundaryReferences'));
   updateSelection();
   dirty = true;
