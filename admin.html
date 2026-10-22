@@ -13,6 +13,7 @@
     header a { color:var(--blue); font-weight:750; text-decoration:none; }
     main { width:min(1040px,calc(100% - 32px)); margin:24px auto 48px; display:grid; gap:20px; }
     .intro { color:var(--muted); margin:-10px 0 0; }
+    .panel .intro { margin:10px 0 0; font-size:13px; }
     .panel { border:1px solid #d7dee8; border-radius:10px; background:#fff; box-shadow:0 8px 24px rgba(15,23,42,.06); padding:18px; }
     .panel h2 { margin:0 0 14px; font-size:18px; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -45,9 +46,10 @@
     <section class="panel">
       <h2>Project Library</h2>
       <div class="actions">
-        <button id="importButton" class="secondary" type="button">Import project</button>
-        <input id="importFile" type="file" accept=".json,.catasto,application/json" hidden>
+        <button id="importButton" class="secondary" type="button">Import JSON backup or Catasto text</button>
+        <input id="importFile" type="file" accept=".json,.catasto,.txt,.md,application/json,text/plain,text/markdown" hidden>
       </div>
+      <p class="intro">JSON restores an exported project, including saved corrections. Markdown or text creates a project by parsing the transcription.</p>
       <p class="status" id="libraryStatus"></p>
       <div class="project-list" id="projectList"></div>
     </section>
@@ -62,7 +64,7 @@
           </div>
           <div class="field">
             <label for="textFile">Source text file</label>
-            <input id="textFile" type="file" accept=".txt,text/plain">
+            <input id="textFile" type="file" accept=".txt,.md,text/plain,text/markdown">
           </div>
         </div>
         <div>

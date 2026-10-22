@@ -112,5 +112,9 @@ http://127.0.0.1:8000/index.html
 
 Projects are stored locally in IndexedDB and remain separate from application
 files. Export a `.catasto.json` file for backup or exchange with another user.
+Use Admin's **Import JSON backup or Catasto text** button to restore that file;
+the source text picker in **Create Project** accepts `.md` and `.txt`
+transcriptions, which are parsed into new projects. A transcription file does
+not preserve corrections made to a saved project.
 Browser storage is tied to the app origin, so continue serving the project from
 the same host and port to access the same local library.

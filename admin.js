@@ -43,7 +43,7 @@
             <div class="meta">${count} household${count === 1 ? "" : "s"}${project.sourceFile ? ` · ${escapeHtml(project.sourceFile)}` : ""}</div>
           </div>
           <div class="actions">
-            <button class="secondary export" type="button">Export</button>
+            <button class="secondary export" type="button">Export JSON</button>
             <button class="danger delete" type="button">Delete</button>
           </div>
         </article>`;
@@ -107,12 +107,27 @@
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const payload = JSON.parse(await file.text());
-      const projects = CatastoStorage.projectsFromImport(payload, file.name.replace(/\.[^.]+$/, ""));
+      const contents = await file.text();
+      let projects;
+      if (/\.(?:catasto\.)?json$/i.test(file.name) || /\.catasto$/i.test(file.name)) {
+        const payload = JSON.parse(contents);
+        projects = CatastoStorage.projectsFromImport(payload, file.name.replace(/\.(?:catasto\.)?(?:json|catasto)$/i, ""));
+      } else if (/\.(?:md|txt)$/i.test(file.name)) {
+        const data = CatastoParser.parsePlainText(contents);
+        if (!data.households.length) throw new Error("No household entries were detected in this text file.");
+        projects = [CatastoStorage.createProject({
+          name: file.name.replace(/\.[^.]+$/, ""),
+          sourceFile: file.name,
+          sourceText: contents,
+          data
+        })];
+      } else {
+        throw new Error("Choose a Catasto JSON backup, .md transcription, or .txt transcription.");
+      }
       for (const project of projects) await CatastoStorage.saveProject(project);
       localStorage.setItem("catasto-active-project", projects.at(-1).id);
-      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}.`;
       await renderProjects();
+      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}. Refresh the Visualizer to open it.`;
     } catch (error) {
       libraryStatus.textContent = `Import failed: ${error.message}`;
     } finally {
