@@ -102,7 +102,6 @@
     }
   });
 
-  document.querySelector("#importButton").addEventListener("click", () => importFile.click());
   importFile.addEventListener("change", async event => {
     const file = event.target.files?.[0];
     if (!file) return;

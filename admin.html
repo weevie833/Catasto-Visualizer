@@ -31,6 +31,8 @@
     .project h3 { margin:0 0 4px; font-size:15px; }
     .meta { color:var(--muted); font-size:12px; }
     .empty { color:var(--muted); padding:12px 0; }
+    .import-file { max-width:100%; font:inherit; font-size:13px; }
+    .import-file::file-selector-button { border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); padding:8px 12px; font:750 13px/1.2 ui-sans-serif,system-ui,sans-serif; cursor:pointer; margin-right:10px; }
     .license-footer { width:min(1040px,calc(100% - 32px)); margin:0 auto 24px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--muted); font-size:12px; line-height:1.4; padding:10px 12px; }
     @media (max-width:720px) { .grid { grid-template-columns:1fr; } .project { grid-template-columns:1fr; } header { align-items:flex-start; } }
   </style>
@@ -46,10 +48,10 @@
     <section class="panel">
       <h2>Project Library</h2>
       <div class="actions">
-        <button id="importButton" class="secondary" type="button">Import JSON backup or Catasto text</button>
-        <input id="importFile" type="file" accept=".json,.catasto,.txt,.md,application/json,text/plain,text/markdown" hidden>
+        <label for="importFile">Import JSON backup or Catasto text</label>
+        <input id="importFile" class="import-file" type="file" accept=".json,.catasto,.txt,.md,application/json,text/plain,text/markdown" aria-describedby="importHelp">
       </div>
-      <p class="intro">JSON restores an exported project, including saved corrections. Markdown or text creates a project by parsing the transcription.</p>
+      <p class="intro" id="importHelp">JSON restores an exported project, including saved corrections. Markdown or text creates a project by parsing the transcription.</p>
       <p class="status" id="libraryStatus"></p>
       <div class="project-list" id="projectList"></div>
     </section>
