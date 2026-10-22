@@ -30,6 +30,7 @@
     .project h3 { margin:0 0 4px; font-size:15px; }
     .meta { color:var(--muted); font-size:12px; }
     .empty { color:var(--muted); padding:12px 0; }
+    .license-footer { width:min(1040px,calc(100% - 32px)); margin:0 auto 24px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--muted); font-size:12px; line-height:1.4; padding:10px 12px; }
     @media (max-width:720px) { .grid { grid-template-columns:1fr; } .project { grid-template-columns:1fr; } header { align-items:flex-start; } }
   </style>
 </head>
@@ -75,6 +76,7 @@
       <p class="status" id="createStatus">Projects are stored in this browser's IndexedDB database.</p>
     </section>
   </main>
+  <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.01</footer>
   <script src="catasto-storage.js"></script>
   <script src="catasto-parser.js"></script>
   <script src="admin.js"></script>
