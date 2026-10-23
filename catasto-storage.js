@@ -27,10 +27,16 @@
       const transaction = database.transaction(PROJECT_STORE, mode);
       const store = transaction.objectStore(PROJECT_STORE);
       let result;
+      let failure = null;
+      const fail = error => {
+        failure = error;
+        transaction.abort();
+      };
 
       try {
-        result = operation(store);
+        result = operation(store, fail);
       } catch (error) {
+        transaction.abort();
         database.close();
         reject(error);
         return;
@@ -46,7 +52,7 @@
       });
       transaction.addEventListener("abort", () => {
         database.close();
-        reject(transaction.error || new Error("Storage operation was cancelled."));
+        reject(failure || transaction.error || new Error("Storage operation was cancelled."));
       });
     });
   }
@@ -103,11 +109,38 @@
     }
   }
 
-  async function saveProject(project) {
+  // Refuses to overwrite a project another tab saved or deleted after this copy was loaded.
+  // New projects must be saved with { create: true }.
+  async function saveProject(project, { create = false } = {}) {
     validateData(project.data);
-    project.updatedAt = new Date().toISOString();
-    await withStore("readwrite", store => store.put(project));
+    const loadedUpdatedAt = project.updatedAt;
+    const updatedAt = new Date().toISOString();
+    await withStore("readwrite", (store, fail) => {
+      const request = store.get(project.id);
+      request.addEventListener("success", () => {
+        const stored = request.result;
+        if (stored && stored.updatedAt !== loadedUpdatedAt) {
+          fail(new Error("This project was changed in another tab or window. Reload the page before saving again; your unsaved change was not stored."));
+        } else if (!stored && !create) {
+          fail(new Error("This project was deleted in another tab or window. Reload the page; your unsaved change was not stored."));
+        } else {
+          store.put({ ...project, updatedAt });
+        }
+      });
+    });
+    project.updatedAt = updatedAt;
     return project;
+  }
+
+  async function saveImportedProjects(projects) {
+    if (!Array.isArray(projects) || !projects.length) {
+      throw new Error("No projects were selected for import.");
+    }
+    projects.forEach(project => validateData(project.data));
+    await withStore("readwrite", store => {
+      projects.forEach(project => store.add(project));
+    });
+    return projects;
   }
 
   async function deleteProject(id) {
@@ -156,6 +189,7 @@
     getProject,
     listProjects,
     projectsFromImport,
+    saveImportedProjects,
     saveProject,
     serializeProject
   };

@@ -10,6 +10,10 @@
   const importFile = document.querySelector("#importFile");
   let selectedSourceName = "";
 
+  function savePreference(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* Storage may be disabled. */ }
+  }
+
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
@@ -29,7 +33,7 @@
     link.href = URL.createObjectURL(blob);
     link.download = `${slugify(project.name) || "catasto-project"}.catasto.json`;
     link.click();
-    URL.revokeObjectURL(link.href);
+    setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
   }
 
   async function renderProjects() {
@@ -89,8 +93,8 @@
         sourceText: text,
         data
       });
-      await CatastoStorage.saveProject(project);
-      localStorage.setItem("catasto-active-project", project.id);
+      await CatastoStorage.saveProject(project, { create: true });
+      savePreference("catasto-active-project", project.id);
       projectName.value = "";
       plainText.value = "";
       textFile.value = "";
@@ -123,8 +127,8 @@
       } else {
         throw new Error("Choose a Catasto JSON backup, .md transcription, or .txt transcription.");
       }
-      for (const project of projects) await CatastoStorage.saveProject(project);
-      localStorage.setItem("catasto-active-project", projects.at(-1).id);
+      await CatastoStorage.saveImportedProjects(projects);
+      savePreference("catasto-active-project", projects.at(-1).id);
       await renderProjects();
       libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}. Refresh the Visualizer to open it.`;
     } catch (error) {

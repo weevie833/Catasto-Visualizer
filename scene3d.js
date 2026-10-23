@@ -10,8 +10,8 @@ const inspector = $('#sceneInspector');
 const districtSelect = $('#district3d');
 const hover = $('#sceneHover');
 const SCENE_STRINGS = {
-  en: { allDistricts: 'All districts', allLandowners: 'All landowners', landowners: 'Landowners', household: 'household', households: 'households', landowner: 'landowner', landownerPlural: 'landowners', boundaryReference: 'boundary reference', boundaryReferences: 'boundary references', noResidence: 'No residence listed', notListed: 'Not Listed', noRecords: 'No records loaded', uploadToExplore: 'Upload Catasto text to explore households in 3D.', namedBoundary: 'Named in a boundary record', landownerRecord: 'Landowner record', householdRecord: 'Household record', landSummary: 'Landholding summary', members: 'household members', landNeighbors: 'recorded land neighbors', residenceNeighbors: 'recorded residence neighbors', reference: 'reference', onlyBoundary: 'Only a boundary reference is available. This marker does not establish a complete household.', anotherDistrict: 'in another district. Select a name to visit.', noNeighbors: 'No named neighbors were parsed. Nearby placement is illustrative.', publicRoad: 'Public road mentioned in the record.', ruralDwelling: 'Rural dwelling', parish: '18th-century parish style', manor: '18th-century manor style', expand: 'Expand', exitExpanded: 'Exit expanded', perspective: 'Perspective', topView: 'Top view', contextLost: 'The 3D graphics context was interrupted. Reload the page to restore the environment.' },
-  it: { allDistricts: 'Tutti i rioni', allLandowners: 'Tutti i proprietari', landowners: 'Proprietari', household: 'famiglia', households: 'famiglie', landowner: 'proprietario', landownerPlural: 'proprietari', boundaryReference: 'riferimento di confine', boundaryReferences: 'riferimenti di confine', noResidence: 'Residenza non indicata', notListed: 'Non indicato', noRecords: 'Nessun dato caricato', uploadToExplore: 'Carica il testo del Catasto per esplorare le famiglie in 3D.', namedBoundary: 'Citato in un confine', landownerRecord: 'Scheda del proprietario', householdRecord: 'Scheda familiare', landSummary: 'Riepilogo dei terreni', members: 'componenti della famiglia', landNeighbors: 'vicini dei terreni citati', residenceNeighbors: 'vicini di residenza citati', reference: 'riferimento', onlyBoundary: 'È disponibile solo un riferimento di confine. Questo segnaposto non identifica una famiglia completa.', anotherDistrict: 'in un altro rione. Seleziona un nome per raggiungerlo.', noNeighbors: 'Non sono stati rilevati vicini nominati. La disposizione è illustrativa.', publicRoad: 'La voce menziona una strada pubblica.', ruralDwelling: 'Abitazione rurale', parish: 'Stile di chiesa parrocchiale del XVIII secolo', manor: 'Stile di dimora signorile del XVIII secolo', expand: 'Espandi', exitExpanded: 'Esci da schermo intero', perspective: 'Prospettiva', topView: 'Vista dall’alto', contextLost: 'Il contesto grafico 3D è stato interrotto. Ricarica la pagina per ripristinare l’ambiente.' }
+  en: { allDistricts: 'All districts', allLandowners: 'All landowners', landowners: 'Landowners', household: 'household', households: 'households', landowner: 'landowner', landownerPlural: 'landowners', boundaryReference: 'boundary reference', boundaryReferences: 'boundary references', noResidence: 'No residence listed', notListed: 'Not Listed', noRecords: 'No records loaded', uploadToExplore: 'Upload Catasto text to explore households in 3D.', namedBoundary: 'Named in a boundary record', landownerRecord: 'Landowner record', householdRecord: 'Household record', landRecord: 'Landholding record', parcel: 'parcel', parcels: 'parcels', landSummary: 'Landholding summary', members: 'household members', landNeighbors: 'recorded land neighbors', residenceNeighbors: 'recorded residence neighbors', reference: 'reference', onlyBoundary: 'Only a boundary reference is available. This marker does not establish a complete household.', anotherDistrict: 'in another district. Select a name to visit.', noNeighbors: 'No named neighbors were parsed. Nearby placement is illustrative.', publicRoad: 'Public road mentioned in the record.', ruralDwelling: 'Rural dwelling', parish: '18th-century parish style', manor: '18th-century manor style', expand: 'Expand', exitExpanded: 'Exit expanded', perspective: 'Perspective', topView: 'Top view', contextLost: 'The 3D graphics context was interrupted. Reload the page to restore the environment.' },
+  it: { allDistricts: 'Tutti i rioni', allLandowners: 'Tutti i proprietari', landowners: 'Proprietari', household: 'famiglia', households: 'famiglie', landowner: 'proprietario', landownerPlural: 'proprietari', boundaryReference: 'riferimento di confine', boundaryReferences: 'riferimenti di confine', noResidence: 'Residenza non indicata', notListed: 'Non indicato', noRecords: 'Nessun dato caricato', uploadToExplore: 'Carica il testo del Catasto per esplorare le famiglie in 3D.', namedBoundary: 'Citato in un confine', landownerRecord: 'Scheda del proprietario', householdRecord: 'Scheda familiare', landRecord: 'Voce del terreno', parcel: 'terreno', parcels: 'terreni', landSummary: 'Riepilogo dei terreni', members: 'componenti della famiglia', landNeighbors: 'vicini dei terreni citati', residenceNeighbors: 'vicini di residenza citati', reference: 'riferimento', onlyBoundary: 'È disponibile solo un riferimento di confine. Questo segnaposto non identifica una famiglia completa.', anotherDistrict: 'in un altro rione. Seleziona un nome per raggiungerlo.', noNeighbors: 'Non sono stati rilevati vicini nominati. La disposizione è illustrativa.', publicRoad: 'La voce menziona una strada pubblica.', ruralDwelling: 'Abitazione rurale', parish: 'Stile di chiesa parrocchiale del XVIII secolo', manor: 'Stile di dimora signorile del XVIII secolo', expand: 'Espandi', exitExpanded: 'Esci da schermo intero', perspective: 'Prospettiva', topView: 'Vista dall’alto', contextLost: 'Il contesto grafico 3D è stato interrotto. Ricarica la pagina per ripristinare l’ambiente.' }
 };
 let language = window.catasto.getLanguage?.() === 'it' ? 'it' : 'en';
 const tr = key => SCENE_STRINGS[language][key] || SCENE_STRINGS.en[key] || key;
@@ -761,7 +761,7 @@ function applyScope() {
   groups.forEach(group => group.island.visible = scope === 'all' || group.key === scope);
   const records = visibleUnits.filter(n => n.unit.source === 'extracted').length;
   const references = visibleUnits.length - records;
-  const noun = state.layer === 'land' ? (records === 1 ? 'parcel' : 'parcels') : (records === 1 ? tr('household') : tr('households'));
+  const noun = state.layer === 'land' ? (records === 1 ? tr('parcel') : tr('parcels')) : (records === 1 ? tr('household') : tr('households'));
   $('#sceneStats').textContent = `${records} ${noun} · ${references} ${references === 1 ? tr('boundaryReference') : tr('boundaryReferences')}`;
   updateSelection();
   fitView();
@@ -852,7 +852,7 @@ function updateSelection() {
   const crossDistrict = neighborNodes.filter(n => !n.container.visible).length;
   const landRecord = state.layer === 'land' && !reference;
   const unresolvedOwnerReferences = landRecord ? ownerSelectionNodes(selected).filter(node => node.unit.source !== 'extracted').length : 0;
-  inspector.innerHTML = `<p class="inspector-kicker">${reference ? 'Named in a boundary record' : landRecord ? 'Landholding record' : 'Household record'}</p>
+  inspector.innerHTML = `<p class="inspector-kicker">${reference ? tr('namedBoundary') : landRecord ? tr('landRecord') : tr('householdRecord')}</p>
     <h3>${escape(landRecord ? u.parcelName : u.displayHead || u.head)}</h3><p>${escape(landRecord ? `${u.displayHead || u.head} · ${u.place}` : u.place)}${!reference && !landRecord && u.role ? ` · ${escape(u.role)}` : ''}</p>
     ${state.layer !== 'land' && !reference ? `<p class="building-style"><strong>${escape(selected.building.label)}</strong>${buildingCue ? `<br>${escape(buildingCue)}` : ''}</p>` : ''}
     ${reference ? '<p>Only a boundary reference is available. This marker does not establish a complete parcel.</p>' : landRecord ? `<details open><summary>Landholding details</summary><ul><li>${escape(u.role)}</li><li>${escape(u.capacity)}</li><li>${escape(u.income)}</li>${(u.boundaryFeatures || []).map(feature => `<li>${escape(feature)} boundary</li>`).join('')}</ul></details>` : `<details><summary>${u.members.length} household members</summary><ul>${u.members.map(m => `<li>${escape(m)}</li>`).join('')}</ul></details>`}
@@ -886,7 +886,7 @@ function localizeInspector(selected) {
   const unit = selected.unit;
   const reference = unit.source !== 'extracted';
   const kicker = inspector.querySelector('.inspector-kicker');
-  if (kicker) kicker.textContent = reference ? tr('namedBoundary') : state.layer === 'land' ? 'Voce del terreno' : tr('householdRecord');
+  if (kicker) kicker.textContent = reference ? tr('namedBoundary') : state.layer === 'land' ? tr('landRecord') : tr('householdRecord');
   const identity = inspector.querySelector('h3 + p');
   if (identity) identity.textContent = state.layer === 'land' && !reference
     ? (unit.displayHead || unit.head) + ' · ' + displayPlace(unit.place)
@@ -1121,7 +1121,7 @@ function toggleExpanded(force) {
   environmentBar?.classList.toggle('expanded', expanded);
   if (expanded && environmentBar) root.style.setProperty('--environment-header-height', `${environmentBar.offsetHeight}px`);
   else root.style.removeProperty('--environment-header-height');
-  $('#expand3d').textContent = expanded ? 'Exit expanded' : 'Expand';
+  $('#expand3d').textContent = expanded ? tr('exitExpanded') : tr('expand');
   $('#expand3d').setAttribute('aria-pressed', String(expanded));
   canvas.focus(); resize();
 }
@@ -1150,7 +1150,7 @@ window.addEventListener('catasto:language-change', event => {
   $('#expand3d').textContent = $('#expand3d').getAttribute('aria-pressed') === 'true' ? tr('exitExpanded') : tr('expand');
   const records = visibleUnits.filter(node => node.unit.source === 'extracted').length;
   const references = visibleUnits.length - records;
-  const noun = state.layer === 'land' ? (records === 1 ? 'parcel' : 'parcels') : (records === 1 ? tr('household') : tr('households'));
+  const noun = state.layer === 'land' ? (records === 1 ? tr('parcel') : tr('parcels')) : (records === 1 ? tr('household') : tr('households'));
   $('#sceneStats').textContent = records + ' ' + noun + ' · ' + references + ' ' + (references === 1 ? tr('boundaryReference') : tr('boundaryReferences'));
   updateSelection();
   dirty = true;
@@ -1179,14 +1179,22 @@ function frame(time) {
   projectLabels(); renderer.render(scene, camera); dirty = false;
 }
 
-sync();
-setMode('3d');
-// Open in the richest district, close enough to explore the buildings immediately.
-const firstDistrict = [...groups.values()].sort((a, b) => b.units.filter(u => u.source === 'extracted').length - a.units.filter(u => u.source === 'extracted').length)[0];
-const firstUnit = firstDistrict?.units.filter(u => u.source === 'extracted').sort((a, b) => b.neighbors.length - a.neighbors.length)[0];
-if (firstUnit) {
+// Open in the richest district, close enough to explore the buildings immediately. Project data may
+// arrive before or after this module loads, so this runs once, on the first state that has units.
+let initialViewOpened = false;
+function openInitialView() {
+  if (initialViewOpened || state.layer !== 'household' || !state.units.length) return;
+  initialViewOpened = true;
+  const firstDistrict = [...groups.values()].sort((a, b) => b.units.filter(u => u.source === 'extracted').length - a.units.filter(u => u.source === 'extracted').length)[0];
+  const firstUnit = firstDistrict?.units.filter(u => u.source === 'extracted').sort((a, b) => b.neighbors.length - a.neighbors.length)[0];
+  if (!firstUnit) return;
   window.catasto.select(firstUnit.id);
   const target = nodes.get(firstUnit.id).position.clone();
   moveCamera(target, 48, new THREE.Vector3(.6, .85, 1).normalize());
 }
+window.addEventListener('catasto:change', openInitialView);
+
+sync();
+setMode('3d');
+openInitialView();
 requestAnimationFrame(frame);

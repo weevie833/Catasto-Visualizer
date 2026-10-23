@@ -911,7 +911,6 @@
   <script src="./catasto-parser.js"></script>
   <script src="./catasto-storage.js"></script>
   <script>
-    const EMBEDDED_DATA = { households: [] };
 
     let households = [];
     let householdById = new Map();
@@ -997,7 +996,19 @@
         filterResults: "Filtra i risultati", familyMember: "Familiare", reference: "Riferimento"
       }
     };
-    let language = localStorage.getItem("catasto-language") === "it" ? "it" : "en";
+    function storedPreference(key) {
+      try { return localStorage.getItem(key); } catch { return null; }
+    }
+
+    function savePreference(key, value) {
+      try { localStorage.setItem(key, value); } catch { /* Storage may be disabled. */ }
+    }
+
+    function removePreference(key) {
+      try { localStorage.removeItem(key); } catch { /* Storage may be disabled. */ }
+    }
+
+    let language = storedPreference("catasto-language") === "it" ? "it" : "en";
     let currentFileName = "sample extracted data";
     const t = key => UI_STRINGS[language][key] || UI_STRINGS.en[key] || key;
     const localizedPlace = place => place === "No residence listed" ? t("noResidence") : place === "Not Listed" ? t("notListed") : place;
@@ -1268,7 +1279,7 @@
     }
 
     function isPublicAnchor(name) {
-      return /public road|river|road|via publica/i.test(name);
+      return /\b(?:public road|running river|river|road|via publica)\b/i.test(name);
     }
 
     function isPublicRoad(name) {
@@ -1292,7 +1303,7 @@
     }
 
     function memberLines(record) {
-      const lines = record.members_text
+      const lines = String(record.members_text || "")
         .split("\n")
         .map(line => line.trim())
         .filter(Boolean);
@@ -1321,10 +1332,6 @@
       return `${firstAndSurname(rawName, householdSurname)}, ${relation} (${age})`;
     }
 
-    function displayMembers(record, surname) {
-      return memberLines(record).map((line, index) => parseMemberLine(line, surname, index));
-    }
-
     function householdMemberIdentities(record, surname) {
       const lines = memberLines(record);
       const displays = lines.map((line, index) => parseMemberLine(line, surname, index));
@@ -1336,7 +1343,8 @@
           identityType: index === 0 ? "household-head" : "household-member",
           position: index,
           name: firstAndSurname(rawName, surname),
-          display: displays[index]
+          display: displays[index],
+          sourceLine: line
         };
       });
     }
@@ -1501,7 +1509,8 @@
 
     function bestMatchingRecord(records, sourceRecord) {
       if (!records?.length) return null;
-      if (records.length === 1 || !sourceRecord) return records[0];
+      if (records.length === 1) return records[0];
+      if (!sourceRecord) return null;
       const storedLink = (sourceRecord.residence_links || []).find(link =>
         link.household_id && records.some(record => record.id === link.household_id) &&
         personKey(link.name) === personKey(records[0].household_head)
@@ -1515,232 +1524,6 @@
       const sourcePlace = canonicalPlace(sourceRecord.residence?.place || "No residence listed").key;
       const samePlace = records.filter(record => canonicalPlace(record.residence?.place || "No residence listed").key === sourcePlace);
       return samePlace.length === 1 ? samePlace[0] : null;
-    }
-
-    function residenceLinks(records) {
-      const byName = recordsByPersonName(records);
-      const byId = new Map(records.map(record => [record.id, record]));
-      const links = new Map(records.map(record => [record.id, new Set()]));
-
-      records.forEach(record => {
-        (record.residence?.adjacent_to || []).filter(name => !isPublicAnchor(name)).forEach(name => {
-          const target = bestMatchingRecord(byName.get(personKey(name)), record);
-          if (!target || target.id === record.id || !byId.has(target.id)) return;
-          links.get(record.id).add(target.id);
-          links.get(target.id).add(record.id);
-        });
-      });
-
-      return links;
-    }
-
-    function adjacencyOrderedRecords(records) {
-      const links = residenceLinks(records);
-      const byId = new Map(records.map(record => [record.id, record]));
-      const visited = new Set();
-      const components = [];
-      records.forEach(record => {
-        if (visited.has(record.id)) return;
-        const stack = [record.id];
-        const component = [];
-        visited.add(record.id);
-        while (stack.length) {
-          const id = stack.pop();
-          const current = byId.get(id);
-          if (current) component.push(current);
-          [...(links.get(id) || [])].sort().forEach(nextId => {
-            if (visited.has(nextId)) return;
-            visited.add(nextId);
-            stack.push(nextId);
-          });
-        }
-        component.sort((a, b) => {
-          const degreeDiff = (links.get(b.id)?.size || 0) - (links.get(a.id)?.size || 0);
-          return degreeDiff || records.indexOf(a) - records.indexOf(b);
-        });
-        components.push(component);
-      });
-
-      components.sort((a, b) => records.indexOf(a[0]) - records.indexOf(b[0]));
-      return components.flat();
-    }
-
-    function connectedRecordComponents(records, links) {
-      const byId = new Map(records.map(record => [record.id, record]));
-      const visited = new Set();
-      const components = [];
-
-      records.forEach(record => {
-        if (visited.has(record.id)) return;
-        const stack = [record.id];
-        const component = [];
-        visited.add(record.id);
-        while (stack.length) {
-          const id = stack.pop();
-          const current = byId.get(id);
-          if (current) component.push(current);
-          [...(links.get(id) || [])].sort((a, b) => records.findIndex(record => record.id === a) - records.findIndex(record => record.id === b)).forEach(nextId => {
-            if (visited.has(nextId)) return;
-            visited.add(nextId);
-            stack.push(nextId);
-          });
-        }
-        components.push(component);
-      });
-
-      components.sort((a, b) => records.indexOf(a[0]) - records.indexOf(b[0]));
-      return components;
-    }
-
-    function pointKey(point) {
-      return `${Math.round(point.x)},${Math.round(point.y)}`;
-    }
-
-    function hexesWouldOverlap(a, b) {
-      const dx = Math.abs(a.x - b.x);
-      const dy = Math.abs(a.y - b.y);
-      if (!dx && !dy) return true;
-      return dx < 286 && dy < 214;
-    }
-
-    function collidesWithPlaced(point, positions, ignoredIds = new Set()) {
-      return [...positions.entries()].some(([id, placed]) => !ignoredIds.has(id) && hexesWouldOverlap(point, placed));
-    }
-
-    function oppositeEdge(index) {
-      return (index + 3) % NEIGHBOR_OFFSETS.length;
-    }
-
-    function hexPositionComponent(component, links, recordOrder) {
-      const ids = new Set(component.map(record => record.id));
-      const byId = new Map(component.map(record => [record.id, record]));
-      const positions = new Map();
-      const usedCenters = new Set();
-      const usedEdges = new Map(component.map(record => [record.id, new Set()]));
-      const seed = [...component].sort((a, b) => {
-        const degreeDiff = [...(links.get(b.id) || [])].filter(id => ids.has(id)).length - [...(links.get(a.id) || [])].filter(id => ids.has(id)).length;
-        return degreeDiff || recordOrder.indexOf(a) - recordOrder.indexOf(b);
-      })[0];
-
-      positions.set(seed.id, { x: 0, y: 0 });
-      usedCenters.add("0,0");
-      const queue = [seed.id];
-
-      while (queue.length) {
-        const id = queue.shift();
-        const origin = positions.get(id);
-        const neighbors = [...(links.get(id) || [])]
-          .filter(nextId => ids.has(nextId) && !positions.has(nextId))
-          .sort((a, b) => recordOrder.indexOf(byId.get(a)) - recordOrder.indexOf(byId.get(b)));
-
-        neighbors.forEach((nextId, neighborIndex) => {
-          let placed = false;
-          const edgeOrder = NEIGHBOR_OFFSETS.map((_, offsetIndex) => (neighborIndex + offsetIndex) % NEIGHBOR_OFFSETS.length);
-          for (const edgeIndex of edgeOrder) {
-            if (usedEdges.get(id).has(edgeIndex)) continue;
-            const [dx, dy] = NEIGHBOR_OFFSETS[edgeIndex];
-            const point = { x: origin.x + dx, y: origin.y + dy };
-            const key = pointKey(point);
-            if (usedCenters.has(key) || collidesWithPlaced(point, positions)) continue;
-            positions.set(nextId, point);
-            usedCenters.add(key);
-            usedEdges.get(id).add(edgeIndex);
-            usedEdges.get(nextId).add(oppositeEdge(edgeIndex));
-            queue.push(nextId);
-            placed = true;
-            break;
-          }
-
-          for (let ring = 2; ring <= 8 && !placed; ring += 1) {
-            for (const edgeIndex of edgeOrder) {
-              const [dx, dy] = NEIGHBOR_OFFSETS[edgeIndex];
-              const point = { x: origin.x + dx * ring, y: origin.y + dy * ring };
-              const key = pointKey(point);
-              if (usedCenters.has(key) || collidesWithPlaced(point, positions)) continue;
-              positions.set(nextId, point);
-              usedCenters.add(key);
-              queue.push(nextId);
-              placed = true;
-              break;
-            }
-          }
-        });
-      }
-
-      component.forEach((record, index) => {
-        if (positions.has(record.id)) return;
-        let placed = false;
-        for (let row = 0; row < 20 && !placed; row += 1) {
-          for (let col = 0; col < 20; col += 1) {
-            const point = { x: col * 580, y: row * 500 };
-            const key = pointKey(point);
-            if (usedCenters.has(key) || collidesWithPlaced(point, positions)) continue;
-            positions.set(record.id, point);
-            usedCenters.add(key);
-            placed = true;
-            break;
-          }
-        }
-      });
-
-      return positions;
-    }
-
-    function layoutRecordGroup(records) {
-      const ordered = adjacencyOrderedRecords(records);
-      const links = residenceLinks(ordered);
-      const components = connectedRecordComponents(ordered, links);
-      const componentLayouts = components.map(component => {
-        const positions = hexPositionComponent(component, links, ordered);
-        const xs = [...positions.values()].map(point => point.x);
-        const ys = [...positions.values()].map(point => point.y);
-        return {
-          component,
-          positions,
-          minX: Math.min(...xs),
-          maxX: Math.max(...xs),
-          minY: Math.min(...ys),
-          maxY: Math.max(...ys),
-          width: Math.max(760, Math.max(...xs) - Math.min(...xs) + 520),
-          height: Math.max(620, Math.max(...ys) - Math.min(...ys) + 460)
-        };
-      });
-
-      const columns = Math.max(1, Math.ceil(Math.sqrt(componentLayouts.length * 1.8)));
-      const componentGapX = 900;
-      const componentGapY = 760;
-      const colWidths = Array.from({ length: columns }, (_, col) =>
-        Math.max(0, ...componentLayouts.filter((_, index) => index % columns === col).map(layout => layout.width))
-      );
-      const rowCount = Math.ceil(componentLayouts.length / columns);
-      const rowHeights = Array.from({ length: rowCount }, (_, row) =>
-        Math.max(0, ...componentLayouts.filter((_, index) => Math.floor(index / columns) === row).map(layout => layout.height))
-      );
-      const positions = new Map();
-      let maxRight = 0;
-      let maxBottom = 0;
-
-      componentLayouts.forEach((layout, index) => {
-        const col = index % columns;
-        const row = Math.floor(index / columns);
-        const xOffset = colWidths.slice(0, col).reduce((sum, width) => sum + width, 0) + col * componentGapX;
-        const yOffset = rowHeights.slice(0, row).reduce((sum, height) => sum + height, 0) + row * componentGapY;
-        const baseX = xOffset - layout.minX + 360;
-        const baseY = yOffset - layout.minY + 300;
-        layout.component.forEach(record => {
-          const point = layout.positions.get(record.id);
-          positions.set(record.id, { x: baseX + point.x, y: baseY + point.y });
-        });
-        maxRight = Math.max(maxRight, xOffset + layout.width + 720);
-        maxBottom = Math.max(maxBottom, yOffset + layout.height + 620);
-      });
-
-      return {
-        records: ordered,
-        positions,
-        width: Math.max(2100, maxRight),
-        height: Math.max(1000, maxBottom)
-      };
     }
 
     function buildHouseholds(data) {
@@ -1970,17 +1753,25 @@
       if (!person) return null;
       const householdId = typeof person === "object" ? person.householdId : null;
       const personName = typeof person === "object" ? person.name : person;
+      const recordIndex = typeof person === "object" ? person.recordIndex : null;
+      if (Number.isInteger(recordIndex)) {
+        const recordMatch = households.find(household =>
+          household.source === "extracted" && household.recordIndex === recordIndex
+        );
+        if (recordMatch) return recordMatch.id;
+      }
       if (householdId) {
         const identityMatch = households.find(household =>
           household.source === "extracted" && household.householdId === householdId
         );
         if (identityMatch) return identityMatch.id;
       }
-      const match = households.find(household =>
+      if (typeof personName !== "string") return null;
+      const matches = households.filter(household =>
         household.source === "extracted" &&
         household.head.toLowerCase() === personName.toLowerCase()
       );
-      return match?.id || null;
+      return matches.length === 1 ? matches[0].id : null;
     }
 
     function surnameSortKey(household) {
@@ -2173,7 +1964,7 @@
 
       const selectedOwnerKey = view.layer === "land" ? householdById.get(view.selectedId)?.ownerKey : null;
       list.innerHTML = results.map(({ household, match, summary }, index) => `
-        <button class="household-button ${household.id === view.selectedId || (view.layer === "land" && household.ownerKey === selectedOwnerKey) ? "active" : ""}" data-id="${household.id}" data-result-index="${index}">
+        <button class="household-button ${household.id === view.selectedId || (view.layer === "land" && household.ownerKey === selectedOwnerKey) ? "active" : ""}" data-id="${escapeHtml(household.id)}" data-result-index="${index}">
           <span class="household-name">${escapeHtml(localizedRole(match?.primary || household.displayHead || household.head))}</span>
           <span class="household-meta">${escapeHtml(localizedRole(match?.detail || summary || household.role || "household"))}${match || summary ? "" : `<br>${escapeHtml(localizedPlace(household.place))}`}</span>
           ${match ? `<span class="search-result-type">${escapeHtml(t(match.type))}</span>` : ""}
@@ -2877,20 +2668,64 @@
       projectSelect.value = selectedId;
     }
 
+    // Gives the renderer the field types it reads, so an incomplete imported record cannot stop the app.
+    // Only the display copy is normalized; the stored project is unchanged.
+    function renderableRecord(value) {
+      const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      const text = field => typeof field === "string" ? field : field == null ? "" : String(field);
+      const residence = record.residence && typeof record.residence === "object" ? record.residence : {};
+      return {
+        ...record,
+        household_head: text(record.household_head),
+        members_text: text(record.members_text),
+        source_entry: text(record.source_entry),
+        source_pages: Array.isArray(record.source_pages) ? record.source_pages.filter(Number.isFinite) : [],
+        residence: {
+          ...residence,
+          place: typeof residence.place === "string" ? residence.place : null,
+          description: typeof residence.description === "string" ? residence.description : null,
+          adjacent_to: Array.isArray(residence.adjacent_to) ? residence.adjacent_to.filter(name => typeof name === "string") : []
+        },
+        residence_links: Array.isArray(record.residence_links)
+          ? record.residence_links.filter(link => link && typeof link === "object")
+          : []
+      };
+    }
+
     function projectScopedData(project) {
       const data = JSON.parse(JSON.stringify(project.data));
-      data.households = data.households.map((record, index) => ({
-        ...record,
-        projectRecordIndex: index,
-        id: `${project.id}-${record.id || record.household_head || index + 1}`,
-        household_id: `${project.id}-${record.household_id || record.id || record.household_head || index + 1}`,
-        residence_links: (record.residence_links || []).map(link => ({
-          ...link,
-          household_id: link.household_id ? `${project.id}-${link.household_id}` : null,
-          candidate_household_ids: (link.candidate_household_ids || []).map(id => `${project.id}-${id}`)
-        }))
-      }));
+      data.households = data.households.map((stored, index) => {
+        const record = renderableRecord(stored);
+        return {
+          ...record,
+          projectRecordIndex: index,
+          id: `${project.id}-${record.id || record.household_head || index + 1}`,
+          household_id: `${project.id}-${record.household_id || record.id || record.household_head || index + 1}`,
+          residence_links: record.residence_links.map(link => ({
+            ...link,
+            name: typeof link.name === "string" ? link.name : "",
+            household_id: link.household_id ? `${project.id}-${link.household_id}` : null,
+            candidate_household_ids: (Array.isArray(link.candidate_household_ids) ? link.candidate_household_ids : []).map(id => `${project.id}-${id}`)
+          }))
+        };
+      });
       return data;
+    }
+
+    // Restores member source lines erased by the earlier identity-recalculation defect.
+    function backfillMemberSourceLines(data) {
+      let changed = false;
+      (data?.households || []).forEach(record => {
+        if (!Array.isArray(record?.member_identities)) return;
+        const lines = memberLines(record);
+        record.member_identities.forEach(member => {
+          if (member && member.source_line === undefined && typeof lines[member.position] === "string") {
+            member.source_line = lines[member.position];
+            changed = true;
+          }
+        });
+      });
+      return changed;
     }
 
     function recalculateStoredIdentityGraph(data) {
@@ -2938,7 +2773,7 @@
     }
 
     function applyMaranoResidenceCorrections(data, correctionSet) {
-      if (!data?.households || data.residence_corrections_version === correctionSet.version) return false;
+      if (!correctionSet || !data?.households || data.residence_corrections_version === correctionSet.version) return false;
       correctionSet.corrections.forEach(correction => {
         const record = data.households.find(candidate =>
           candidate.household_head === correction.household_head &&
@@ -3013,15 +2848,37 @@
     async function activateProject(id) {
       const project = id ? await CatastoStorage.getProject(id) : null;
       if (!project) return;
-      activeProject = project;
       view.layer = "household";
       view.search = "";
       personSearch.value = "";
-      useData(projectScopedData(project));
+      try {
+        activeProject = project;
+        useData(projectScopedData(project));
+      } catch (error) {
+        console.error("Project could not be displayed:", error);
+        showUnavailableProject(project, error);
+        return;
+      }
       const projectParts = project.name.split(/\s*·\s*/);
       document.querySelector("#catastoTitle").textContent = `${projectParts[0] || project.name} Catasto Onciario${projectParts[1] ? ` ${projectParts.slice(1).join(" ")}` : ""}`;
       setFilenameLabel(`${project.name} · ${project.data.households.length} households`);
-      localStorage.setItem("catasto-active-project", project.id);
+      savePreference("catasto-active-project", project.id);
+    }
+
+    // Leaves the project selector usable and stops the broken project from reopening at startup.
+    function showUnavailableProject(project, error) {
+      if (storedPreference("catasto-active-project") === project.id) removePreference("catasto-active-project");
+      activeProject = null;
+      activeData = null;
+      households = [];
+      householdById = new Map();
+      view.selectedId = null;
+      list.innerHTML = "";
+      sourceEditButton.hidden = true;
+      document.querySelector("#selectedTitle").textContent = "Project could not be displayed";
+      document.querySelector("#sourceEntry").textContent = `“${project.name}” could not be displayed (${error.message}). Choose another project, or export, repair, or delete it in Admin.`;
+      setFilenameLabel(`${project.name} · could not be displayed`);
+      announceScene();
     }
 
     async function createDefaultProject(correctionSet) {
@@ -3042,27 +2899,43 @@
         sourceText,
         data
       });
-      await CatastoStorage.saveProject(project);
+      await CatastoStorage.saveProject(project, { create: true });
       return project;
     }
 
     async function refreshProjects(preferredId = null) {
-      const correctionSet = await loadMaranoResidenceCorrections();
       let projects = await CatastoStorage.listProjects();
+      let correctionSet = null;
+      if (!projects.length || projects.some(isMaranoDefaultProject)) {
+        try {
+          correctionSet = await loadMaranoResidenceCorrections();
+        } catch (error) {
+          console.warn("Residence corrections unavailable; projects will load without new corrections.", error);
+        }
+      }
       if (!projects.length) {
+        if (!correctionSet) throw new Error("The default project's residence corrections are unavailable. Try loading this page again.");
         projects = [await createDefaultProject(correctionSet)];
       } else {
-        for (const project of projects.filter(isMaranoDefaultProject)) {
-          const boundariesRebuilt = rebuildStoredProjectBoundaries(project);
-          const corrected = applyMaranoResidenceCorrections(project.data, correctionSet);
-          const pagesAdded = backfillSourcePages(project);
-          const identitiesRecalculated = project.data.identity_resolution_version !== 4 && recalculateStoredIdentityGraph(project.data);
-          if (boundariesRebuilt || corrected || pagesAdded || identitiesRecalculated) {
-            await CatastoStorage.saveProject(project);
+        // One project's failed migration, or a migration another tab saved first, must not block the library.
+        for (const project of projects) {
+          try {
+            let changed = false;
+            if (isMaranoDefaultProject(project)) {
+              const boundariesRebuilt = rebuildStoredProjectBoundaries(project);
+              const corrected = applyMaranoResidenceCorrections(project.data, correctionSet);
+              const pagesAdded = backfillSourcePages(project);
+              const identitiesRecalculated = project.data.identity_resolution_version !== 4 && recalculateStoredIdentityGraph(project.data);
+              changed = boundariesRebuilt || corrected || pagesAdded || identitiesRecalculated;
+            }
+            if (backfillMemberSourceLines(project.data)) changed = true;
+            if (changed) await CatastoStorage.saveProject(project);
+          } catch (error) {
+            console.warn(`Project “${project.name}” was not migrated.`, error);
           }
         }
       }
-      const rememberedId = localStorage.getItem("catasto-active-project");
+      const rememberedId = storedPreference("catasto-active-project");
       const selectedId = [preferredId, rememberedId, projects[0].id]
         .find(id => id && projects.some(project => project.id === id));
       renderProjectOptions(projects, selectedId);
@@ -3184,6 +3057,12 @@
         });
     }
 
+    // Selects a stored record by position so same-name household heads cannot be confused.
+    function storedRecordSelection(project, record) {
+      const recordIndex = project.data.households.indexOf(record);
+      return { recordIndex: recordIndex >= 0 ? recordIndex : null, name: record.household_head };
+    }
+
     function sourceEvidence(record) {
       return record.source_entries?.length ? record.source_entries : [{
         text: record.source_entry || "",
@@ -3193,7 +3072,8 @@
 
     async function mergeDuplicateRecords() {
       if (!duplicateReview) return;
-      const records = activeProject.data.households;
+      const editedProject = structuredClone(activeProject);
+      const records = editedProject.data.households;
       const editedIndex = records.findIndex(record => record.id === duplicateReview.editedId);
       const candidateIndex = records.findIndex(record => record.id === duplicateReview.candidateId);
       if (editedIndex < 0 || candidateIndex < 0 || editedIndex === candidateIndex) return;
@@ -3222,13 +3102,14 @@
       canonical.residence.adjacent_to = [...new Set([...(canonical.residence.adjacent_to || []), ...(edited.residence?.adjacent_to || [])])];
       if (!canonical.residence.place && edited.residence?.place) canonical.residence.place = edited.residence.place;
       canonical.family_relationships = [...(canonical.family_relationships || []), ...(edited.family_relationships || [])];
-      activeProject.data.merge_history = [...(activeProject.data.merge_history || []), history];
+      editedProject.data.merge_history = [...(editedProject.data.merge_history || []), history];
       records.splice(editedIndex, 1);
-      activeProject.data.requested_household_count = records.length;
-      activeProject.data.extracted_household_count = records.length;
-      await CatastoStorage.saveProject(activeProject);
+      editedProject.data.requested_household_count = records.length;
+      editedProject.data.extracted_household_count = records.length;
+      await CatastoStorage.saveProject(editedProject);
+      activeProject = editedProject;
       duplicateReview.mergeId = mergeId;
-      useData(projectScopedData(activeProject), canonical.household_head);
+      useData(projectScopedData(activeProject), storedRecordSelection(activeProject, canonical));
       setFilenameLabel(`${activeProject.name} · ${records.length} households`);
       duplicateStatus.textContent = `Merged into “${canonical.household_head}”. Both source entries, page citations, and former names were preserved.`;
       duplicateDecisionActions.hidden = true;
@@ -3238,10 +3119,11 @@
 
     async function undoDuplicateMerge() {
       const mergeId = duplicateReview?.mergeId;
-      const historyIndex = (activeProject.data.merge_history || []).findIndex(item => item.id === mergeId);
+      const editedProject = structuredClone(activeProject);
+      const historyIndex = (editedProject.data.merge_history || []).findIndex(item => item.id === mergeId);
       if (historyIndex < 0) return;
-      const history = activeProject.data.merge_history[historyIndex];
-      const records = activeProject.data.households;
+      const history = editedProject.data.merge_history[historyIndex];
+      const records = editedProject.data.households;
       const canonicalIndex = records.findIndex(record => record.id === history.canonicalBefore.id);
       if (canonicalIndex >= 0) records.splice(canonicalIndex, 1);
       const restored = [
@@ -3249,13 +3131,13 @@
         { index: history.duplicateIndex, record: history.duplicateBefore }
       ].sort((a, b) => a.index - b.index);
       restored.forEach(item => records.splice(Math.min(item.index, records.length), 0, item.record));
-      activeProject.data.merge_history.splice(historyIndex, 1);
-      activeProject.data.requested_household_count = records.length;
-      activeProject.data.extracted_household_count = records.length;
-      await CatastoStorage.saveProject(activeProject);
-      const selectedName = history.duplicateBefore.household_head;
+      editedProject.data.merge_history.splice(historyIndex, 1);
+      editedProject.data.requested_household_count = records.length;
+      editedProject.data.extracted_household_count = records.length;
+      await CatastoStorage.saveProject(editedProject);
+      activeProject = editedProject;
       closeDuplicateReview();
-      useData(projectScopedData(activeProject), selectedName);
+      useData(projectScopedData(activeProject), storedRecordSelection(activeProject, history.duplicateBefore));
       setFilenameLabel(`${activeProject.name} · ${records.length} households`);
     }
 
@@ -3264,17 +3146,19 @@
       const first = activeProject.data.households.find(record => record.id === duplicateReview.editedId);
       const second = activeProject.data.households.find(record => record.id === duplicateReview.candidateId);
       if (first && second) {
-        activeProject.data.duplicate_decisions = [...(activeProject.data.duplicate_decisions || []), {
+        const editedProject = structuredClone(activeProject);
+        editedProject.data.duplicate_decisions = [...(editedProject.data.duplicate_decisions || []), {
           key: duplicateDecisionKey(first, second), status: "separate", decidedAt: new Date().toISOString()
         }];
-        await CatastoStorage.saveProject(activeProject);
+        await CatastoStorage.saveProject(editedProject);
+        activeProject = editedProject;
       }
       closeDuplicateReview();
     }
 
     async function saveSourceEntry() {
-      const record = selectedProjectRecord();
-      if (!record) return;
+      const selectedRecord = selectedProjectRecord();
+      if (!selectedRecord) return;
       const sourceEntry = sourceEditText.value.trim();
       if (!sourceEntry) {
         sourceEditStatus.textContent = language === "it" ? "La voce catastale non può essere vuota." : "The source tax entry cannot be empty.";
@@ -3282,6 +3166,10 @@
         return;
       }
 
+      const recordIndex = activeProject.data.households.indexOf(selectedRecord);
+      if (recordIndex < 0) return;
+      const editedProject = structuredClone(activeProject);
+      const record = editedProject.data.households[recordIndex];
       const previousHead = record.household_head;
       const parsedResidence = parseResidence(sourceEntry);
       const residencePlace = sourceEditPlace.value.trim();
@@ -3297,7 +3185,7 @@
         const family = window.CatastoParser.inferFamilyRelationships(parsedMembers);
         record.members_text = family.members.join("\n");
         record.family_relationships = family.relationships;
-        const correctedHead = parsedMembers[0].split(",")[0].trim();
+        const correctedHead = memberPersonName(parsedMembers[0]);
         if (correctedHead && correctedHead !== previousHead) {
           record.household_head = correctedHead;
           record.aliases = [...new Set([...(record.aliases || []), previousHead])];
@@ -3307,12 +3195,12 @@
       sourceEditStatus.textContent = language === "it" ? "Salvataggio…" : "Saving…";
       document.querySelector("#sourceEditSave").disabled = true;
       try {
-        recalculateStoredIdentityGraph(activeProject.data);
-        await CatastoStorage.saveProject(activeProject);
-        const selectedName = record.household_head;
+        recalculateStoredIdentityGraph(editedProject.data);
+        await CatastoStorage.saveProject(editedProject);
+        activeProject = editedProject;
         const duplicate = findStrongDuplicate(record);
         closeSourceEditor();
-        useData(projectScopedData(activeProject), selectedName);
+        useData(projectScopedData(activeProject), storedRecordSelection(activeProject, record));
         setFilenameLabel(`${activeProject.name} · ${activeProject.data.households.length} households`);
         if (duplicate) openDuplicateReview(record, duplicate);
       } catch (error) {
@@ -3360,13 +3248,13 @@
     document.querySelector("#languageEnglish").addEventListener("click", () => {
       if (language === "en") return;
       language = "en";
-      localStorage.setItem("catasto-language", language);
+      savePreference("catasto-language", language);
       applyLanguage();
     });
     document.querySelector("#languageItalian").addEventListener("click", () => {
       if (language === "it") return;
       language = "it";
-      localStorage.setItem("catasto-language", language);
+      savePreference("catasto-language", language);
       applyLanguage();
     });
     function submitPersonSearch() {

@@ -68,10 +68,10 @@ needed at runtime. Serve the folder over HTTP for ES module loading; opening the
 HTML directly from the filesystem does not enable 3D. Browsers without WebGL 2
 show an initialization error.
 
-Open `index.html` in a browser or serve the folder locally:
+Serve the folder locally (keep port 8000 to use the same IndexedDB origin):
 
 ```bash
-python3 -m http.server 8000
+python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
 Then visit:
@@ -98,13 +98,13 @@ http://127.0.0.1:8000/index.html
 - `catasto-parser.js` - plain-text parser used by project administration
 - `scene3d.js` / `scene3d.css` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
-- `building-types.test.mjs` - style-rule regression checks (`node --test building-types.test.mjs`)
+- `*.test.mjs` - parser, style-rule, storage, and visualizer-workflow regression checks (`node --test *.test.mjs`)
 - `vendor/` - pinned local Three.js renderer, controls, and license
 - `MM 1754 Catasto Onciario Transcription 300.md` - bilingual transcription and translation used as the active source
 - `households_pages_5_13.json` - earlier extracted English sample
 - `extract_page_5_13_households.py` - earlier DOCX-to-JSON extraction script
 - `README.md` - project notes and visualization rules
-- `requirements.txt` - currently empty; reserved for future tooling
+- `requirements.txt` - Python dependency for the optional DOCX extraction script
 - `MM 1754 Catasto Onciario Transcription EDIT.docx` - earlier transcription source document
 - `MM 1754 Catasto Onciario Transcription.docx` - earlier transcription source document
 

@@ -4,7 +4,7 @@
 
 - `index.html` contains the visualization and project selector.
 - `admin.html` and `admin.js` contain project-management workflows.
-- `catasto-parser.js` owns plain-text parsing used during project creation.
+- `catasto-parser.js` parses text in Admin; `index.html` has a separate parser for the default project and source migration.
 - `catasto-storage.js` owns local persistence and the portable exchange format.
 - User projects live in the browser's IndexedDB database, not in application files.
 - Household source-entry edits and residence corrections are written directly to the active IndexedDB project and are included in project exports.
@@ -13,6 +13,8 @@
 ## Upgrade Safety
 
 Application updates may replace `index.html` and `catasto-storage.js` without changing saved projects. The app must continue to be served from the same browser origin because IndexedDB is isolated by origin. Exported `.catasto.json` files provide backups and allow projects to move between users or origins.
+
+A save is refused when the stored project changed or was deleted after the saving tab loaded it, so one tab or window cannot silently overwrite another. New projects are saved with `{ create: true }`.
 
 ## Project Record
 
