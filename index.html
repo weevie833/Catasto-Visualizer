@@ -2942,6 +2942,41 @@
       await activateProject(selectedId);
     }
 
+    function isEditingProject() {
+      return sourceEditModal.classList.contains("open") || duplicateModal.classList.contains("open");
+    }
+
+    // Applies a project-library change announced by Admin in another tab. A newly imported or created
+    // project opens at once, unless an edit is open here; then only the selector list is updated.
+    async function applyLibraryChange(change) {
+      if (change?.type !== "projects-changed") return;
+      const opensProject = (change.reason === "imported" || change.reason === "created") && change.projectId;
+      if (opensProject && !isEditingProject()) {
+        await refreshProjects(change.projectId);
+        return;
+      }
+      const projects = await CatastoStorage.listProjects();
+      if (activeProject && projects.some(project => project.id === activeProject.id)) {
+        renderProjectOptions(projects, activeProject.id);
+      } else if (isEditingProject()) {
+        renderProjectOptions(projects, "");
+      } else {
+        await refreshProjects();
+      }
+    }
+
+    let libraryChanges = Promise.resolve();
+    function queueLibraryChange(change) {
+      libraryChanges = libraryChanges.then(() => applyLibraryChange(change)).catch(error => {
+        filenameLine.textContent = error.message;
+      });
+      return libraryChanges;
+    }
+
+    if (typeof BroadcastChannel === "function") {
+      new BroadcastChannel("catasto-projects").addEventListener("message", event => queueLibraryChange(event.data));
+    }
+
     function openUploadModal() {
       uploadModal.classList.add("open");
       uploadModal.setAttribute("aria-hidden", "false");
@@ -3379,7 +3414,8 @@
     };
 
     applyLanguage();
-    loadData();
+    // Library changes announced during startup wait until the first load finishes.
+    libraryChanges = loadData();
   </script>
   <script type="module">
     import('./scene3d.js?v=8').catch(error => {

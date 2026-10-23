@@ -15,16 +15,20 @@ authoritative working directory.
 ## Run and verify
 
 ```bash
-python3 -m http.server 8000 --bind 127.0.0.1
+python3 serve.py
 ```
 
-Open `http://127.0.0.1:8000/index.html`.
+Open `http://127.0.0.1:8000/index.html`. On Windows, run `py serve.py`; see the
+README's Windows section. `serve.py` sends fixed file types because Python's
+built-in server can label `.js` as `text/plain` on Windows, which stops the 3D modules.
 
 ```bash
 node --test *.test.mjs
+python3 -m unittest test_serve.py
 ```
 
-The current suite contains 34 parser, building-style, storage, and visualizer-workflow tests. Browser-local
+The Node suite contains 41 parser, building-style, storage, Admin, and visualizer-workflow
+tests; `test_serve.py` contains 4 server tests. Browser-local
 IndexedDB is origin-specific, so continue using port 8000 for the user's live
 project library.
 
@@ -116,6 +120,8 @@ Identity-resolution migration version 4 is active.
 - `index-app.test.mjs` — visualizer workflows (editing, merging, selection, malformed
   records, migrations) run from the inline `index.html` script with a stub DOM.
 - `catasto-storage.test.mjs` — exchange format, stale-write refusal, and atomic import.
+- `admin.test.mjs` — Admin announces imports, creations, and deletions to open Visualizer tabs.
+- `serve.py` / `test_serve.py` — local server with fixed file types, bound to 127.0.0.1.
 - `catasto-storage.js` — IndexedDB project persistence and exchange format.
 - `admin.html` / `admin.js` — project library management.
 - `building-types.js` / `building-types.test.mjs` — architectural source cues.

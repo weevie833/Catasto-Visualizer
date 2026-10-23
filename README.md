@@ -68,10 +68,12 @@ needed at runtime. Serve the folder over HTTP for ES module loading; opening the
 HTML directly from the filesystem does not enable 3D. Browsers without WebGL 2
 show an initialization error.
 
-Serve the folder locally (keep port 8000 to use the same IndexedDB origin):
+Start the included server from the project folder. It needs only Python 3.7 or
+later, listens on this computer only, and sends the correct file types for the
+3D modules:
 
 ```bash
-python3 -m http.server 8000 --bind 127.0.0.1
+python3 serve.py
 ```
 
 Then visit:
@@ -79,6 +81,25 @@ Then visit:
 ```text
 http://127.0.0.1:8000/index.html
 ```
+
+Stop the server with Ctrl+C. Keep port 8000 and the same address: projects are
+stored separately for each address, so `http://localhost:8000` and
+`http://127.0.0.1:8000` do not share a library.
+
+### Windows
+
+1. Install Python from [python.org](https://www.python.org/downloads/windows/).
+   If typing `python3` opens the Microsoft Store, use the `py` command instead.
+2. In File Explorer, open the project folder, type `cmd` in the address bar, and
+   press Enter.
+3. Run `py serve.py` (or `python serve.py`) and leave that window open.
+4. Open `http://127.0.0.1:8000/index.html` in Edge, Chrome, or Firefox.
+
+Do not double-click `index.html` or `admin.html`. Pages opened as files cannot
+load the 3D view, and projects imported there are stored separately from the
+server's library. Use `serve.py` rather than `python -m http.server`: on many
+Windows computers the built-in server labels JavaScript as plain text, and the
+browser then refuses to start the 3D view.
 
 ## Visualization Rules
 
@@ -98,13 +119,15 @@ http://127.0.0.1:8000/index.html
 - `catasto-parser.js` - plain-text parser used by project administration
 - `scene3d.js` / `scene3d.css` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
-- `*.test.mjs` - parser, style-rule, storage, and visualizer-workflow regression checks (`node --test *.test.mjs`)
+- `serve.py` - local server with fixed file types (`python3 serve.py`)
+- `*.test.mjs` - parser, style-rule, storage, Admin, and visualizer-workflow regression checks (`node --test *.test.mjs`)
+- `test_serve.py` - local-server checks (`python3 -m unittest test_serve.py`)
 - `vendor/` - pinned local Three.js renderer, controls, and license
 - `MM 1754 Catasto Onciario Transcription 300.md` - bilingual transcription and translation used as the active source
 - `households_pages_5_13.json` - earlier extracted English sample
 - `extract_page_5_13_households.py` - earlier DOCX-to-JSON extraction script
 - `README.md` - project notes and visualization rules
-- `requirements.txt` - Python dependency for the optional DOCX extraction script
+- `requirements.txt` - pinned Python dependency for the optional DOCX extraction script only; the app and `serve.py` need no packages
 - `MM 1754 Catasto Onciario Transcription EDIT.docx` - earlier transcription source document
 - `MM 1754 Catasto Onciario Transcription.docx` - earlier transcription source document
 
@@ -115,6 +138,8 @@ files. Export a `.catasto.json` file for backup or exchange with another user.
 Use Admin's **Import JSON backup or Catasto text** button to restore that file;
 the source text picker in **Create Project** accepts `.md` and `.txt`
 transcriptions, which are parsed into new projects. A transcription file does
-not preserve corrections made to a saved project.
+not preserve corrections made to a saved project. An open Visualizer tab
+switches to a newly imported or created project automatically, unless a source
+edit is open there; then only its project list is updated.
 Browser storage is tied to the app origin, so continue serving the project from
 the same host and port to access the same local library.

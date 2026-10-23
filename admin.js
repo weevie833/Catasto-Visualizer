@@ -14,6 +14,14 @@
     try { localStorage.setItem(key, value); } catch { /* Storage may be disabled. */ }
   }
 
+  // Tells open Visualizer tabs to reload their project list.
+  function announceLibraryChange(reason, projectId = null) {
+    if (typeof BroadcastChannel !== "function") return;
+    const channel = new BroadcastChannel("catasto-projects");
+    channel.postMessage({ type: "projects-changed", reason, projectId });
+    channel.close();
+  }
+
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
@@ -65,6 +73,7 @@
     } else if (event.target.closest(".delete")) {
       if (!window.confirm(`Delete “${project.name}” from this browser? Export it first if you need a backup.`)) return;
       await CatastoStorage.deleteProject(project.id);
+      announceLibraryChange("deleted", project.id);
       await renderProjects();
     }
   });
@@ -95,6 +104,7 @@
       });
       await CatastoStorage.saveProject(project, { create: true });
       savePreference("catasto-active-project", project.id);
+      announceLibraryChange("created", project.id);
       projectName.value = "";
       plainText.value = "";
       textFile.value = "";
@@ -129,8 +139,9 @@
       }
       await CatastoStorage.saveImportedProjects(projects);
       savePreference("catasto-active-project", projects.at(-1).id);
+      announceLibraryChange("imported", projects.at(-1).id);
       await renderProjects();
-      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}. Refresh the Visualizer to open it.`;
+      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}. An open Visualizer tab now shows it; otherwise use Return to Visualizer.`;
     } catch (error) {
       libraryStatus.textContent = `Import failed: ${error.message}`;
     } finally {

@@ -16,6 +16,8 @@ Application updates may replace `index.html` and `catasto-storage.js` without ch
 
 A save is refused when the stored project changed or was deleted after the saving tab loaded it, so one tab or window cannot silently overwrite another. New projects are saved with `{ create: true }`.
 
+Admin announces imports, creations, and deletions on the `catasto-projects` `BroadcastChannel`. Open Visualizer tabs reload their project list and open a newly imported or created project, unless a source edit or duplicate review is open there.
+
 ## Project Record
 
 Each stored project contains an ID, display name, source filename, timestamps, and a parsed Catasto data object with a `households` array. Exchange files include an explicit format name and version so future migrations can be added without coupling data to a particular app release.

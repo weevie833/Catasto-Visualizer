@@ -14,10 +14,19 @@ function fakeDocument() {
   const elements = new Map();
   const element = selector => {
     if (elements.has(selector)) return elements.get(selector);
+    const classes = new Set();
+    let markup = "";
     const node = {
-      value: "", textContent: "", innerHTML: "", hidden: false, disabled: false, placeholder: "", title: "",
+      value: "", textContent: "", hidden: false, disabled: false, placeholder: "", title: "",
       dataset: {}, options: [], style: {},
-      classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+      get innerHTML() { return markup; },
+      set innerHTML(value) { markup = value; this.options = []; },
+      classList: {
+        add: name => classes.add(name),
+        remove: name => classes.delete(name),
+        toggle: (name, force = !classes.has(name)) => (force ? classes.add(name) : classes.delete(name), force),
+        contains: name => classes.has(name)
+      },
       setAttribute() {}, getAttribute: () => null, addEventListener() {}, focus() {}, select() {},
       scrollIntoView() {}, replaceChildren() {}, add(option) { this.options.push(option); },
       querySelector: child => element(`${selector} ${child}`), querySelectorAll: () => [], closest: () => null
@@ -65,6 +74,13 @@ async function loadApp(projects, { rememberedId = null, blockedLocalStorage = fa
       };
   const storage = memoryStorage(projects);
   const document = fakeDocument();
+  const channelListeners = [];
+  class BroadcastChannel {
+    constructor(name) { this.name = name; }
+    addEventListener(type, listener) { if (this.name === "catasto-projects" && type === "message") channelListeners.push(listener); }
+    postMessage() {}
+    close() {}
+  }
   const context = {
     window: { dispatchEvent() {} },
     document,
@@ -73,6 +89,7 @@ async function loadApp(projects, { rememberedId = null, blockedLocalStorage = fa
     CustomEvent: class {},
     Option: class { constructor(text, value) { this.text = text; this.value = value; } },
     structuredClone,
+    BroadcastChannel,
     fetch: async () => { throw new Error("No network in tests."); },
     CatastoStorage: storage
   };
@@ -85,7 +102,12 @@ async function loadApp(projects, { rememberedId = null, blockedLocalStorage = fa
     storage,
     preferences,
     document,
-    run: code => vm.runInContext(code, context)
+    run: code => vm.runInContext(code, context),
+    // Delivers a message as Admin would send it, then waits for the visualizer to apply it.
+    async broadcast(data) {
+      channelListeners.forEach(listener => listener({ data }));
+      await vm.runInContext("libraryChanges", context);
+    }
   };
 }
 
@@ -226,4 +248,52 @@ test("identity recalculation keeps each member's source line", async () => {
 test("the app starts when localStorage is blocked", async () => {
   const app = await loadApp([sameNameProject()], { blockedLocalStorage: true });
   assert.equal(app.run("activeProject?.id"), "project-a");
+});
+
+function secondProject() {
+  return { ...sameNameProject(), id: "project-b", name: "Imported project", data: { households: [record("pietro-spizzirri", "Pietro Spizzirri")] } };
+}
+
+const projectOptions = app => app.document.querySelector("#projectSelect").options.map(option => option.value);
+
+test("a project imported in Admin opens in an already open visualizer", async () => {
+  const app = await loadApp([sameNameProject()]);
+  app.storage.projects.set("project-b", secondProject());
+  await app.broadcast({ type: "projects-changed", reason: "imported", projectId: "project-b" });
+
+  assert.equal(app.run("activeProject.id"), "project-b");
+  assert.deepEqual(projectOptions(app).sort(), ["project-a", "project-b"]);
+  assert.equal(app.run("households.find(unit => unit.id === view.selectedId).head"), "Pietro Spizzirri");
+});
+
+test("an import does not replace a project while an edit is open; the list still updates", async () => {
+  const app = await loadApp([sameNameProject()]);
+  selectRecord(app, 3);
+  app.run("openSourceEditor()");
+  app.storage.projects.set("project-b", secondProject());
+  await app.broadcast({ type: "projects-changed", reason: "imported", projectId: "project-b" });
+
+  assert.equal(app.run("activeProject.id"), "project-a");
+  assert.equal(selectedRecordIndex(app), 3);
+  assert.deepEqual(projectOptions(app).sort(), ["project-a", "project-b"]);
+});
+
+test("deleting another project updates the list without resetting the current view", async () => {
+  const app = await loadApp([sameNameProject(), secondProject()], { rememberedId: "project-a" });
+  selectRecord(app, 3);
+  app.storage.projects.delete("project-b");
+  await app.broadcast({ type: "projects-changed", reason: "deleted", projectId: "project-b" });
+
+  assert.equal(app.run("activeProject.id"), "project-a");
+  assert.equal(selectedRecordIndex(app), 3);
+  assert.deepEqual(projectOptions(app), ["project-a"]);
+});
+
+test("deleting the open project switches to a remaining project", async () => {
+  const app = await loadApp([sameNameProject(), secondProject()], { rememberedId: "project-a" });
+  app.storage.projects.delete("project-a");
+  await app.broadcast({ type: "projects-changed", reason: "deleted", projectId: "project-a" });
+
+  assert.equal(app.run("activeProject.id"), "project-b");
+  assert.deepEqual(projectOptions(app), ["project-b"]);
 });
