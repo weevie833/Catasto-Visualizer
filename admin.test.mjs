@@ -16,8 +16,9 @@ async function loadAdmin() {
     if (!elements.has(selector)) {
       const listeners = {};
       elements.set(selector, {
-        value: "", textContent: "", innerHTML: "", listeners,
-        addEventListener: (type, listener) => { listeners[type] = listener; }
+        value: "", textContent: "", innerHTML: "", hidden: true, listeners,
+        addEventListener: (type, listener) => { listeners[type] = listener; },
+        focus() { this.focused = true; }
       });
     }
     return elements.get(selector);
@@ -53,7 +54,7 @@ async function loadAdmin() {
   vm.runInContext(adminSource, context);
   const settle = () => new Promise(resolve => setTimeout(resolve, 10));
   await settle();
-  return { element, messages, stored, settle };
+  return { element, messages, stored, settle, storage: context.CatastoStorage };
 }
 
 test("importing a transcription announces the new project to open Visualizer tabs", async () => {
@@ -63,7 +64,10 @@ test("importing a transcription announces the new project to open Visualizer tab
 
   const imported = [...admin.stored.keys()].find(id => id !== "existing");
   assert.deepEqual(admin.messages, [{ channel: "catasto-projects", type: "projects-changed", reason: "imported", projectId: imported }]);
-  assert.match(admin.element("#libraryStatus").textContent, /open Visualizer tab now shows it/);
+  assert.equal(admin.element("#successNotice").hidden, false);
+  assert.equal(admin.element("#successTitle").textContent, "Imported “marano”");
+  assert.match(admin.element("#successDetail").textContent, /^1 household ready/);
+  assert.equal(admin.element("#openVisualizer").focused, true);
 });
 
 test("creating and deleting projects are announced", async () => {
@@ -86,4 +90,27 @@ test("a failed import announces nothing", async () => {
   await admin.element("#importFile").listeners.change({ target: { files: [{ name: "notes.md", text: async () => "No household lines here." }] } });
   assert.deepEqual(admin.messages, []);
   assert.match(admin.element("#libraryStatus").textContent, /^Import failed/);
+  assert.equal(admin.element("#successNotice").hidden, true);
+});
+
+test("creating a project offers to open it, and the notice can be dismissed", async () => {
+  const admin = await loadAdmin();
+  admin.element("#projectName").value = "Sample";
+  admin.element("#plainText").value = sampleText;
+  await admin.element("#createProject").listeners.click();
+  assert.equal(admin.element("#successNotice").hidden, false);
+  assert.equal(admin.element("#successTitle").textContent, "Created “Sample”");
+
+  admin.element("#dismissNotice").listeners.click();
+  assert.equal(admin.element("#successNotice").hidden, true);
+});
+
+test("a JSON backup import names the restored project", async () => {
+  const admin = await loadAdmin();
+  const payload = admin.storage.serializeProject(admin.storage.createProject({ name: "Restored", sourceFile: "restored.md", sourceText: sampleText, data: { households: [{ id: "a" }, { id: "b" }] } }));
+  await admin.element("#importFile").listeners.change({ target: { files: [{ name: "restored.catasto.json", text: async () => payload }] } });
+  await admin.settle();
+  assert.equal(admin.element("#successNotice").hidden, false, admin.element("#libraryStatus").textContent);
+  assert.equal(admin.element("#successTitle").textContent, "Imported “Restored”");
+  assert.match(admin.element("#successDetail").textContent, /^2 households ready/);
 });

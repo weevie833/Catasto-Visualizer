@@ -785,7 +785,7 @@
               <button class="language-button" id="languageEnglish" type="button" aria-label="English" aria-pressed="true"><span aria-hidden="true">🇬🇧</span> ENG</button>
               <button class="language-button" id="languageItalian" type="button" aria-label="Italiano" aria-pressed="false"><span aria-hidden="true">🇮🇹</span> IT</button>
             </div>
-            <a class="admin-button" href="admin.html" target="_blank" rel="noopener">ADMIN ↗</a>
+            <a class="admin-button" href="admin.html" target="catasto-admin">ADMIN ↗</a>
           </div>
           <div class="filename-line" id="filenameLine" hidden></div>
         </div>
@@ -911,6 +911,8 @@
   <script src="./catasto-parser.js"></script>
   <script src="./catasto-storage.js"></script>
   <script>
+    // Admin's "Open in Visualizer" links target this name, so they switch to this tab instead of opening another.
+    window.name = "catasto-visualizer";
 
     let households = [];
     let householdById = new Map();

@@ -5,9 +5,14 @@
   const libraryStatus = document.querySelector("#libraryStatus");
   const createStatus = document.querySelector("#createStatus");
   const projectName = document.querySelector("#projectName");
+  window.name = "catasto-admin";
   const textFile = document.querySelector("#textFile");
   const plainText = document.querySelector("#plainText");
   const importFile = document.querySelector("#importFile");
+  const successNotice = document.querySelector("#successNotice");
+  const successTitle = document.querySelector("#successTitle");
+  const successDetail = document.querySelector("#successDetail");
+  const openVisualizer = document.querySelector("#openVisualizer");
   let selectedSourceName = "";
 
   function savePreference(key, value) {
@@ -21,6 +26,22 @@
     channel.postMessage({ type: "projects-changed", reason, projectId });
     channel.close();
   }
+
+  // Confirms a new project and offers the next step. The link targets the Visualizer tab by name, so an
+  // open Visualizer is reused; it has already switched to the project.
+  function showSuccess(title, detail) {
+    successTitle.textContent = title;
+    successDetail.textContent = detail;
+    successNotice.hidden = false;
+    openVisualizer.focus();
+  }
+
+  function hideSuccess() {
+    successNotice.hidden = true;
+  }
+
+  document.querySelector("#dismissNotice").addEventListener("click", hideSuccess);
+  openVisualizer.addEventListener("click", hideSuccess);
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -109,9 +130,12 @@
       plainText.value = "";
       textFile.value = "";
       selectedSourceName = "";
-      createStatus.textContent = `Created “${project.name}” with ${data.households.length} households.`;
+      const count = data.households.length;
+      createStatus.textContent = `Created “${project.name}” with ${count} household${count === 1 ? "" : "s"}.`;
       await renderProjects();
+      showSuccess(`Created “${project.name}”`, `${count} household${count === 1 ? "" : "s"} ready to explore.`);
     } catch (error) {
+      hideSuccess();
       createStatus.textContent = error.message;
     }
   });
@@ -141,8 +165,15 @@
       savePreference("catasto-active-project", projects.at(-1).id);
       announceLibraryChange("imported", projects.at(-1).id);
       await renderProjects();
-      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}. An open Visualizer tab now shows it; otherwise use Return to Visualizer.`;
+      const opened = projects.at(-1);
+      const count = opened.data.households.length;
+      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}.`;
+      showSuccess(
+        projects.length === 1 ? `Imported “${opened.name}”` : `Imported ${projects.length} projects`,
+        `${projects.length === 1 ? "" : `“${opened.name}” opens first. `}${count} household${count === 1 ? "" : "s"} ready to explore.`
+      );
     } catch (error) {
+      hideSuccess();
       libraryStatus.textContent = `Import failed: ${error.message}`;
     } finally {
       importFile.value = "";
