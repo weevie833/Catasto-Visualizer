@@ -51,12 +51,11 @@ project library.
 
 ## Source and parsing
 
-The source of record is:
-
-`MM 1754 Catasto Onciario Transcription 300.md`
-
-Only English Translation sections are parsed into the active Marano project;
-the paired Italian transcription remains in the source document.
+The source of record is the bilingual Marano transcription, kept on the
+developer's computer and not in the repository. The app ships with no project
+data: a new installation opens an empty library, and projects are created or
+imported in Admin. Only English Translation sections are parsed; the paired
+Italian transcription remains in the source document.
 
 The parser now uses a household-entry state machine:
 
@@ -125,7 +124,7 @@ Identity-resolution migration version 4 is active.
 - `catasto-storage.js` — IndexedDB project persistence and exchange format.
 - `admin.html` / `admin.js` — project library management.
 - `building-types.js` / `building-types.test.mjs` — architectural source cues.
-- `marano-residence-corrections.json` — versioned Marano residence corrections.
+- `INSTALL.md` — step-by-step installation guide for Mac and Windows users.
 - `ARCHITECTURE.md` — architecture and identity rules.
 
 ## Requested next feature: dedicated record editor

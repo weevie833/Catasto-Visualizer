@@ -297,3 +297,19 @@ test("deleting the open project switches to a remaining project", async () => {
   assert.equal(app.run("activeProject.id"), "project-b");
   assert.deepEqual(projectOptions(app), ["project-b"]);
 });
+
+test("a new installation opens with an empty library and no built-in project", async () => {
+  const app = await loadApp([]);
+  assert.equal(app.run("activeProject"), null);
+  assert.equal(app.storage.projects.size, 0);
+  assert.deepEqual(projectOptions(app), [""]);
+  assert.match(app.document.querySelector("#sourceEntry").textContent, /ADMIN/);
+});
+
+test("deleting the last project leaves an empty library", async () => {
+  const app = await loadApp([sameNameProject()]);
+  app.storage.projects.delete("project-a");
+  await app.broadcast({ type: "projects-changed", reason: "deleted", projectId: "project-a" });
+  assert.equal(app.run("activeProject"), null);
+  assert.equal(app.storage.projects.size, 0);
+});

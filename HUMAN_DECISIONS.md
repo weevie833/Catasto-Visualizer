@@ -55,8 +55,9 @@ Decide: keep the fallback (and label those pages "inferred"), or leave such reco
 
 - Add a `LICENSE` file that matches the footer terms ("personal use; redistribution, hosting, and derivative works require
   permission")?
-- May the `.docx` sources and the full transcription stay in the repository? This matters if the repo is ever made public
-  (it is private now).
+- ~~May the `.docx` sources and the full transcription stay in the repository?~~ Decided 2026-10-23: no. All project
+  data, source documents, and the residence-corrections file stay on the owner's computer; the repository holds only
+  the app.
 - Will the app only ever run on `127.0.0.1`? If it might be hosted, authentication and storage design need review,
   because the current design assumes a single local user.
 

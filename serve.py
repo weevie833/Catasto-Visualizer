@@ -4,16 +4,20 @@ Python's built-in server takes file types from the Windows registry, which on ma
 machines labels .js files as text/plain. Browsers refuse to run JavaScript modules
 with that type, so the 3D view fails. This server sends fixed types instead.
 
-Usage:  python serve.py [--port 8000]     (Windows: py serve.py)
+Usage:  python serve.py [--port 8000] [--open]     (Windows: py serve.py)
+
+The double-click launchers in this folder run it with --open.
 """
 
 from __future__ import annotations
 
 import argparse
+import errno
 import functools
 import http.server
 import posixpath
 import urllib.parse
+import webbrowser
 from pathlib import Path
 
 HOST = "127.0.0.1"
@@ -65,9 +69,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Serve the Catasto Visualizer on this computer only.")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT,
                         help="keep 8000 to reopen the same browser project library (default: 8000)")
-    port = parser.parse_args().port
-    with create_server(port) as server:
-        print(f"Catasto Visualizer: http://{HOST}:{port}/index.html  (Ctrl+C to stop)")
+    parser.add_argument("--open", action="store_true", help="open the Visualizer in the default browser")
+    args = parser.parse_args()
+    url = f"http://{HOST}:{args.port}/index.html"
+    try:
+        server = create_server(args.port)
+    except OSError as error:
+        if error.errno != errno.EADDRINUSE:
+            raise
+        # Usually the Visualizer is already running from an earlier launch; reopen it instead of failing.
+        print(f"Port {args.port} is already in use, probably by an open Catasto Visualizer window.")
+        if args.open:
+            webbrowser.open(url)
+        return
+    with server:
+        print(f"Catasto Visualizer: {url}")
+        print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
+        if args.open:
+            webbrowser.open(url)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

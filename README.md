@@ -2,6 +2,8 @@
 
 Prototype for visualizing household proximity from the 1754 Catasto Onciario of Marano Marchesato, Cosenza, Italy.
 
+**New users:** see [INSTALL.md](INSTALL.md) for step-by-step installation on Mac and Windows.
+
 ## Current Prototype
 
 The default view is an interactive 3D environment. Choose a district, pan with a
@@ -16,9 +18,10 @@ focused, use arrow keys to pan, +/− to zoom, F to focus, H for overview, and T
 the overhead view.
 
 At startup, the app opens the last selected Catasto project from browser-local
-IndexedDB. On first use it creates the Marano 1754 project from
-`MM 1754 Catasto Onciario Transcription 300.md`. The Admin page creates,
-imports, exports, and deletes projects without coupling user data to app files.
+IndexedDB. The app ships with no data: on first use the library is empty, and
+the Admin page creates a project from a transcription file or imports a
+`.catasto.json` backup. Admin creates, imports, exports, and deletes projects
+without coupling user data to app files.
 The Source tax entry panel can edit a household's transcription and residence;
 saving updates that project's IndexedDB record and the visualization immediately.
 Leaving and returning to the browser does not reload the project or reset the
@@ -68,9 +71,11 @@ needed at runtime. Serve the folder over HTTP for ES module loading; opening the
 HTML directly from the filesystem does not enable 3D. Browsers without WebGL 2
 show an initialization error.
 
-Start the included server from the project folder. It needs only Python 3.7 or
-later, listens on this computer only, and sends the correct file types for the
-3D modules:
+Non-technical users can double-click `Start Catasto Visualizer (Mac).command` or
+`Start Catasto Visualizer (Windows).bat`, which run the server and open the
+browser; see [INSTALL.md](INSTALL.md). From a terminal, start the included
+server from the project folder. It needs only Python 3.7 or later, listens on
+this computer only, and sends the correct file types for the 3D modules:
 
 ```bash
 python3 serve.py
@@ -119,17 +124,13 @@ browser then refuses to start the 3D view.
 - `catasto-parser.js` - plain-text parser used by project administration
 - `scene3d.js` / `scene3d.css` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
-- `serve.py` - local server with fixed file types (`python3 serve.py`)
+- `serve.py` - local server with fixed file types (`python3 serve.py`; `--open` also opens the browser)
+- `Start Catasto Visualizer (Mac).command` / `(Windows).bat` - double-click launchers for `serve.py --open`
 - `*.test.mjs` - parser, style-rule, storage, Admin, and visualizer-workflow regression checks (`node --test *.test.mjs`)
 - `test_serve.py` - local-server checks (`python3 -m unittest test_serve.py`)
 - `vendor/` - pinned local Three.js renderer, controls, and license
-- `MM 1754 Catasto Onciario Transcription 300.md` - bilingual transcription and translation used as the active source
-- `households_pages_5_13.json` - earlier extracted English sample
-- `extract_page_5_13_households.py` - earlier DOCX-to-JSON extraction script
 - `README.md` - project notes and visualization rules
-- `requirements.txt` - pinned Python dependency for the optional DOCX extraction script only; the app and `serve.py` need no packages
-- `MM 1754 Catasto Onciario Transcription EDIT.docx` - earlier transcription source document
-- `MM 1754 Catasto Onciario Transcription.docx` - earlier transcription source document
+- `INSTALL.md` - step-by-step installation guide for Mac and Windows
 
 ## Project Data
 

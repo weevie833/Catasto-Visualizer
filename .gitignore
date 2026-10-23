@@ -1,0 +1,15 @@
+# Project data stays on the user's computer, never in the app repository.
+# Projects live in the browser; back them up with Admin > Export.
+*.catasto.json
+*.docx
+MM *.md
+MM *.txt
+marano-residence-corrections.json
+households_pages_5_13.json
+extract_page_5_13_households.py
+requirements.txt
+
+# Local tooling
+.DS_Store
+__pycache__/
+.claude/

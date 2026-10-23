@@ -776,7 +776,7 @@
     <main class="workspace">
       <div class="topbar">
         <div>
-          <h2 id="catastoTitle">Marano Marchesato Catasto Onciario 1754</h2>
+          <h2 id="catastoTitle">Catasto Onciario</h2>
           <span id="selectedTitle" hidden></span>
         </div>
         <div class="top-actions">
@@ -830,7 +830,7 @@
                 <h3 id="sourceEntryLabel">Source tax entry</h3>
                 <button class="source-edit-button" id="editSourceEntry" type="button" hidden>Edit</button>
               </div>
-              <p id="sourceEntry">Loading extracted household data...</p>
+              <p id="sourceEntry">Loading projects...</p>
             </div>
           </div>
         </div>
@@ -2766,31 +2766,6 @@
       return true;
     }
 
-    async function loadMaranoResidenceCorrections() {
-      const response = await fetch("./marano-residence-corrections.json");
-      if (!response.ok) throw new Error(`Residence corrections could not be loaded (${response.status}).`);
-      return response.json();
-    }
-
-    function applyMaranoResidenceCorrections(data, correctionSet) {
-      if (!correctionSet || !data?.households || data.residence_corrections_version === correctionSet.version) return false;
-      correctionSet.corrections.forEach(correction => {
-        const record = data.households.find(candidate =>
-          candidate.household_head === correction.household_head &&
-          (!correction.source_contains || candidate.source_entry?.includes(correction.source_contains))
-        );
-        if (!record) return;
-        record.residence = record.residence || {};
-        record.residence.place = correction.residence_place;
-        if (correction.set_household_head) {
-          record.household_head = correction.set_household_head;
-          record.id = slugify(correction.set_household_head);
-        }
-      });
-      data.residence_corrections_version = correctionSet.version;
-      return true;
-    }
-
     function backfillSourcePages(project) {
       if (!project.sourceText || !project.data?.households?.length) return false;
       const pageMappingVersion = 2;
@@ -2817,6 +2792,7 @@
       return true;
     }
 
+    // Earlier versions created a built-in project from this file; its stored copies still receive these migrations.
     function isMaranoDefaultProject(project) {
       return project.sourceFile === "MM 1754 Catasto Onciario Transcription 300.md";
     }
@@ -2881,58 +2857,43 @@
       announceScene();
     }
 
-    async function createDefaultProject(correctionSet) {
-      const response = await fetch("./MM%201754%20Catasto%20Onciario%20Transcription%20300.md");
-      if (!response.ok) throw new Error(`Source Markdown could not be loaded (${response.status}).`);
-      const sourceText = await response.text();
-      const data = parsePlainText(sourceText);
-      if (!data.households.length) throw new Error("No household records were found in the English Translation sections.");
-      data.source_document = "MM 1754 Catasto Onciario Transcription 300.md";
-      data.source_range = "Complete bilingual transcription supplied in Markdown";
-      data.note = `Parsed ${data.households.length} household records from the English Translation sections; the Italian transcription remains in the paired source file.`;
-      data.requested_household_count = data.households.length;
-      data.extracted_household_count = data.households.length;
-      applyMaranoResidenceCorrections(data, correctionSet);
-      const project = CatastoStorage.createProject({
-        name: "Marano Marchesato · 1754",
-        sourceFile: "MM 1754 Catasto Onciario Transcription 300.md",
-        sourceText,
-        data
-      });
-      await CatastoStorage.saveProject(project, { create: true });
-      return project;
+    // A new installation has no projects; the user creates or imports one in Admin.
+    function showEmptyLibrary() {
+      activeProject = null;
+      activeData = null;
+      households = [];
+      householdById = new Map();
+      view.selectedId = null;
+      list.innerHTML = "";
+      sourceEditButton.hidden = true;
+      document.querySelector("#catastoTitle").textContent = "Catasto Onciario";
+      document.querySelector("#selectedTitle").textContent = "No projects yet";
+      document.querySelector("#sourceEntry").textContent = "No projects are saved in this browser yet. Open ADMIN to create a project from a transcription file or import a .catasto.json backup.";
+      setFilenameLabel("No projects saved");
+      announceScene();
     }
 
     async function refreshProjects(preferredId = null) {
-      let projects = await CatastoStorage.listProjects();
-      let correctionSet = null;
-      if (!projects.length || projects.some(isMaranoDefaultProject)) {
-        try {
-          correctionSet = await loadMaranoResidenceCorrections();
-        } catch (error) {
-          console.warn("Residence corrections unavailable; projects will load without new corrections.", error);
-        }
-      }
+      const projects = await CatastoStorage.listProjects();
       if (!projects.length) {
-        if (!correctionSet) throw new Error("The default project's residence corrections are unavailable. Try loading this page again.");
-        projects = [await createDefaultProject(correctionSet)];
-      } else {
-        // One project's failed migration, or a migration another tab saved first, must not block the library.
-        for (const project of projects) {
-          try {
-            let changed = false;
-            if (isMaranoDefaultProject(project)) {
-              const boundariesRebuilt = rebuildStoredProjectBoundaries(project);
-              const corrected = applyMaranoResidenceCorrections(project.data, correctionSet);
-              const pagesAdded = backfillSourcePages(project);
-              const identitiesRecalculated = project.data.identity_resolution_version !== 4 && recalculateStoredIdentityGraph(project.data);
-              changed = boundariesRebuilt || corrected || pagesAdded || identitiesRecalculated;
-            }
-            if (backfillMemberSourceLines(project.data)) changed = true;
-            if (changed) await CatastoStorage.saveProject(project);
-          } catch (error) {
-            console.warn(`Project “${project.name}” was not migrated.`, error);
+        renderProjectOptions(projects, "");
+        showEmptyLibrary();
+        return;
+      }
+      // One project's failed migration, or a migration another tab saved first, must not block the library.
+      for (const project of projects) {
+        try {
+          let changed = false;
+          if (isMaranoDefaultProject(project)) {
+            const boundariesRebuilt = rebuildStoredProjectBoundaries(project);
+            const pagesAdded = backfillSourcePages(project);
+            const identitiesRecalculated = project.data.identity_resolution_version !== 4 && recalculateStoredIdentityGraph(project.data);
+            changed = boundariesRebuilt || pagesAdded || identitiesRecalculated;
           }
+          if (backfillMemberSourceLines(project.data)) changed = true;
+          if (changed) await CatastoStorage.saveProject(project);
+        } catch (error) {
+          console.warn(`Project “${project.name}” was not migrated.`, error);
         }
       }
       const rememberedId = storedPreference("catasto-active-project");

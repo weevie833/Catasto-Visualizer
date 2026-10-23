@@ -4,11 +4,11 @@
 
 - `index.html` contains the visualization and project selector.
 - `admin.html` and `admin.js` contain project-management workflows.
-- `catasto-parser.js` parses text in Admin; `index.html` has a separate parser for the default project and source migration.
+- `catasto-parser.js` parses text in Admin; `index.html` has a separate parser for source migration of stored projects.
 - `catasto-storage.js` owns local persistence and the portable exchange format.
 - User projects live in the browser's IndexedDB database, not in application files.
 - Household source-entry edits and residence corrections are written directly to the active IndexedDB project and are included in project exports.
-- JSON and text files in the repository are source/test material and are not required by the runtime.
+- The repository contains no project data. A new installation starts with an empty library; source transcriptions and backups stay on the user's computer and are excluded by `.gitignore`.
 
 ## Upgrade Safety
 
