@@ -1,6 +1,9 @@
 # Catasto Visualizer
 
-Prototype for visualizing household proximity from the 1754 Catasto Onciario of Marano Marchesato, Cosenza, Italy.
+Prototype for visualizing household proximity in Catasto Onciario tax records,
+developed with the 1754 Catasto of Marano Marchesato, Cosenza, Italy. The app
+contains no record data; each user loads their own transcription or project
+backup.
 
 **New users:** see [INSTALL.md](INSTALL.md) for step-by-step installation on Mac and Windows.
 
@@ -91,7 +94,9 @@ Stop the server with Ctrl+C. Keep port 8000 and the same address: projects are
 stored separately for each address, so `http://localhost:8000` and
 `http://127.0.0.1:8000` do not share a library.
 
-### Windows
+### Windows (manual start)
+
+The Windows launcher does the following for you. To start the server by hand:
 
 1. Install Python from [python.org](https://www.python.org/downloads/windows/).
    If typing `python3` opens the Microsoft Store, use the `py` command instead.
@@ -131,16 +136,25 @@ browser then refuses to start the 3D view.
 - `vendor/` - pinned local Three.js renderer, controls, and license
 - `README.md` - project notes and visualization rules
 - `INSTALL.md` - step-by-step installation guide for Mac and Windows
+- `ARCHITECTURE.md` - storage boundaries, upgrade safety, and identity rules
+- `HANDOFF.md`, `HUMAN_DECISIONS.md`, `CODEX_REVIEW*.md`, `CLAUDE_RESPONSE.md`, `AGENTS.md` - development notes, review history, and agent instructions
+- `.gitignore` - keeps transcriptions, source documents, and project backups out of the repository
 
 ## Project Data
 
 Projects are stored locally in IndexedDB and remain separate from application
 files. Export a `.catasto.json` file for backup or exchange with another user.
 Use Admin's **Import JSON backup or Catasto text** button to restore that file;
-the source text picker in **Create Project** accepts `.md` and `.txt`
+the **Source text file** picker in **Create Project from Catasto Text** accepts `.md` and `.txt`
 transcriptions, which are parsed into new projects. A transcription file does
 not preserve corrections made to a saved project. An open Visualizer tab
 switches to a newly imported or created project automatically, unless a source
 edit is open there; then only its project list is updated.
 Browser storage is tied to the app origin, so continue serving the project from
 the same host and port to access the same local library.
+
+The repository contains no project data, and `.gitignore` excludes transcription
+files (`MM *.md`, `MM *.txt`), `.docx` sources, `.catasto.json` backups, and
+local correction files. Keep these in a folder outside the app so the app folder
+can be replaced on update. Projects created by earlier versions, which built the
+Marano project automatically, remain in the browser and continue to open.
