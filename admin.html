@@ -62,8 +62,6 @@
     </div>
   </div>
   <main>
-    <p class="intro">Create, import, export, and remove locally stored Catasto projects.</p>
-
     <section class="panel" aria-labelledby="languageHeading">
       <h2 id="languageHeading">Transcription Language</h2>
       <div class="language-row">
@@ -75,17 +73,6 @@
         <span class="check"><input type="checkbox" id="saveLanguageDefault"><label for="saveLanguageDefault">Save as default</label></span>
       </div>
       <p class="intro" id="languageHelp">Applies when importing or creating a project from Markdown or text. In a bilingual file only the sections in this language are parsed; an Italian-only transcription needs IT. Italian projects show the source's Italian terms.</p>
-    </section>
-
-    <section class="panel">
-      <h2>Project Library</h2>
-      <div class="actions">
-        <input id="importFile" class="import-file" type="file" accept=".json,.catasto,.txt,.md,application/json,text/plain,text/markdown" aria-describedby="importHelp">
-        <label class="import-label" for="importFile">Import JSON backup or Catasto text</label>
-      </div>
-      <p class="intro" id="importHelp">JSON restores an exported project, including saved corrections. Markdown or text creates a project by parsing the transcription.</p>
-      <p class="status" id="libraryStatus"></p>
-      <div class="project-list" id="projectList"></div>
     </section>
 
     <section class="panel">
@@ -110,6 +97,17 @@
         <button id="createProject" type="button">Create project</button>
       </div>
       <p class="status" id="createStatus">Projects are stored in this browser's IndexedDB database.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Project Library</h2>
+      <div class="actions">
+        <input id="importFile" class="import-file" type="file" accept=".json,.catasto,.txt,.md,application/json,text/plain,text/markdown" aria-describedby="importHelp">
+        <label class="import-label" for="importFile">Import JSON backup or Catasto text</label>
+      </div>
+      <p class="intro" id="importHelp">JSON restores an exported project, including saved corrections. Markdown or text creates a project by parsing the transcription.</p>
+      <p class="status" id="libraryStatus"></p>
+      <div class="project-list" id="projectList"></div>
     </section>
   </main>
   <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.04</footer>
