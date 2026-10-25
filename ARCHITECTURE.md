@@ -4,7 +4,8 @@
 
 - `index.html` contains the visualization and project selector.
 - `admin.html` and `admin.js` contain project-management workflows.
-- `catasto-parser.js` parses text in Admin; `index.html` has a separate parser for source migration of stored projects.
+- `catasto-parser.js` parses text in Admin; `index.html` has a separate parser for source migration of stored projects. Section selection, entry-boundary rules, and all Italian-language rules are defined once in `catasto-parser.js` and used by both.
+- A project's `data.source_language` (`en` or `it`) records which side of the transcription was parsed.
 - `catasto-storage.js` owns local persistence and the portable exchange format.
 - User projects live in the browser's IndexedDB database, not in application files.
 - Household source-entry edits and residence corrections are written directly to the active IndexedDB project and are included in project exports.

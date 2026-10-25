@@ -13,10 +13,45 @@
   const successTitle = document.querySelector("#successTitle");
   const successDetail = document.querySelector("#successDetail");
   const openVisualizer = document.querySelector("#openVisualizer");
+  const sourceLanguage = document.querySelector("#sourceLanguage");
+  const saveLanguageDefault = document.querySelector("#saveLanguageDefault");
+  const languageDefaultKey = "catasto-source-language";
   let selectedSourceName = "";
 
   function savePreference(key, value) {
     try { localStorage.setItem(key, value); } catch { /* Storage may be disabled. */ }
+  }
+
+  function readPreference(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+
+  function removePreference(key) {
+    try { localStorage.removeItem(key); } catch { /* Storage may be disabled. */ }
+  }
+
+  // ENG unless the user saved IT as the default. The checkbox shows whether the current choice is the saved default.
+  function selectedLanguage() {
+    return sourceLanguage.value === "it" ? "it" : "en";
+  }
+
+  function syncLanguageDefault() {
+    const saved = readPreference(languageDefaultKey);
+    saveLanguageDefault.checked = saved !== null && saved === selectedLanguage();
+  }
+
+  sourceLanguage.value = readPreference(languageDefaultKey) === "it" ? "it" : "en";
+  syncLanguageDefault();
+  sourceLanguage.addEventListener("change", syncLanguageDefault);
+  saveLanguageDefault.addEventListener("change", () => {
+    if (saveLanguageDefault.checked) savePreference(languageDefaultKey, selectedLanguage());
+    else removePreference(languageDefaultKey);
+  });
+
+  function parseTranscription(text) {
+    const mismatch = CatastoParser.languageMismatch(text, selectedLanguage());
+    if (mismatch) throw new Error(mismatch.message);
+    return CatastoParser.parsePlainText(text, selectedLanguage());
   }
 
   // Tells open Visualizer tabs to reload their project list.
@@ -69,11 +104,12 @@
     const projects = await CatastoStorage.listProjects();
     projectList.innerHTML = projects.length ? projects.map(project => {
       const count = project.data.households.length;
+      const language = project.data.source_language === "it" ? " · Italian" : "";
       return `
         <article class="project" data-project-id="${escapeHtml(project.id)}">
           <div>
             <h3>${escapeHtml(project.name)}</h3>
-            <div class="meta">${count} household${count === 1 ? "" : "s"}${project.sourceFile ? ` · ${escapeHtml(project.sourceFile)}` : ""}</div>
+            <div class="meta">${count} household${count === 1 ? "" : "s"}${language}${project.sourceFile ? ` · ${escapeHtml(project.sourceFile)}` : ""}</div>
           </div>
           <div class="actions">
             <button class="secondary export" type="button">Export JSON</button>
@@ -105,7 +141,10 @@
     selectedSourceName = file.name;
     plainText.value = await file.text();
     if (!projectName.value.trim()) projectName.value = file.name.replace(/\.[^.]+$/, "");
-    createStatus.textContent = `${file.name} loaded and ready to parse.`;
+    const mismatch = CatastoParser.languageMismatch(plainText.value, selectedLanguage());
+    createStatus.textContent = mismatch
+      ? `${file.name} loaded. ${mismatch.message.replace(" and try again", " before creating the project")}`
+      : `${file.name} loaded and ready to parse.`;
   });
 
   document.querySelector("#createProject").addEventListener("click", async () => {
@@ -115,7 +154,7 @@
       return;
     }
     try {
-      const data = CatastoParser.parsePlainText(text);
+      const data = parseTranscription(text);
       if (!data.households.length) throw new Error("No household entries were detected.");
       const project = CatastoStorage.createProject({
         name: projectName.value,
@@ -150,7 +189,7 @@
         const payload = JSON.parse(contents);
         projects = CatastoStorage.projectsFromImport(payload, file.name.replace(/\.(?:catasto\.)?(?:json|catasto)$/i, ""));
       } else if (/\.(?:md|txt)$/i.test(file.name)) {
-        const data = CatastoParser.parsePlainText(contents);
+        const data = parseTranscription(contents);
         if (!data.households.length) throw new Error("No household entries were detected in this text file.");
         projects = [CatastoStorage.createProject({
           name: file.name.replace(/\.[^.]+$/, ""),

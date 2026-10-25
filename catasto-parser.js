@@ -8,13 +8,67 @@
       .replace(/^-|-$/g, "");
   }
 
+  const italianParticle = /^(?:di|de|del|dello|della|dei|degli|da|dal|dalla|lo|la|le|li|d'|d’)$/i;
+  const italianHonorific = /^(?:Don|Donna|Suor[ae]?|Fra|Frate|C(?:h)?ierico|Cherico|Magnific[oa]|Signor[ae]?|Reverend[oa]|Venerabile|Mastro|Maestro|Nobile)$/i;
+  // Occupations and conditions written after the name; sometimes capitalized ("Bracciale").
+  const italianOccupation = /^(?:bracciale|bracciante|pecoraro|stroppio|decrepito|sacerdote|diacono|chierico|regrato|nobile|vivente|calzolai?o|calzolaro|ferraro|sartore|sarto|studente|scolare|servitore|vergine|nubile|maritata|monaca|vedov[oa])$/i;
+  const italianRelation = /\b(?:moglie|marito|figli[oa]|figliastr[oa]|fratello|sorella|madre|padre|cognat[oa]|nipote|genero|nuora|s(?:u)?oc+er[oa]|serv[oa]|garzone|vedova|zi[oa])\b/i;
+
   function isMemberLine(line) {
-    return /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+.*\b(?:age|aged)\s+\d+\b/i.test(line.trim()) &&
-      !/\b(?:annual|income|ounces?|oncie|grana|ducats?|carlini|moggi|capacity)\b/i.test(line);
+    const text = String(line || "").trim();
+    return /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+.*\b(?:age|aged|anni)\s+\d+\b/i.test(text) &&
+      !/\b(?:annual|income|ounces?|oncie|grana|ducats?|ducati|docati|carlini|moggi|capacity|annui|rendita|capitale)\b/i.test(text) &&
+      !/^(?:Abita|Habita|Possiede|Più|Paga|Riporto|Pesi|Resta)\b/i.test(text);
+  }
+
+  // Italian member lines carry the age as "anni N" and usually separate name, occupation, and relation with
+  // spaces or dashes rather than commas: "Marco Provenzano bracciale ——— anni 60".
+  function isItalianMemberLine(line) {
+    return /\banni\s+\d+/i.test(line) && !/\b(?:age|aged)\s+\d+/i.test(line);
+  }
+
+  function splitItalianMemberLine(line) {
+    const text = String(line || "").replace(/\[[^\]]+\]/g, " ");
+    const ageMatch = text.match(/\b(?:di\s+)?anni\s+(\d+)/i);
+    const beforeAge = (ageMatch ? text.slice(0, ageMatch.index) : text).replace(/[—–=]+|-{2,}/g, " ");
+    const tokens = beforeAge.trim().split(/\s+/).filter(Boolean);
+    const nameTokens = [];
+    let index = 0;
+    for (; index < tokens.length; index += 1) {
+      const token = tokens[index].replace(/[,;.]+$/, "");
+      if (nameTokens.length && (italianOccupation.test(token) || italianRelation.test(token))) break;
+      const isParticle = nameTokens.length && italianParticle.test(token) && /^[A-ZÀ-Ý]/.test(tokens[index + 1] || "");
+      const isOrigin = isParticle && /^(?:Terra|Città|Casale)$/i.test(tokens[index + 1].replace(/[,;.]+$/, ""));
+      // After a first name and surname, "di Giuseppe" names the father rather than continuing the surname.
+      const givenAndSurname = nameTokens.filter(part => /^[A-ZÀ-Ý]/.test(part) && !italianHonorific.test(part) && !/^(?:Battista|Maria)$/.test(part));
+      const fullName = givenAndSurname.length >= 2;
+      if (isParticle && fullName && !isOrigin && !nameTokens.some(part => /^(?:Terra|Città|Casale)$/i.test(part))) break;
+      const isName = /^[A-ZÀ-Ý]/.test(token) || isParticle;
+      if (!isName) break;
+      nameTokens.push(token);
+      if (token !== tokens[index]) {
+        index += 1;
+        break;
+      }
+    }
+    let name = nameTokens.join(" ");
+    const origin = name.match(/\s+(?:della|dalla|di)\s+(?:Terra|Città|Casale)\s+(?:di|de)\s+(.+)$/i);
+    if (origin) name = name.slice(0, origin.index);
+    const rest = tokens.slice(index).join(" ").replace(/\s*,\s*/g, ", ").replace(/^[,;\s]+|[,;.\s]+$/g, "");
+    const patronymic = rest.match(/^(?:figli[oa]\s+)?(?:del\s+fu|di|del|fu(?:\s+di)?|quondam|q\.?\s?m\.?)\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’]*/)?.[0] || "";
+    return {
+      name: name.trim(),
+      patronymic,
+      origin: origin?.[1]?.trim() || null,
+      rest,
+      age: ageMatch?.[1] || null,
+      relation: italianRelation.test(rest) ? rest : ""
+    };
   }
 
   function memberPersonName(line) {
     const text = String(line || "").trim();
+    if (isItalianMemberLine(text)) return splitItalianMemberLine(text).name;
     if (text.includes(",")) return text.split(",")[0].trim();
     return text
       .replace(/\b(?:age|aged)\s+\d+.*$/i, "")
@@ -27,19 +81,19 @@
     const parts = String(line || "").split(",");
     const nameField = parts[0] || "";
     const roleText = parts.slice(1).join(",");
-    const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|marito|figlio(?!\s+di\b)|figlia(?!\s+di\b)|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b/i;
+    const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|marito|figli[oa](?!\s+(?:di|del|della|d['’]|fu)\b)|figliastr[oa]|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora|s(?:u)?oc+er[oa])\b/i;
     const untitledNameField = nameField.replace(/^(?:Sister|Brother|Father)\s+/i, "");
     return relationship.test(roleText) || (!parts.slice(1).length && relationship.test(untitledNameField)) ||
       new RegExp(`${relationship.source}\\s*$`, "i").test(nameField);
   }
 
   function isHouseholdNarrativeLine(line) {
-    return /\b(?:tax(?:able)?|heads?|industry|assessment|lives?|resides?|dwells?|inhabits?|possesses?|owns?|house|landholding|property|portion|garden|vineyard|chestnut|grove|livestock|sheep|goats?|mules?|mares?|income|total|deductions?|liabilit|pays?|debt|carried forward|brought forward|recorded|oncie|ounces?|grana|carlini|ducats?|moggi|capacity|teste|industria|abita|possiede|confina|rendita|sono in tutto|pesi|riporto)\b/i.test(line);
+    return /\b(?:tax(?:able)?|heads?|industry|assessment|lives?|resides?|dwells?|inhabits?|possesses?|owns?|house|landholding|property|portion|garden|vineyard|chestnut|grove|livestock|sheep|goats?|mules?|mares?|income|total|deductions?|liabilit|pays?|debt|carried forward|brought forward|recorded|oncie|ounces?|grana|carlini|ducats?|moggi|capacity|teste|industria|abita|habita|possiede|confin\w*|giusta|rendita|stimat[ao]|sono in tutto|pesi|riporto|paga|resta|casa|casaggio|possessione|porzione|castagneto|ducati|docati|annui)\b/i.test(line);
   }
 
   function normalizeName(name) {
     return String(name || "")
-      .replace(/^(?:the\s+property\s+of|property\s+of|master|magnificent|don|donna)\s+/i, "")
+      .replace(/^(?:the\s+property\s+of|property\s+of|master|magnificent|magnific[oa]|reverend[oa]|signor[ae]?|don|donna)\s+/i, "")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -49,12 +103,13 @@
   }
 
   function isPublicAnchor(name) {
-    return /^(?:public road|running river|river)$/i.test(normalizeName(name));
+    return /^(?:public road|running river|river|via pub+lica|strada(?: pub+lica)?|vico|fiume(?: corrente| secco)?|vallone)$/i.test(normalizeName(name));
   }
 
   function placeKey(place) {
     return normalizeName(place)
       .toLowerCase()
+      .replace(/^(?:li|la|le|lo|il)\s+/, "")
       .replace(/\b(?:saint|santo|san)\s+nic(?:holas|ola)\b/g, "san nicola");
   }
 
@@ -143,6 +198,10 @@
   function parseResidence(entry) {
     const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n\n)/i)?.[0] ||
       entry.match(/\b(?:He|She|They)\s+(?:possesses|owns)\s+(?:the|a)\s+house[\s\S]*?(?:\.|\n\n|$)/i)?.[0] || "";
+    if (!sentence) {
+      const italian = parseItalianResidence(entry);
+      if (italian) return italian;
+    }
     const placeMatch =
       sentence.match(/\bsituated in (?:the )?(?:neighborhood of |place called |district of )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
       sentence.match(/\blocated in (?:the )?(?:neighborhood of |place called )?([^,.]+?)(?:\s+neighborhood|,|\.|\s+bordering)/i) ||
@@ -153,6 +212,103 @@
       place: placeMatch ? normalizeName(placeMatch[1]) : null,
       description: sentence.trim() || null,
       adjacent_to: borderMatch ? expandNeighborNames(borderMatch[1]) : []
+    };
+  }
+
+  // Italian border clauses name neighbors after "giusta li beni di", "confina (alli beni di)", or "contiguo
+  // alli beni di", joined by "e"/"ed"; "via publica", "vico", and "fiume" are public anchors.
+  function expandItalianNeighborNames(raw) {
+    const cleaned = String(raw || "")
+      .replace(/\[[^\]]+\]/g, "")
+      .replace(/[,\s]*\b(?:(?:il|la|nella|nel)\s+)?(?:quale|per cui|dove|ove)\b[\s\S]*$/i, "")
+      .replace(/\b(?:alli|alle|ai|agli|li|i)\s+beni\b/gi, ",")
+      .replace(/\bbeni\b/gi, ",")
+      .replace(/\bquell[ie]\b/gi, ",")
+      .replace(/\s+ed?(?=\s|,|$)/gi, ",")
+      .replace(/\s+(via\s+pub+lica|strada(?:\s+pub+lica)?|vico|fiume(?:\s+(?:corrente|secco))?|vallone)\b/gi, ", $1")
+      .replace(/[—–=]+/g, ",");
+    const parts = cleaned.split(/\s*[,;]\s*/)
+      .map(part => part
+        .replace(/^(?:(?:e|ed|di|de|del|della|dello|delli|degli|dei|il|lo|la|al|alla|con)\s+|d['’]\s*)+/i, "")
+        .replace(/[.:]+$/, "")
+        .trim())
+      .map(normalizeName)
+      .filter(name => name && (/[A-ZÀ-Ý]/.test(name) || isPublicAnchor(name)) &&
+        !/\b(?:oncie|once|carlini|ducati|docati|grana|rendita|stimat\w*|capacità|moggi\w*|annui|sono)\b/i.test(name));
+    const expanded = [];
+    parts.forEach((part, index) => {
+      if (isPublicAnchor(part)) {
+        expanded.push(part.toLowerCase());
+        return;
+      }
+      const hasSurname = part.split(/\s+/).length > 1;
+      const nextSurname = parts.slice(index + 1).filter(name => !isPublicAnchor(name))
+        .map(surnameFromPerson).find(Boolean);
+      expanded.push(hasSurname || !nextSurname ? part : `${part} ${nextSurname}`);
+    });
+    return [...new Set(expanded)];
+  }
+
+  function cleanItalianPlace(place) {
+    return String(place || "")
+      .replace(/^(?:(?:al|nel|il)\s+)?(?:luogo|loco|locale)\s+/i, "")
+      .replace(/^(?:dett[ao]|di|de)\s+/i, "")
+      .replace(/\s+(?:di|de|del|della|e)$/i, "")
+      .replace(/[.:—–=]+$/, "")
+      .trim() || null;
+  }
+
+  // "Abita in casa propria sita in San Nicola, giusta li beni di Pietro Tenuta e via publica". A house of
+  // another person ("in casa del Magnifico ...", rented "d'affitto") has no district unless a locale is named.
+  function parseItalianResidence(entry) {
+    const sentence = String(entry || "").match(/\b(?:Abita|Habita)\b[^\n]*/i)?.[0]
+      .replace(/(?:\.\s|\s+(?=(?:Più\s+)?(?:Possiede|Paga)\b))[\s\S]*$/, "")
+      .replace(/\s*\b(?:In tutto|Sono in tutto)\b[\s\S]*$/i, "")
+      .replace(/[\s—–=-]+$/, "")
+      .trim();
+    if (!sentence) return null;
+    const stop = String.raw`(?=\s*,|\s+(?:giusta|confin\w*|contigu\w*|e\s+ne\s+paga|ed?\s+paga)\b|\s*[—–=;]|$)`;
+    const markerPlace = sentence.match(new RegExp(String.raw`\b(?:sit[ao]|post[ao]|local[ei]|locat[ao]|loco|luogo)\s+(?:(?:di|de|in|nelli|nella|nel|alli)\s+)?([^,;]+?)${stop}`, "i"));
+    const ownPlace = sentence.match(new RegExp(String.raw`\b(?:casa\s+propria|casaggio|casa)\s+(?:di|de|in|nelli|nella|nel)\s+([^,;]+?)${stop}`, "i"));
+    const hosted = /\b(?:casa|casaggio)\s+(?:del|della|dello|di\s+(?:suo|sua))\b|\baffitto\b|\bgratis\b/i.test(sentence);
+    const border = sentence.match(/\b(?:giusta|confin[ae]\w*|contigu[oa])\b\s*([\s\S]*?)(?=\s*\b(?:e\s+ne\s+paga|ed?\s+paga)\b|;|$)/i);
+    const place = cleanItalianPlace(markerPlace?.[1] || (!hosted && ownPlace?.[1]) || "");
+    return {
+      place: place || (hosted ? "Not Listed" : null),
+      description: sentence,
+      adjacent_to: border ? expandItalianNeighborNames(border[1]) : []
+    };
+  }
+
+  const italianLandNoun = String.raw`possessione|porzione|castagneto|castagnito|vign(?:a|ale|eto)|orto|territorio|terreno|chiusa|gelseto|oliveto|querceto|selva|bosco|pezzo\s+di\s+terra`;
+
+  function isItalianLandholdingSentence(sentence) {
+    return new RegExp(String.raw`\b(?:${italianLandNoun})\b`, "i").test(sentence) &&
+      /\b(?:confin\w*|giusta|contigu\w*)\b/i.test(sentence) &&
+      !/^\s*(?:Abita|Habita)\b/i.test(sentence);
+  }
+
+  // Returns the Italian source terms for one landholding clause: "Possiede una possessione detta San Nicola
+  // di capacità moggi mezzo confine Cesare Chiappetta ... stimata la rendita per carlini quindici sono oncie 5".
+  function parseItalianLandholding(sentence) {
+    const text = String(sentence || "").replace(/\s+/g, " ").trim();
+    const stop = String.raw`(?=\s*,|\s+(?:(?:di|in)\s+)?(?:capacit\w*|castagn\w*|moggi\w*|stoppellat\w*|tomol\w*|un|una|mezz[oa])\b|\s+(?:giusta|confin\w*|contigu\w*|stim\w*)\b|;|$)`;
+    const noun = text.match(new RegExp(String.raw`\b(${italianLandNoun})\b`, "i"))?.[1].toLowerCase().replace(/\s+/g, " ") || "possessione";
+    const chestnuts = noun !== "castagneto" && /\b(?:di|in)\s+castagn\w*/i.exec(text);
+    const quoted = text.match(/["“]([^"”]+)["”]/)?.[1];
+    const called = text.match(new RegExp(String.raw`\bdett[ao]\s+(?!luogo\b)([^,;]+?)${stop}`, "i"))?.[1];
+    const located = text.match(/\b(?:nel|al)\s+(?:luogo|loco)\s+(?:dett[ao]|di)\s+([A-ZÀ-Ý][^,;]*?)(?=\s*,|\s+(?:giusta|confin\w*|contigu\w*)\b|;|$)/)?.[1] || text.match(new RegExp(String.raw`\b(?:${italianLandNoun})(?:\s+(?:di\s+terreno|seminatori[oa]|arbustat[oa]|alberat[oa]))*\s+(?:(?:sit[ao]\s+)?(?:di|de|in|nelli|nella|nel|del|della)\s+)?((?:(?:li|la|le|lo|il)\s+\S+|[A-ZÀ-Ý])[^,;]*?)${stop}`))?.[1];
+    const capacity = text.match(/\b(?:di|in)\s+capacità\s+(?:di\s+)?(.+?)(?=\s*,|\s+(?:giusta|confin\w*|contigu\w*)\b|;|$)/i)?.[1] ||
+      text.match(/\b((?:(?:un|una|mezz[oa])\s+)?(?:quarto\s+di\s+)?(?:moggi[oa]?|moggiat[ae]|stoppellat[ae]|tomol[aoi])(?:\s+(?:uno|una|due|tre|quattro|cinque|sei|sette|otto|nove|dieci|mezzo|\d+))?)\b/i)?.[1];
+    const income = text.match(/\bstim\w*\s+(?:la\s+|di\s+)?rendita[^;]*/i)?.[0];
+    const border = text.match(/\b(?:confin\w*|giusta|contigu\w*)\b\s*(?:con\s+)?([\s\S]*?)(?=\s*[,;]?\s*\b(?:stim\w+|sono|sopra)\b|;|$)/i);
+    return {
+      name: cleanItalianPlace(quoted || called || ""),
+      place: cleanItalianPlace(located || ""),
+      type: chestnuts ? `${noun} ${chestnuts[0].toLowerCase()}` : noun,
+      capacity: capacity ? capacity.replace(/[,.;:\s—–]+$/, "").trim() : null,
+      income: income ? income.replace(/[\s,.;:—–=]+$/, "").replace(/\s*—\s*/g, " — ").trim() : null,
+      adjacent_to: border ? expandItalianNeighborNames(border[1]) : []
     };
   }
 
@@ -262,38 +418,81 @@
     return records;
   }
 
-  function extractEnglishTranslationText(text) {
-    const lines = text.replace(/\r/g, "").split("\n");
-    const englishLines = [];
+  const sectionHeadings = {
+    en: /^(?:English\s+Translation|Traduzione\s+inglese)\s*:?\s*(.*)$/i,
+    it: /^(?:Italian\s+Transcription|Italian|Trascrizione(?:\s+italiana)?|Testo\s+italiano)\s*:?\s*(.*)$/i
+  };
+
+  // Keeps only the sections of a bilingual transcription that are in the requested language ("en" or "it").
+  // Text without section headings is used whole.
+  function extractTranscriptionSections(text, language = "en") {
+    const target = language === "it" ? "it" : "en";
+    const lines = String(text || "").replace(/\r/g, "").split("\n");
+    const kept = [];
+    const found = { en: false, it: false };
     let mode = "unknown";
-    let foundEnglishHeading = false;
     let currentPage = null;
     let sourceTitle = "";
     lines.forEach(line => {
       const trimmed = line.trim();
       const heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/__/g, "").trim();
-      const englishMatch = heading.match(/^English\s+Translation\s*:?\s*(.*)$/i);
-      const italianMatch = heading.match(/^(Italian\s+Transcription|Italian)\s*:?\s*(.*)$/i);
       const pageMatch = heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
+      const sectionLanguage = ["en", "it"].find(key => sectionHeadings[key].test(heading));
       if (pageMatch) {
         sourceTitle = pageMatch[1].trim();
         currentPage = Number(pageMatch[2]);
       }
-      if (englishMatch) {
-        foundEnglishHeading = true;
-        mode = "english";
-        if (currentPage) englishLines.push(`[[SOURCE_PAGE:${currentPage}]]`);
-        if (englishMatch[1]) englishLines.push(englishMatch[1]);
-      } else if (italianMatch || pageMatch) {
-        mode = "not-english";
-      } else if (mode === "english") {
-        englishLines.push(line);
+      if (sectionLanguage) {
+        found[sectionLanguage] = true;
+        mode = sectionLanguage;
+        if (sectionLanguage !== target) return;
+        if (currentPage) kept.push(`[[SOURCE_PAGE:${currentPage}]]`);
+        const inline = heading.match(sectionHeadings[sectionLanguage])[1];
+        if (inline) kept.push(inline);
+      } else if (pageMatch) {
+        mode = "unknown";
+      } else if (mode === target) {
+        kept.push(line);
       }
     });
     return {
-      text: foundEnglishHeading ? englishLines.join("\n").trim() : text,
-      usedEnglishSectionsOnly: foundEnglishHeading,
+      text: found[target] ? kept.join("\n").trim() : String(text || ""),
+      usedSectionsOnly: found[target],
+      sectionsFound: found,
+      language: target,
       sourceTitle
+    };
+  }
+
+  function detectLanguage(text) {
+    const count = pattern => (String(text || "").match(pattern) || []).length;
+    const italian = count(/\banni\s+\d+/gi) + count(/\b(?:abita|possiede|confina|giusta|moglie|figli[oa]|oncie)\b/gi);
+    const english = count(/\b(?:age|aged)\s+\d+/gi) + count(/\b(?:lives|possesses|bordering|wife|son|daughter|ounces)\b/gi);
+    if (italian >= 2 && italian > english * 2) return "it";
+    if (english >= 2 && english > italian * 2) return "en";
+    return null;
+  }
+
+  const languageNames = { en: "English", it: "Italian" };
+  const languageCodes = { en: "ENG", it: "IT" };
+
+  // Explains when the selected language does not match the text, so a project is not built from the wrong side.
+  function languageMismatch(text, language = "en") {
+    const target = language === "it" ? "it" : "en";
+    const other = target === "it" ? "en" : "it";
+    const { sectionsFound } = extractTranscriptionSections(text, target);
+    if (sectionsFound[target]) return null;
+    if (sectionsFound[other]) {
+      return {
+        detected: other,
+        message: `This text has ${other === "it" ? "Italian Transcription" : "English Translation"} sections but no ${target === "it" ? "Italian Transcription" : "English Translation"} sections. Choose ${languageCodes[other]} and try again.`
+      };
+    }
+    const detected = detectLanguage(text);
+    if (!detected || detected === target) return null;
+    return {
+      detected,
+      message: `This text looks ${languageNames[detected]}, but ${languageCodes[target]} is selected. Choose ${languageCodes[detected]} and try again.`
     };
   }
 
@@ -330,8 +529,8 @@
     return entries.filter(entry => entry.split("\n").some(isMemberLine));
   }
 
-  function parsePlainText(text) {
-    const prepared = extractEnglishTranslationText(text);
+  function parsePlainText(text, language = "en") {
+    const prepared = extractTranscriptionSections(text, language);
     const seenHouseholds = new Map();
     const records = splitEntries(prepared.text).map((entry, index) => {
       const sourcePages = [...entry.matchAll(/\[\[SOURCE_PAGE:(\d+)\]\]/g)].map(match => Number(match[1]));
@@ -369,11 +568,14 @@
       source_document: "Uploaded plain text",
       source_title: prepared.sourceTitle,
       source_range: "Uploaded text",
-      source_language_used: prepared.usedEnglishSectionsOnly ? "English Translation sections only" : "Plain text",
+      source_language: prepared.language,
+      source_language_used: prepared.usedSectionsOnly
+        ? `${prepared.language === "it" ? "Italian Transcription" : "English Translation"} sections only`
+        : `Plain text (${languageNames[prepared.language]})`,
       requested_household_count: records.length,
       extracted_household_count: records.length,
-      note: prepared.usedEnglishSectionsOnly
-        ? "Generated in browser from uploaded plain text after excluding non-English transcription sections."
+      note: prepared.usedSectionsOnly
+        ? `Generated in browser from uploaded plain text after excluding non-${languageNames[prepared.language]} sections.`
         : "Generated in browser from uploaded plain text.",
       pipeline_version: "semantic-cleaning-v2-identity-triangulation",
       entry_boundary_version: 5,
@@ -381,5 +583,11 @@
     };
   }
 
-  window.CatastoParser = { parsePlainText, inferFamilyRelationships, linkResidenceAdjacency, triangulateResidenceAdjacency };
+  window.CatastoParser = {
+    parsePlainText, inferFamilyRelationships, linkResidenceAdjacency, triangulateResidenceAdjacency,
+    extractTranscriptionSections, detectLanguage, languageMismatch,
+    isMemberLine, memberPersonName, isDependentHouseholdMember, isHouseholdNarrativeLine,
+    isItalianMemberLine, splitItalianMemberLine, parseItalianResidence, expandItalianNeighborNames,
+    isItalianLandholdingSentence, parseItalianLandholding
+  };
 }());

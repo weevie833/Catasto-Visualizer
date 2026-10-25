@@ -27,7 +27,7 @@ node --test *.test.mjs
 python3 -m unittest test_serve.py
 ```
 
-The Node suite contains 41 parser, building-style, storage, Admin, and visualizer-workflow
+The Node suite contains 54 parser, building-style, storage, Admin, and visualizer-workflow
 tests; `test_serve.py` contains 4 server tests. Browser-local
 IndexedDB is origin-specific, so continue using port 8000 for the user's live
 project library.
@@ -54,8 +54,28 @@ project library.
 The source of record is the bilingual Marano transcription, kept on the
 developer's computer and not in the repository. The app ships with no project
 data: a new installation opens an empty library, and projects are created or
-imported in Admin. Only English Translation sections are parsed; the paired
-Italian transcription remains in the source document.
+imported in Admin. Admin's Transcription Language selector parses either the
+English Translation sections (ENG, the default) or the Italian Transcription
+sections (IT); a checkbox saves the choice as the default in that browser. An
+Italian-only transcription is parsed with IT. If the chosen language does not
+match the text, Admin refuses the import and names the language to choose.
+The project records `source_language`, and later re-parses of stored source
+text use it.
+
+Italian rules live in `catasto-parser.js` and are used by both Admin and the
+Visualizer: `anni N` member lines, names ending before occupations or a
+patronymic (`Antonio Conforto di Giuseppe pecoraro`), origins (`della Terra di
+Castelfranco`), `Abita in casa propria sita in ...` residences, neighbors after
+`giusta li beni di` / `confina` / `contiguo`, and landholdings with `detta`,
+`di capacità`, and `stimata la rendita`. Italian projects display the source's
+Italian terms.
+
+On the bilingual Marano transcription, the Italian side yields the same 362
+households as the English side; 70 of 71 districts and 538 of 567 residence
+neighbors agree, and 622 Italian landholdings are found against 603 English.
+39 Italian landholdings have no district, mostly clauses with no place name.
+`catasto-parser.test.mjs` repeats the household and neighbor comparison when the
+transcription is present and skips it otherwise.
 
 The parser now uses a household-entry state machine:
 

@@ -25,6 +25,11 @@ IndexedDB. The app ships with no data: on first use the library is empty, and
 the Admin page creates a project from a transcription file or imports a
 `.catasto.json` backup. Admin creates, imports, exports, and deletes projects
 without coupling user data to app files.
+Admin's Transcription Language setting chooses ENG (English Translation) or IT
+(Italian Transcription); ENG is used unless IT is saved as the default. A
+bilingual file is parsed from the sections in the chosen language, and an
+Italian-only transcription needs IT. Italian projects display the source's
+Italian terms, such as `bracciale`, `castagneto`, and `moggio mezzo`.
 The Source tax entry panel can edit a household's transcription and residence;
 saving updates that project's IndexedDB record and the visualization immediately.
 Leaving and returning to the browser does not reload the project or reset the

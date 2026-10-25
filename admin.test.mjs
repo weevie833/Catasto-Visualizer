@@ -10,7 +10,7 @@ const [adminSource, storageSource, parserSource] = await Promise.all(
 );
 const sampleText = "Paolo Rossi, day laborer, age 40\nHe lives in his own house in the Pasolani district.";
 
-async function loadAdmin() {
+async function loadAdmin({ preferences = new Map() } = {}) {
   const elements = new Map();
   const element = selector => {
     if (!elements.has(selector)) {
@@ -29,7 +29,11 @@ async function loadAdmin() {
   const context = {
     window: { confirm: () => true },
     document: { querySelector: element, createElement: () => ({ click() {} }) },
-    localStorage: { setItem() {} },
+    localStorage: {
+      getItem: key => preferences.get(key) ?? null,
+      setItem: (key, value) => preferences.set(key, String(value)),
+      removeItem: key => preferences.delete(key)
+    },
     crypto: { randomUUID: () => `project-${++nextId}` },
     BroadcastChannel: class {
       constructor(name) { this.name = name; }
@@ -54,7 +58,7 @@ async function loadAdmin() {
   vm.runInContext(adminSource, context);
   const settle = () => new Promise(resolve => setTimeout(resolve, 10));
   await settle();
-  return { element, messages, stored, settle, storage: context.CatastoStorage };
+  return { element, messages, stored, settle, preferences, storage: context.CatastoStorage };
 }
 
 test("importing a transcription announces the new project to open Visualizer tabs", async () => {
@@ -113,4 +117,39 @@ test("a JSON backup import names the restored project", async () => {
   assert.equal(admin.element("#successNotice").hidden, false, admin.element("#libraryStatus").textContent);
   assert.equal(admin.element("#successTitle").textContent, "Imported “Restored”");
   assert.match(admin.element("#successDetail").textContent, /^2 households ready/);
+});
+
+const italianText = "Andrea Morrone bracciale — anni 46\nLucrezia Aijello moglie — anni 40\nAbita in casa propria sita in San Nicola, giusta li beni di Agostino Serpe e via publica.";
+
+test("ENG is selected until IT is saved as the default", async () => {
+  const fresh = await loadAdmin();
+  assert.equal(fresh.element("#sourceLanguage").value, "en");
+  assert.equal(fresh.element("#saveLanguageDefault").checked, false);
+
+  fresh.element("#sourceLanguage").value = "it";
+  fresh.element("#sourceLanguage").listeners.change();
+  fresh.element("#saveLanguageDefault").checked = true;
+  fresh.element("#saveLanguageDefault").listeners.change();
+  assert.equal(fresh.preferences.get("catasto-source-language"), "it");
+
+  const reopened = await loadAdmin({ preferences: fresh.preferences });
+  assert.equal(reopened.element("#sourceLanguage").value, "it");
+  assert.equal(reopened.element("#saveLanguageDefault").checked, true);
+  reopened.element("#saveLanguageDefault").checked = false;
+  reopened.element("#saveLanguageDefault").listeners.change();
+  assert.equal(reopened.preferences.has("catasto-source-language"), false);
+});
+
+test("an Italian transcription is created with IT and refused with ENG", async () => {
+  const admin = await loadAdmin();
+  admin.element("#plainText").value = italianText;
+  await admin.element("#createProject").listeners.click();
+  assert.match(admin.element("#createStatus").textContent, /looks Italian, but ENG is selected\. Choose IT/);
+  assert.equal(admin.stored.size, 1);
+
+  admin.element("#sourceLanguage").value = "it";
+  await admin.element("#createProject").listeners.click();
+  const created = [...admin.stored.values()].find(project => project.id !== "existing");
+  assert.equal(created.data.source_language, "it");
+  assert.equal(created.data.households[0].household_head, "Andrea Morrone");
 });

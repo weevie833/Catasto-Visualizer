@@ -313,3 +313,26 @@ test("deleting the last project leaves an empty library", async () => {
   assert.equal(app.run("activeProject"), null);
   assert.equal(app.storage.projects.size, 0);
 });
+
+test("an Italian project shows the source's Italian terms for households and landholdings", async () => {
+  const app = await loadApp([]);
+  const text = `Andrea Morrone bracciale ————— anni 46
+Lucrezia Aijello moglie — anni 40
+Michele figlio — anni 2
+Abita in casa propria sita nelli Pasolani giusta li beni di Agostino Serpe e via publica —
+Possiede un castagneto di San Nicola in capacità moggio uno, confina Daniele Santanna e via publica; stimata la rendita per molti ducati cinque, sono — oncie — 16.20`;
+  app.run(`globalThis.italianData = parsePlainText(${JSON.stringify(text)}, "it")`);
+  const [household] = app.run("buildHouseholds(italianData)").filter(unit => unit.source === "extracted");
+  assert.equal(household.role, "bracciale, anni 46");
+  assert.deepEqual([...household.members], ["Andrea Morrone, head (46)", "Lucrezia Aijello, moglie (40)", "Michele Morrone, figlio (2)"]);
+  assert.equal(household.place, "Pasolani");
+  assert.equal(household.hasPublicRoad, true);
+
+  const [parcel] = app.run("buildLandholdings(italianData)").filter(unit => unit.source === "extracted");
+  assert.equal(parcel.role, "castagneto");
+  assert.equal(parcel.parcelName, "San Nicola");
+  assert.equal(parcel.capacity, "moggio uno");
+  assert.equal(parcel.income, "stimata la rendita per molti ducati cinque, sono — oncie — 16.20");
+  assert.deepEqual([...parcel.adjacentNames], ["Daniele Santanna"]);
+  assert.ok(parcel.assets.some(asset => asset.type === "trees"));
+});

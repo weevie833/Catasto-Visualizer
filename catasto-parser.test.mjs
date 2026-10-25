@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 
 const source = await readFile(new URL("./catasto-parser.js", import.meta.url), "utf8");
 const context = { window: {} };
 vm.runInNewContext(source, context);
-const { inferFamilyRelationships, parsePlainText } = context.window.CatastoParser;
+const { inferFamilyRelationships, parsePlainText, languageMismatch, parseItalianLandholding, splitItalianMemberLine } = context.window.CatastoParser;
 
 test("children of a widow inherit the deceased husband's surname", () => {
   const result = inferFamilyRelationships([
@@ -197,4 +198,118 @@ He lives in San Nicola.`);
   assert.equal(data.households.length, 2);
   assert.match(data.households[0].members_text, /Michele brother/);
   assert.match(data.households[0].members_text, /Anna di Bartolo mother/);
+});
+
+const italianEntries = `Andrea Morrone bracciale ————— anni 46
+Lucrezia Aijello moglie — anni 40
+Michele figlio — anni 2
+Teste due
+Abita in casa propria sita nelli Pasolani giusta li beni di Pietro e Biasi Santanna e via publica —
+Possiede una possessione detta San Nicola di capacità moggi mezzo confine Cesare Chiappetta e Giacomo di Francesco stimata la rendita per carlini quindici sono oncie 5.
+
+Antonio Conforto di Giuseppe pecoraro — anni 50
+Abita in casa del Magnifico Domenico Lento della Terra di Rende, e ne paga annui carlini trenta d'affitto.
+
+Nicolò Vera della Terra di Castelfranco bracciale — anni 40
+Abita in casaggio di Santo Nicola, giusta li beni di Lorenzo Russo ed Andrea Morrone —`;
+
+test("an Italian-only transcription is split into households with Italian names, residences, and neighbors", () => {
+  const data = parsePlainText(italianEntries, "it");
+  assert.equal(data.source_language, "it");
+  assert.deepEqual([...data.households.map(record => record.household_head)], ["Andrea Morrone", "Antonio Conforto", "Nicolò Vera"]);
+
+  const [morrone, conforto, vera] = data.households;
+  assert.match(morrone.members_text, /Michele figlio/);
+  assert.equal(morrone.residence.place, "Pasolani");
+  assert.deepEqual([...morrone.residence.adjacent_to], ["Pietro Santanna", "Biasi Santanna", "via publica"]);
+  assert.equal(conforto.residence.place, "Not Listed");
+  assert.deepEqual([...conforto.residence.adjacent_to], []);
+  assert.equal(vera.residence.place, "Santo Nicola");
+  assert.deepEqual([...vera.residence.adjacent_to], ["Lorenzo Russo", "Andrea Morrone"]);
+  assert.equal(vera.residence_links.find(link => link.name === "Andrea Morrone").household_id, "andrea-morrone");
+});
+
+test("Italian member lines separate name, father, origin, occupation, and relation", () => {
+  assert.deepEqual({ ...splitItalianMemberLine("Antonio Conforto di Giuseppe pecoraro — anni 50") }, {
+    name: "Antonio Conforto", patronymic: "di Giuseppe", origin: null, rest: "di Giuseppe pecoraro", age: "50", relation: ""
+  });
+  const origin = splitItalianMemberLine("Paolo Cajra della Terra di Castelfranco, pecoraro — anni 39");
+  assert.equal(origin.name, "Paolo Cajra");
+  assert.equal(origin.origin, "Castelfranco");
+  assert.equal(splitItalianMemberLine("Michele di Gaudio bracciale — — — anni 43").name, "Michele di Gaudio");
+  assert.equal(splitItalianMemberLine("Giovanni Battista di Rangho bracciale — anni 35").name, "Giovanni Battista di Rangho");
+  assert.equal(splitItalianMemberLine("Achille Covello Bracciale — anni 30").name, "Achille Covello");
+  assert.equal(splitItalianMemberLine("Anna Spizzirri figlia nubile — anni 20").relation, "figlia nubile");
+});
+
+test("Italian landholding clauses keep their source terms", () => {
+  const holding = parseItalianLandholding("Un'altra possessione detta li Malvitani di castagna moggi mezzo, giusta li beni di Mercurio Bartuccio e Cesare Tenuta stimata la rendita per carlini ventiquattro, sono oncie 8.");
+  assert.equal(holding.name, "li Malvitani");
+  assert.equal(holding.type, "possessione di castagna");
+  assert.equal(holding.capacity, "moggi mezzo");
+  assert.equal(holding.income, "stimata la rendita per carlini ventiquattro, sono oncie 8");
+  assert.deepEqual([...holding.adjacent_to], ["Mercurio Bartuccio", "Cesare Tenuta"]);
+
+  const located = parseItalianLandholding("Possiede un castagneto di San Nicola in capacità moggio uno, confina Daniele Santanna e Giulia Belmonte; stimata la rendita per molti ducati cinque, sono — oncie — 16.20");
+  assert.equal(located.place, "San Nicola");
+  assert.equal(located.type, "castagneto");
+  assert.equal(located.capacity, "moggio uno");
+  assert.deepEqual([...located.adjacent_to], ["Daniele Santanna", "Giulia Belmonte"]);
+});
+
+test("a bilingual transcription parses the selected language's sections with their pages", () => {
+  const text = `**Marano Marchesato 1754: Page 7**
+**Italian Transcription:**
+Andrea Morrone bracciale — anni 46
+Abita in casa propria sita in San Nicola, giusta li beni di Agostino Serpe e via publica.
+**English Translation:**
+Andrea Morrone, day laborer, age 46
+He lives in his own house situated in San Nicola, bordering Agostino Serpe and the public road.`;
+  const italian = parsePlainText(text, "it");
+  assert.equal(italian.source_language_used, "Italian Transcription sections only");
+  assert.deepEqual([...italian.households[0].source_pages], [7]);
+  assert.match(italian.households[0].source_entry, /Abita/);
+  assert.doesNotMatch(italian.households[0].source_entry, /lives/);
+  assert.match(parsePlainText(text).households[0].source_entry, /He lives/);
+});
+
+test("the selected language is checked against the text before parsing", () => {
+  const italianOnly = "**Italian Transcription:**\nAndrea Morrone bracciale — anni 46";
+  assert.match(languageMismatch(italianOnly, "en").message, /Italian Transcription sections but no English Translation sections\. Choose IT/);
+  assert.equal(languageMismatch(italianOnly, "it"), null);
+  assert.match(languageMismatch(italianEntries, "en").message, /looks Italian/);
+  assert.match(languageMismatch("Paolo Rossi, day laborer, age 40\nHe lives in his own house, bordering Marco Bruno.", "it").message, /looks English, but IT is selected/);
+  assert.equal(languageMismatch("Short note.", "it"), null);
+});
+
+// The bilingual source transcription stays on the developer's computer; when it is present, its Italian and
+// English sides must describe the same households.
+const bilingualSource = new URL("./MM 1754 Catasto Onciario Transcription 300.md", import.meta.url);
+test("the Italian and English sides of the bilingual transcription agree", { skip: !existsSync(bilingualSource) && "bilingual source not present" }, async () => {
+  const text = await readFile(bilingualSource, "utf8");
+  const english = parsePlainText(text, "en").households;
+  const italian = parsePlainText(text, "it").households;
+  assert.equal(italian.length, english.length);
+
+  const key = name => String(name || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\b(?:the|magnific[oa]|magnificent|don|donna|via publica|public road)\b/g, "").replace(/[^a-z]+/g, " ").trim();
+  let sameHead = 0;
+  let englishNeighbors = 0;
+  let matchedNeighbors = 0;
+  let next = 0;
+  // Pairs records in order, allowing a translator's spelling change to skip ahead by at most two records.
+  english.forEach(record => {
+    const offset = italian.slice(next, next + 3).findIndex(candidate => key(candidate.household_head) === key(record.household_head));
+    if (offset < 0) return;
+    const counterpart = italian[next + offset];
+    next += offset + 1;
+    sameHead += 1;
+    const italianNeighbors = new Set(counterpart.residence.adjacent_to.map(key).filter(Boolean));
+    record.residence.adjacent_to.map(key).filter(Boolean).forEach(name => {
+      englishNeighbors += 1;
+      if (italianNeighbors.has(name)) matchedNeighbors += 1;
+    });
+  });
+  assert.ok(sameHead / english.length >= 0.8, `household heads agree for ${sameHead} of ${english.length}`);
+  assert.ok(matchedNeighbors / englishNeighbors >= 0.9, `residence neighbors agree for ${matchedNeighbors} of ${englishNeighbors}`);
 });

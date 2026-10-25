@@ -1181,7 +1181,7 @@
 
     function stripNamePrefixes(name) {
       return String(name || "")
-        .replace(/\b(Most\s+Illustrious|Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa)\b\.?/gi, " ")
+        .replace(/\b(Most\s+Illustrious|Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|C(?:h)?ierico|Cherico|Sacerdote)\b\.?/gi, " ")
         .replace(/\s+/g, " ")
         .trim();
     }
@@ -1194,7 +1194,7 @@
         const two = tokens.slice(0, 2).join(" ");
         if (/^(Most Illustrious)$/i.test(two)) {
           honorifics.push(tokens.splice(0, 2).join(" "));
-        } else if (/^(Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa)$/i.test(one)) {
+        } else if (/^(Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|C(?:h)?ierico|Cherico)$/i.test(one)) {
           honorifics.push(tokens.shift());
         } else {
           break;
@@ -1281,24 +1281,24 @@
     }
 
     function isPublicAnchor(name) {
-      return /\b(?:public road|running river|river|road|via publica)\b/i.test(name);
+      return /\b(?:public road|running river|river|road|via pub+lica|strada|vico|fiume|vallone)\b/i.test(name);
     }
 
     function isPublicRoad(name) {
-      return /public road|via publica/i.test(name);
+      return /public road|via pub+lica|strada/i.test(name);
     }
 
     function detectAssets(entry, hasResidence) {
       const text = entry.toLowerCase();
       const assets = [];
       if (hasResidence) assets.push({ type: "house" });
-      if (/landholding|portion of land|property called|owns a portion|possesses a property|garden|vineyard|moggio|moggia/i.test(entry)) {
+      if (/landholding|portion of land|property called|owns a portion|possesses a property|garden|vineyard|moggio|moggia|possessione|porzione|vigna|\borto\b/i.test(entry)) {
         assets.push({ type: "land" });
       }
-      if (/chestnut|castagneto|castaneto/i.test(entry)) {
+      if (/chestnut|castagn|castaneto/i.test(entry)) {
         assets.push({ type: "trees" });
       }
-      if (/industry|labor|sheep|flock|mare|mule|donkey|sows|livestock|taxable heads/i.test(text)) {
+      if (/industry|labor|sheep|flock|mare|mule|donkey|sows|livestock|taxable heads|industria|bracciale|pecor|giumenta|somaro|buoi|\bmul[oie]\b|porc[ie]|capre|teste/i.test(text)) {
         assets.push({ type: "work" });
       }
       return assets.slice(0, 4);
@@ -1313,6 +1313,11 @@
     }
 
     function parseMemberLine(line, householdSurname, index) {
+      if (window.CatastoParser.isItalianMemberLine(line)) {
+        const member = window.CatastoParser.splitItalianMemberLine(line);
+        const relation = member.relation || (index === 0 ? "head" : "member");
+        return `${firstAndSurname(member.name, householdSurname)}, ${relation} (${member.age || "?"})`;
+      }
       const cleaned = line
         .replace(/\[[^\]]+\]/g, "")
         .replace(/[.;]\s*$/g, "")
@@ -1338,7 +1343,9 @@
       const lines = memberLines(record);
       const displays = lines.map((line, index) => parseMemberLine(line, surname, index));
       return lines.map((line, index) => {
-        const rawName = line.replace(/\[[^\]]+\]/g, "").split(",")[0].trim();
+        const rawName = window.CatastoParser.isItalianMemberLine(line)
+          ? window.CatastoParser.splitItalianMemberLine(line).name
+          : line.replace(/\[[^\]]+\]/g, "").split(",")[0].trim();
         return {
           id: index === 0 ? record.id : `${record.id}-member-${String(index).padStart(2, "0")}`,
           householdId: record.id,
@@ -1353,10 +1360,13 @@
 
     function headIdentityEvidence(record) {
       const headLine = memberLines(record)[0] || record.members_text?.split("\n")[0] || record.household_head || "";
-      const patronymic = headLine.match(/\b(?:son|daughter)\s+of\s+(?:the\s+late\s+)?([^,—;]+?)(?=,|—|;|\bage(?:d)?\b|$)/i)?.[0]?.trim() || "";
-      const age = headLine.match(/\b(?:age|aged)\s+(\d+)\b/i)?.[1] || "";
-      const spouseLine = memberLines(record).slice(1).find(line => /\b(?:wife|husband)\b/i.test(line));
-      const spouse = spouseLine ? spouseLine.split(",")[0].trim() : "";
+      const italian = window.CatastoParser.isItalianMemberLine(headLine);
+      const patronymic = italian
+        ? window.CatastoParser.splitItalianMemberLine(headLine).patronymic
+        : headLine.match(/\b(?:son|daughter)\s+of\s+(?:the\s+late\s+)?([^,—;]+?)(?=,|—|;|\bage(?:d)?\b|$)/i)?.[0]?.trim() || "";
+      const age = headLine.match(/\b(?:age|aged|anni)\s+(\d+)\b/i)?.[1] || "";
+      const spouseLine = memberLines(record).slice(1).find(line => /\b(?:wife|husband|moglie|marito)\b/i.test(line));
+      const spouse = spouseLine ? window.CatastoParser.memberPersonName(spouseLine) : "";
       return { patronymic, age, spouse };
     }
 
@@ -1435,11 +1445,41 @@
       return match ? match[0].replace(/[.;]\s*$/, "").trim() : "Income not listed";
     }
 
+    // Italian clauses keep their source terms for type, capacity, and income.
+    function italianLandholding(record, sentence, index, previousPlace) {
+      const holding = window.CatastoParser.parseItalianLandholding(sentence);
+      const name = holding.name || holding.place || `Landholding ${index + 1}`;
+      const placeInfo = holding.name || holding.place
+        ? canonicalPlace(holding.place || holding.name)
+        : /\b(?:stesso|medesimo|dett[oa]|ind['’]o)\s+luogo\b/i.test(sentence) && previousPlace ? previousPlace : canonicalPlace("District not listed");
+      return {
+        id: `${record.id}-land-${index + 1}`,
+        owner: record.household_head,
+        name,
+        place: placeInfo.label,
+        placeKey: placeInfo.key,
+        type: holding.type,
+        capacity: holding.capacity || "Capacity not listed",
+        income: holding.income || "Income not listed",
+        source_entry: sentence,
+        adjacent_to: holding.adjacent_to,
+        boundary_features: holding.adjacent_to.filter(isPublicAnchor),
+        hasPublicRoad: holding.adjacent_to.some(isPublicRoad)
+      };
+    }
+
     function parseLandholdings(record) {
       let previousPlace = null;
-      return sentenceList(record.source_entry)
-        .filter(isLandholdingSentence)
+      // Italian clauses often end with a dash rather than a period; a line opening a new clause starts a new sentence.
+      const entry = record.source_entry.replace(/[ \t]*\n(?=[ \t]*(?:Più\s+)?(?:Possiede|Paga|Abita|Habita|Riporto|Pesi|Un['’]altr[ao]|Un|Una|Altr[ao])\b)/g, "\n\n");
+      return sentenceList(entry)
+        .filter(sentence => isLandholdingSentence(sentence) || window.CatastoParser.isItalianLandholdingSentence(sentence))
         .map((sentence, index) => {
+          if (window.CatastoParser.isItalianLandholdingSentence(sentence)) {
+            const holding = italianLandholding(record, sentence, index, previousPlace);
+            previousPlace = { key: holding.placeKey, label: holding.place };
+            return holding;
+          }
           const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|$)/i);
           const rawAdjacentNames = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
           const name = landholdingName(sentence, index);
@@ -1462,6 +1502,15 @@
         });
     }
 
+    function householdRole(record) {
+      const headLine = memberLines(record)[0];
+      if (headLine && window.CatastoParser.isItalianMemberLine(headLine)) {
+        const member = window.CatastoParser.splitItalianMemberLine(headLine);
+        return [member.rest, member.age ? `anni ${member.age}` : ""].filter(Boolean).join(", ") || "household";
+      }
+      return headLine?.replace(record.household_head, "").replace(/^,\s*/, "") || "household";
+    }
+
     function createHouseholdFromRecord(record, x, y, displayHead = record.household_head) {
       const rawAdjacentNames = record.residence?.adjacent_to || [];
       const adjacentNames = rawAdjacentNames.filter(name => !isPublicAnchor(name));
@@ -1477,7 +1526,7 @@
         displayHead,
         identityEvidence: headIdentityEvidence(record),
         surname,
-        role: memberLines(record)[0]?.replace(record.household_head, "").replace(/^,\s*/, "") || "household",
+        role: householdRole(record),
         place: placeInfo.label,
         placeKey: placeInfo.key,
         x,
@@ -1615,7 +1664,7 @@
         x: 0,
         y: 0,
         members: [record.household_head, holding.name, holding.capacity],
-        assets: [{ type: "land" }, ...(holding.type.includes("grove") ? [{ type: "trees" }] : [])],
+        assets: [{ type: "land" }, ...(/grove|castagn|oliv|bosco|selva/i.test(holding.type) ? [{ type: "trees" }] : [])],
         signal: adjacentNames.length ? `${adjacentNames.length} land neighbor${adjacentNames.length === 1 ? "" : "s"} from source` : "No land adjacency listed",
         sourceEntry: holding.source_entry,
         recordIndex: record.projectRecordIndex,
@@ -1809,8 +1858,8 @@
     }
 
     function sourceReferenceType(context) {
-      if (/\b(?:bordering|adjacent|neighbor|property of)\b/i.test(context)) return view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch";
-      if (/\b(?:pays? to|collects? from|receives? from|creditor|debtor|principal|interest|rent)\b/i.test(context)) return "financialReferenceMatch";
+      if (/\b(?:bordering|adjacent|neighbor|property of|giusta|confin\w*|contigu\w*)\b/i.test(context)) return view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch";
+      if (/\b(?:pays? to|collects? from|receives? from|creditor|debtor|principal|interest|rent|paga|capitale|affitto|esige)\b/i.test(context)) return "financialReferenceMatch";
       return "sourceReferenceMatch";
     }
 
@@ -2035,34 +2084,8 @@
       announceScene();
     }
 
-    function isMemberLine(line) {
-      return /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+.*\b(?:age|aged)\s+\d+\b/i.test(line.trim()) &&
-        !/\b(?:annual|income|ounces?|oncie|grana|ducats?|carlini|moggi|capacity)\b/i.test(line);
-    }
-
-    function memberPersonName(line) {
-      const text = String(line || "").trim();
-      if (text.includes(",")) return text.split(",")[0].trim();
-      return text
-        .replace(/\b(?:age|aged)\s+\d+.*$/i, "")
-        .replace(/[—–-]+\s*$/, "")
-        .replace(/\s+\b(?:wife|husband|son|daughter|brother|sister|mother|father|niece|nephew|servant|laborer|day laborer|shepherd|manager|shoemaker|miller|moglie|marito|figlio|figlia|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b.*$/i, "")
-        .trim();
-    }
-
-    function isDependentHouseholdMember(line) {
-      const parts = String(line || "").split(",");
-      const nameField = parts[0] || "";
-      const roleText = parts.slice(1).join(",");
-      const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|marito|figlio(?!\s+di\b)|figlia(?!\s+di\b)|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b/i;
-      const untitledNameField = nameField.replace(/^(?:Sister|Brother|Father)\s+/i, "");
-      return relationship.test(roleText) || (!parts.slice(1).length && relationship.test(untitledNameField)) ||
-        new RegExp(`${relationship.source}\\s*$`, "i").test(nameField);
-    }
-
-    function isHouseholdNarrativeLine(line) {
-      return /\b(?:tax(?:able)?|heads?|industry|assessment|lives?|resides?|dwells?|inhabits?|possesses?|owns?|house|landholding|property|portion|garden|vineyard|chestnut|grove|livestock|sheep|goats?|mules?|mares?|income|total|deductions?|liabilit|pays?|debt|carried forward|brought forward|recorded|oncie|ounces?|grana|carlini|ducats?|moggi|capacity|teste|industria|abita|possiede|confina|rendita|sono in tutto|pesi|riporto)\b/i.test(line);
-    }
+    // Entry-boundary rules are shared with Admin's parser so both read English and Italian alike.
+    const { isMemberLine, memberPersonName, isDependentHouseholdMember, isHouseholdNarrativeLine } = window.CatastoParser;
 
     function normalizeName(name) {
       return name
@@ -2147,6 +2170,10 @@
         entry.match(/\b(?:He|She|They)\s+(?:possesses|owns)\s+(?:the|a)\s+house[\s\S]*?(?:\.|\n\n|$)/i)?.[0] ||
         entry.match(/\b(?:The|His|Her|Their)\s+(?:house|residence|home|dwelling)[^\n]*(?:\.|$)/i)?.[0] ||
         "";
+      if (!sentence) {
+        const italian = window.CatastoParser.parseItalianResidence(entry);
+        if (italian) return italian;
+      }
       const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|\n|$)/i);
       const adjacentTo = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
       const placeMatch =
@@ -2173,50 +2200,6 @@
         place: place || null,
         description: sentence.trim() || null,
         adjacent_to: adjacentTo
-      };
-    }
-
-    function extractEnglishTranslationText(text) {
-      const lines = text.replace(/\r/g, "").split("\n");
-      const englishLines = [];
-      let mode = "unknown";
-      let foundEnglishHeading = false;
-      let currentPage = null;
-      let sourceTitle = "";
-
-      lines.forEach(line => {
-        const trimmed = line.trim();
-        const heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/__/g, "").trim();
-        const englishMatch = heading.match(/^English\s+Translation\s*:?\s*(.*)$/i);
-        const italianMatch = heading.match(/^(Italian\s+Transcription|Italian)\s*:?\s*(.*)$/i);
-        const pageMatch = heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
-        if (pageMatch) {
-          sourceTitle = pageMatch[1].trim();
-          currentPage = Number(pageMatch[2]);
-        }
-
-        if (englishMatch) {
-          foundEnglishHeading = true;
-          mode = "english";
-          if (currentPage) englishLines.push(`[[SOURCE_PAGE:${currentPage}]]`);
-          if (englishMatch[1]) englishLines.push(englishMatch[1]);
-          return;
-        }
-
-        if (italianMatch || pageMatch) {
-          mode = "not-english";
-          return;
-        }
-
-        if (mode === "english") {
-          englishLines.push(line);
-        }
-      });
-
-      return {
-        text: foundEnglishHeading ? englishLines.join("\n").trim() : text,
-        usedEnglishSectionsOnly: foundEnglishHeading,
-        sourceTitle
       };
     }
 
@@ -2263,6 +2246,7 @@
         const headLine = members[0] || memberBlock[0] || `Household ${index + 1}, age ?`;
         const rawHead = memberPersonName(headLine) || headLine.split(",")[0].trim();
         const landResidence = rawHead.match(/\s+of\s+(?:the\s+)?land\s+of\s+(.+)$/i);
+        const italianOrigin = window.CatastoParser.isItalianMemberLine(headLine) ? window.CatastoParser.splitItalianMemberLine(headLine).origin : null;
         const head = landResidence ? rawHead.slice(0, landResidence.index).trim() : rawHead;
         const cleanedMembers = members.map(line => line.replace(/\s+of\s+(?:the\s+)?land\s+of\s+[^,]+/i, ""));
         return {
@@ -2273,7 +2257,7 @@
           members: cleanedMembers,
           headLine,
           head,
-          headResidence: landResidence?.[1]?.replace(/[.,;]+$/, "").trim() || null
+          headResidence: landResidence?.[1]?.replace(/[.,;]+$/, "").trim() || italianOrigin || null
         };
       });
     }
@@ -2439,9 +2423,9 @@
       });
     }
 
-    function parsePlainText(text) {
+    function parsePlainText(text, sourceLanguage = "en") {
       const unescapedText = String(text || "").replace(/\\/g, "");
-      const prepared = extractEnglishTranslationText(unescapedText);
+      const prepared = window.CatastoParser.extractTranscriptionSections(unescapedText, sourceLanguage);
       const records = cleanedGraphRecordsFromText(prepared.text);
       return {
         pipeline_version: "semantic-cleaning-v2-identity-triangulation",
@@ -2457,11 +2441,14 @@
         ],
         source_document: "Uploaded plain text",
         source_range: "Uploaded text",
-        source_language_used: prepared.usedEnglishSectionsOnly ? "English Translation sections only" : "Plain text",
+        source_language: prepared.language,
+        source_language_used: prepared.usedSectionsOnly
+          ? `${prepared.language === "it" ? "Italian Transcription" : "English Translation"} sections only`
+          : "Plain text",
         requested_household_count: records.length,
         extracted_household_count: records.length,
-        note: prepared.usedEnglishSectionsOnly
-          ? "Generated in browser from uploaded plain text after excluding non-English transcription sections."
+        note: prepared.usedSectionsOnly
+          ? `Generated in browser from uploaded plain text after excluding non-${prepared.language === "it" ? "Italian" : "English"} sections.`
           : "Generated in browser from uploaded plain text.",
         households: records
       };
@@ -2498,7 +2485,7 @@
 
     function qualityProblemForRecord(record) {
       const sentence = residenceSentence(record);
-      const hasResidenceLanguage = /\b(lives|resides)\b/i.test(sentence);
+      const hasResidenceLanguage = /\b(lives|resides|abita|habita)\b/i.test(sentence);
       const suggestedPlace = !record.residence?.place ? likelyPlaceFromResidence(sentence) : "";
       const possibleSplitName = (record.residence?.adjacent_to || []).find(name => /^\S+$/.test(name) && !isPublicAnchor(name));
 
@@ -2772,7 +2759,7 @@
       if (!project.sourceText || !project.data?.households?.length) return false;
       const pageMappingVersion = 2;
       if (project.data.source_pages_version === pageMappingVersion) return false;
-      const parsed = parsePlainText(project.sourceText);
+      const parsed = parsePlainText(project.sourceText, project.data.source_language);
       project.data.source_title = parsed.source_title || project.data.source_title;
       const candidatesByName = new Map();
       parsed.households.forEach((record, index) => {
@@ -2801,7 +2788,7 @@
 
     function rebuildStoredProjectBoundaries(project) {
       if (!project.sourceText || project.data?.entry_boundary_version === 5) return false;
-      const parsed = parsePlainText(project.sourceText);
+      const parsed = parsePlainText(project.sourceText, project.data?.source_language);
       if (!parsed.households.length) return false;
       if (!project.entryBoundaryMigrationBackup) {
         project.entryBoundaryMigrationBackup = {
