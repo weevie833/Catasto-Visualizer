@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 
 // Runs admin.js against a minimal DOM to check that every library change is announced to
 // open Visualizer tabs.
-const [adminSource, storageSource, parserSource] = await Promise.all(
-  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
+const [adminSource, storageSource, parserSource, recordsSource] = await Promise.all(
+  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
 );
 const sampleText = "Paolo Rossi, day laborer, age 40\nHe lives in his own house in the Pasolani district.";
 
@@ -24,10 +24,11 @@ async function loadAdmin({ preferences = new Map() } = {}) {
     return elements.get(selector);
   };
   const messages = [];
+  const confirmations = [];
   const stored = new Map([["existing", { id: "existing", name: "Existing", data: { households: [] } }]]);
   let nextId = 0;
   const context = {
-    window: { confirm: () => true },
+    window: { confirm: message => { confirmations.push(message); return true; } },
     document: { querySelector: element, createElement: () => ({ click() {} }) },
     localStorage: {
       getItem: key => preferences.get(key) ?? null,
@@ -46,19 +47,24 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   vm.createContext(context);
   vm.runInContext(storageSource, context);
   vm.runInContext(parserSource, context);
+  vm.runInContext(recordsSource, context);
   context.CatastoStorage = context.window.CatastoStorage;
   context.CatastoParser = context.window.CatastoParser;
+  context.CatastoRecords = context.window.CatastoRecords;
   Object.assign(context.CatastoStorage, {
-    listProjects: async () => [...stored.values()],
+    listProjects: async () => [...stored.values()].map(project => ({
+      id: project.id, name: project.name, sourceFile: project.sourceFile,
+      householdCount: project.data.households.length, sourceLanguage: project.data.source_language, snapshotCreatedAt: null
+    })),
     getProject: async id => stored.get(id),
     saveProject: async project => { stored.set(project.id, project); return project; },
     saveImportedProjects: async projects => { projects.forEach(project => stored.set(project.id, project)); return projects; },
-    deleteProject: async id => { stored.delete(id); }
+    deleteProject: async project => { stored.delete(project.id); }
   });
   vm.runInContext(adminSource, context);
   const settle = () => new Promise(resolve => setTimeout(resolve, 10));
   await settle();
-  return { element, messages, stored, settle, preferences, storage: context.CatastoStorage };
+  return { element, messages, confirmations, stored, settle, preferences, storage: context.CatastoStorage };
 }
 
 test("importing a transcription announces the new project to open Visualizer tabs", async () => {
@@ -111,7 +117,7 @@ test("creating a project offers to open it, and the notice can be dismissed", as
 
 test("a JSON backup import names the restored project", async () => {
   const admin = await loadAdmin();
-  const payload = admin.storage.serializeProject(admin.storage.createProject({ name: "Restored", sourceFile: "restored.md", sourceText: sampleText, data: { households: [{ id: "a" }, { id: "b" }] } }));
+  const payload = admin.storage.serializeProject(admin.storage.createProject({ name: "Restored", sourceFile: "restored.md", sourceText: sampleText, data: { households: [{ id: "a", household_head: "Paolo Rossi" }, { id: "b", household_head: "Anna Bruno" }] } }));
   await admin.element("#importFile").listeners.change({ target: { files: [{ name: "restored.catasto.json", text: async () => payload }] } });
   await admin.settle();
   assert.equal(admin.element("#successNotice").hidden, false, admin.element("#libraryStatus").textContent);
@@ -152,4 +158,43 @@ test("an Italian transcription is created with IT and refused with ENG", async (
   const created = [...admin.stored.values()].find(project => project.id !== "existing");
   assert.equal(created.data.source_language, "it");
   assert.equal(created.data.households[0].household_head, "Andrea Morrone");
+});
+
+const click = (admin, projectId, button) => admin.element("#projectList").listeners.click({
+  target: { closest: selector => selector === "[data-project-id]" ? { dataset: { projectId } } : selector === button ? {} : null }
+});
+
+test("a previous version that predates the record rules is repaired, shown, and then restored", async () => {
+  const admin = await loadAdmin();
+  const restored = [];
+  admin.storage.getSnapshot = async () => ({
+    createdAt: "2026-01-01T00:00:00.000Z", reason: "Before converting to permanent household ids",
+    data: { households: [{ id: "same", household_head: "A" }, { id: "same", household_head: "B" }] }
+  });
+  admin.storage.restoreSnapshot = async (project, data) => { restored.push({ project, data }); return project; };
+  await click(admin, "existing", ".restore");
+  assert.match(admin.confirmations[0], /was repaired/);
+  assert.match(admin.confirmations[0], /shared the id “same”/);
+  assert.equal(restored.length, 1);
+  assert.equal(new Set(restored[0].data.households.map(record => record.id)).size, 2);
+  assert.equal(admin.messages.at(-1).reason, "restored");
+});
+
+test("an export carries the previous version, and importing it brings the version back", async () => {
+  const admin = await loadAdmin();
+  const previous = { createdAt: "2026-01-01T00:00:00.000Z", reason: "Before reparsing", data: { households: [{ id: "old", household_head: "Old" }] } };
+  const project = admin.storage.createProject({ name: "With history", data: { households: [{ id: "a", household_head: "A" }] } });
+  const payload = JSON.parse(admin.storage.serializeProject(project, previous));
+  assert.deepEqual(payload.project.previousVersion, previous);
+  const [imported] = admin.storage.projectsFromImport(payload, "x");
+  assert.deepEqual(JSON.parse(JSON.stringify(imported.previousVersion)), previous);
+});
+
+test("a delete refused because another tab saved is reported and nothing is removed", async () => {
+  const admin = await loadAdmin();
+  admin.storage.deleteProject = async () => { throw new Error("This project was changed in another tab or window after you opened it."); };
+  await click(admin, "existing", ".delete");
+  assert.equal(admin.stored.has("existing"), true);
+  assert.match(admin.element("#libraryStatus").textContent, /changed in another tab/);
+  assert.equal(admin.messages.some(message => message.reason === "deleted"), false);
 });

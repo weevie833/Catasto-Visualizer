@@ -1,5 +1,5 @@
 # Project data stays on the user's computer, never in the app repository.
-# Projects live in the browser; back them up with Admin > Export.
+# Projects live in a per-user folder outside the app; back them up with Admin > Export.
 *.catasto.json
 *.docx
 MM *.md
@@ -13,3 +13,5 @@ requirements.txt
 .DS_Store
 __pycache__/
 .claude/
+node_modules/
+.venv/

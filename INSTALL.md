@@ -106,8 +106,8 @@ Open your browser yourself and go to exactly this address:
 http://127.0.0.1:8000/index.html
 ```
 
-Always use this exact address. Your projects are saved under it, and a
-different address (such as `localhost:8000`) shows an empty library.
+Use this address with the launcher running. Opening `index.html` directly from
+the folder does not work.
 
 ---
 
@@ -128,14 +128,28 @@ The app starts with an empty library.
 
 ## Where your work is saved
 
-Your projects are saved **inside your web browser** on this computer, not in
-the app folder and not online. This means:
+Your projects are saved as files in a folder on this computer, outside the app
+folder and not online:
+
+- **Windows:** `%APPDATA%\Catasto Visualizer\projects\` (paste this into the
+  File Explorer address bar to open it)
+- **Mac:** `~/Library/Application Support/Catasto Visualizer/projects/` (in
+  Finder, choose **Go > Go to Folder…** and paste it)
+
+The launcher window also shows this folder when the app starts. This means:
 
 - Updating or deleting the app folder does not delete your projects (see
   [Installing updates](#installing-updates)).
-- Your projects are visible only in the browser you created them in. Chrome
-  and Safari, for example, each have a separate library.
-- Clearing your browser's history or "site data" for all time can delete them.
+- Clearing your browser's history or site data does not delete them, and every
+  browser on this computer shows the same library.
+- Do not edit or rename the files in that folder yourself; use Admin.
+- Use the app on a computer whose other user accounts you trust. Other accounts
+  cannot open the project files, but while the app is running another program
+  on the same computer could reach it.
+
+Earlier versions saved projects inside the web browser. The first time you open
+this version in that browser, those projects are copied into the folder
+automatically.
 
 **Back up regularly.** In Admin, export each project to a `.catasto.json` file
 and keep it in your own projects folder. Use the same file to move a project to
@@ -189,13 +203,14 @@ you start the app again and reload the page.
 
 ## Installing updates
 
-Updates replace the app folder only. Your projects are saved in your browser,
-so they stay where they are.
+Updates replace the app folder only. Your projects are saved in a separate
+folder (see [Where your work is saved](#where-your-work-is-saved)), so they stay
+where they are.
 
 ### Check which version you have
 
 The version number appears at the bottom of the Visualizer's left panel and at
-the bottom of the Admin page, for example **V 0.05**. To see whether a newer
+the bottom of the Admin page, for example **V 0.06**. To see whether a newer
 version exists, visit the app's GitHub page
 (<https://github.com/weevie833/Catasto-Visualizer>) or ask the person who
 shared the app with you.
@@ -233,10 +248,10 @@ Python does not need to be reinstalled for updates.
 
 ### If your projects do not appear after an update
 
-- Make sure the address bar shows exactly
-  `http://127.0.0.1:8000/index.html` and that you are using the same browser
-  as before. Projects are tied to the browser and this address, not to the app
-  folder.
+- Make sure you started the app with the launcher in the new folder. If you
+  are updating from a version that saved projects in the browser, open the
+  Visualizer in the same browser and at the same address as before
+  (`http://127.0.0.1:8000/index.html`) so they can be copied over.
 - If they are still missing, open **ADMIN**, click
   **Import JSON backup or Catasto text**, and choose the backups you exported
   in step 1.
@@ -265,13 +280,38 @@ The app is still running. Stop it as described in
 [Stopping the app](#stopping-the-app), then try again.
 
 **My projects are missing.**
-Check that the address bar shows exactly `http://127.0.0.1:8000/index.html`
-and that you are using the same browser as before. If they are still missing,
-import your most recent `.catasto.json` backup in Admin.
+Check that the project folder (see
+[Where your work is saved](#where-your-work-is-saved)) contains `.json` files.
+If you are coming from a version that saved projects in the browser, open the
+Visualizer once in that browser at `http://127.0.0.1:8000/index.html`. If they
+are still missing, import your most recent `.catasto.json` backup in Admin.
+
+**A notice says the project was read by an older version of the parser.**
+Newer versions read residences and neighbors more completely. Click **Review
+update** to see what would change, then **Update project** to apply it, or
+**Not now** to keep the project as it is. Records you edited or merged are kept
+unchanged, and a copy of the previous data is saved inside the project.
+
+**I want to undo an update.**
+Open **ADMIN** and click **Restore previous version** next to the project. The
+app keeps one previous version of each project, saved before its last update.
+Restoring swaps the two, so you can restore again to undo it. If the previous
+version was saved by an older version of the app, the confirmation lists the
+repairs made to it first; click **Download previous version** beforehand to
+keep an exact copy. **Export JSON** also includes the previous version.
+
+**Admin says some records had to be repaired before import.**
+The file contains records with missing or unreadable fields. The message lists
+each change; click **OK** to import the repaired projects or **Cancel** to
+import nothing.
+
+**The page says project storage is not available.**
+The app was opened without the launcher, or the launcher window was closed.
+Double-click the launcher and reload the page.
 
 **I double-clicked `index.html` and the page does not work.**
 Always start the app with the launcher. Pages opened directly as files cannot
-show the 3D view, and anything imported there is saved separately.
+show the 3D view or reach your projects.
 
 **Mac: "permission denied" when starting the launcher.**
 Open **Terminal** (in Applications > Utilities), type `chmod +x ` (with a space

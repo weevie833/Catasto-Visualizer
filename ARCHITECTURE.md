@@ -2,26 +2,65 @@
 
 ## Boundaries
 
-- `index.html` contains the visualization and project selector.
-- `admin.html` and `admin.js` contain project-management workflows.
-- `catasto-parser.js` parses text in Admin; `index.html` has a separate parser for source migration of stored projects. Section selection, entry-boundary rules, and all Italian-language rules are defined once in `catasto-parser.js` and used by both.
+- `index.html` and `index.css` hold the Visualizer page; its code is in `app.js` and the 3D view is started by `scene3d-boot.js`. No page contains inline script or style, so the server can send a strict Content-Security-Policy (`script-src 'self'; style-src 'self'`).
+- `admin.html`, `admin.css`, and `admin.js` contain project-management workflows.
+- `catasto-parser.js` is the only parser. Admin creates projects with it and the Visualizer reparses with it; name, place, residence, and neighbor-link rules for both languages are defined there. Its output carries `parser_version` (currently 6).
+- `catasto-records.js` owns household records inside a project: permanent ids, repair of malformed imports, and carrying the user's edits across a reparse.
+- `scene3d.js` and `vendor/OrbitControls.js` import Three.js by relative path (`./vendor/three.module.js`, `./three.module.js`) instead of an import map, which the CSP would block. That one import line is the only change to the vendored files.
 - A project's `data.source_language` (`en` or `it`) records which side of the transcription was parsed.
-- `catasto-storage.js` owns local persistence and the portable exchange format.
-- User projects live in the browser's IndexedDB database, not in application files.
-- Household source-entry edits and residence corrections are written directly to the active IndexedDB project and are included in project exports.
+- `catasto-storage.js` owns the browser side of persistence and the portable exchange format; `project_store.py` owns the files, reached through `serve.py`'s `/api/`.
+- User projects are JSON files, one per project, in a per-user folder outside the app: `%APPDATA%\Catasto Visualizer\projects\` on Windows, `~/Library/Application Support/Catasto Visualizer/projects/` on macOS, `$XDG_DATA_HOME/Catasto Visualizer/projects/` on Linux. Writes are atomic (temp file, then replace) and serialized by one lock. On macOS and Linux the folders are `0700` and the files `0600`, and files from earlier versions are tightened at startup; other accounts on the computer cannot read them. One trusted user runs the server; it has no per-launch token.
+- A project is limited to 50 MB; one import request may carry several projects, up to 200 MB.
+- `GET /api/projects` returns summaries only (id, name, source file, timestamps, household count, language, snapshot date). A page fetches one project's full data when it opens it. The server parses a project or snapshot file only when it changed since the last listing (by modification time and size); the snapshot date shown is the `createdAt` recorded in the snapshot.
+- A save that replaces both a project and its snapshot (an update or a restore) stages both files in `projects/.pending/`, records `transaction-<id>.json`, and only then replaces the real files. A failure before the record leaves both files as they were. Once recorded, the update is committed: any later read, save, delete, import, or listing of that project first finishes it, and the project is refused (503) while it cannot be finished, so a later save or delete is never overtaken by the earlier update. At startup, recorded transactions are finished and staged files without a record are discarded. A project whose update cannot be finished at startup does not stop the server: its record and staged files are kept, it is refused until a later attempt succeeds, and the library list marks it `unavailable` with the reason. Admin shows it without actions; the Visualizer lists it as "(being recovered)" and cannot open it.
+- `GET /api/projects/<id>/export` returns the project and its previous version read together under the store lock, so an export cannot mix two saves.
+- The server checks every household on every write (save, import, browser migration): each must be an object with a non-empty, unique `id` and a text `household_head`, and optional fields must have the types the app reads (`source_pages` numbers, `residence.adjacent_to` names, `residence_links` objects, text fields as text). The browser repairs imports to this shape first, and repairs old browser projects before copying them.
+- A damaged `import-journal.json` is renamed `import-journal.damaged-<time>.json` at startup and no project is touched.
+- Household source-entry edits and residence corrections are written directly to the active project file and are included in project exports.
+- `/api/` refuses requests whose `Host` is not `127.0.0.1` or `localhost` at the server's port, and writes whose `Origin` is not that address or that do not send JSON, so other websites cannot read or change projects. Project ids are limited to `[A-Za-z0-9_-]` so they cannot name other files.
+- `serve.py` checks the `Host` of every request, not only `/api/`, and serves only the app files listed in `APP_FILES`; transcriptions, backups, and other files kept in the app folder return 404. Responses carry `X-Content-Type-Options: nosniff`. Connections time out after 30 seconds of silence, at most 32 requests are handled at once, and a negative `Content-Length` is refused.
+- Every save gives `updatedAt` a value later than the stored one, so the stale-save check holds even for two saves in the same millisecond.
+- An import writes `import-journal.json` listing its projects before writing them and removes it when done. If the server stops part-way, the next start deletes the listed projects, which were all new, so an import is kept whole or not at all.
+- The server code runs on Python 3.7 and later; `test_serve.py` checks that it parses under the 3.7 grammar.
 - The repository contains no project data. A new installation starts with an empty library; source transcriptions and backups stay on the user's computer and are excluded by `.gitignore`.
 
 ## Upgrade Safety
 
-Application updates may replace `index.html` and `catasto-storage.js` without changing saved projects. The app must continue to be served from the same browser origin because IndexedDB is isolated by origin. Exported `.catasto.json` files provide backups and allow projects to move between users or origins.
+Application updates may replace every app file without changing saved projects, because the project folder is outside the app folder and outside browser storage. Exported `.catasto.json` files provide backups and allow projects to move between users and computers.
 
-A save is refused when the stored project changed or was deleted after the saving tab loaded it, so one tab or window cannot silently overwrite another. New projects are saved with `{ create: true }`.
+Versions up to V 0.05 kept projects in the browser's IndexedDB (database `catasto-visualizer`, store `projects`). On first load, `catasto-storage.js` reads that store without changing it and sends its records to `/api/migrate`, then sets the `catasto-browser-projects-migrated` localStorage flag. The server adds only projects it does not have and has not copied before (`browser-migration.json` lists every copied id), so a project deleted after migration is never restored, and projects from several browsers are all kept. The IndexedDB copy is left as a fallback.
+
+A save is refused when the stored project changed or was deleted after the saving tab loaded it, so one tab or window cannot silently overwrite another. A delete sends the loaded `updatedAt` too and is refused if the project was saved since, so a newer save is never discarded by a deletion confirmed against an older view. New projects are saved with `{ create: true }`.
 
 Admin announces imports, creations, and deletions on the `catasto-projects` `BroadcastChannel`. Open Visualizer tabs reload their project list and open a newly imported or created project, unless a source edit or duplicate review is open there.
 
 ## Project Record
 
-Each stored project contains an ID, display name, source filename, timestamps, and a parsed Catasto data object with a `households` array. Exchange files include an explicit format name and version so future migrations can be added without coupling data to a particular app release.
+Each stored project contains an ID, display name, source filename, timestamps, and a parsed Catasto data object with a `households` array. Exchange files include an explicit format name and version; the current version is 2. A backup from a newer version is refused with a request to update the app.
+
+Every new or imported project passes through `CatastoRecords.repairProjectData` and `convertToPermanentIds` (in `CatastoStorage.createProject`). Repair fills in missing optional fields silently, converts or removes values of the wrong type, takes a missing head from the first source line, and removes records with neither a head nor source text. Admin lists every change and asks before saving the import.
+
+## Record IDs
+
+Households have permanent random ids (`h-…`); `data.record_id_version` is 2. Names are display fields only, so renaming a head or reordering records never changes an id. Duplicate ids in an import are replaced, and links or decisions naming them are dropped and reported. Version 1 data, whose ids were slugs of the head's name, is converted once: at import, or when a stored project is opened. A conversion that keeps every link is saved at once; one that would drop links is shown as an update to review, and the previous data becomes the snapshot. Residence links, member identities, "keep separate" decisions, and the record copies in merge history are rewritten together. A reference to an id shared by several records cannot be resolved and is dropped; `data.record_id_migration.droppedReferences` lists each one, and the old id stays in `legacy_id`.
+
+## Reparsing
+
+Nothing is reparsed without the user's consent. When a project kept its transcription and its `parser_version` is older than the parser's, the Visualizer shows a notice. Review update shows the counts and a per-record list of changes (new, removed, residence place, neighbors added or removed) before anything is saved; Update project applies them.
+
+- A merged record claims every new entry whose text equals one of its `source_entries`, so a merge is never undone by an update. A merged entry found only by its head's name is an uncertain match, and the update is blocked until the merge is undone or the entry corrected.
+- Other new records are matched by identical source text, then by head name or alias in order, and keep the stored record's id.
+- Records the user edited (`source_edited_at`, `residence_edited_at`) or merged (`source_entries`, `aliases`) keep their stored content. An edited record the new parse no longer finds is kept as it is. Unedited records the new parse no longer finds are removed.
+- An unedited record keeps its stored residence place where the new parse reads it differently, because earlier versions applied residence corrections without marking them; the preview counts these.
+- Page numbers taken only from a record's position are stored with `source_pages_inferred` and shown as "(inferred)".
+- The update is blocked if the new project would exceed 50 MB.
+- The previous data is saved as the project's snapshot in `projects/snapshots/<id>.json`, a separate private file that does not count toward the project's size, replacing any earlier snapshot. The old in-project `entryBoundaryMigrationBackup` is removed. Deleting a project deletes its snapshot.
+- Admin's Restore previous version repairs a copy of the snapshot (a snapshot saved before the current record rules may not pass them), lists each repair in the confirmation, and sends the copy; the server checks it, makes it current, and keeps the replaced data as the new snapshot, so a restore can be undone. Download previous version saves the snapshot exactly as stored, as a project file Admin can import.
+- Export JSON includes the previous version (`project.previousVersion`) exactly as stored. Importing such a file stores it as the new project's snapshot without repairing it; it is repaired only if it is restored. Files without it import as before.
+
+Link recalculation (`recalculateStoredIdentityGraph`, run after a source edit or reparse) rebuilds links from each record's stored neighbors and never rereads source text, so curated and merged neighbors survive and editing one household cannot change another.
+
+No project is treated specially: the old Marano-only load-time migrations were removed. When a project is opened, the Visualizer applies only changes that lose nothing: ids converted with every link kept, and member source lines restored.
 
 ## Person Identity
 

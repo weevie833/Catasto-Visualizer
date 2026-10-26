@@ -4,11 +4,14 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("./catasto-storage.js", import.meta.url), "utf8");
+const recordsSource = await readFile(new URL("./catasto-records.js", import.meta.url), "utf8");
 const context = {
   window: {},
   crypto: { randomUUID: () => "restored-project-id" }
 };
-vm.runInNewContext(source, context);
+vm.createContext(context);
+vm.runInContext(recordsSource, context);
+vm.runInContext(source, context);
 const { createProject, projectsFromImport, serializeProject } = context.window.CatastoStorage;
 
 test("an exported JSON backup restores source text and corrected household data", () => {
@@ -26,147 +29,190 @@ test("an exported JSON backup restores source text and corrected household data"
   assert.equal(restored.name, original.name);
   assert.equal(restored.sourceFile, original.sourceFile);
   assert.equal(restored.sourceText, original.sourceText);
-  assert.deepEqual(JSON.parse(JSON.stringify(restored.data)), data);
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.data)), JSON.parse(JSON.stringify(original.data)));
+  assert.equal(restored.data.households[0].residence.place, "San Nicola");
+  assert.equal(restored.data.households[0].legacy_id, "giuseppe-covello");
 });
 
-// A minimal in-memory IndexedDB: requests run in order, writes commit only if the transaction
-// completes, and a failed add or an explicit abort discards the transaction's writes.
-function fakeIndexedDB() {
-  const records = new Map();
-  const later = callback => setTimeout(callback, 0);
-  const database = {
-    objectStoreNames: { contains: () => true },
-    createObjectStore() {},
-    close() {},
-    transaction() {
-      const transaction = new EventTarget();
-      const working = new Map(records);
-      const queue = [];
-      let finished = false;
-      const finish = (type, error = null) => {
-        if (finished) return;
-        finished = true;
-        transaction.error = error;
-        if (type === "complete") {
-          records.clear();
-          working.forEach((value, key) => records.set(key, value));
-        }
-        if (type === "error") {
-          transaction.dispatchEvent(new Event("error"));
-          transaction.dispatchEvent(new Event("abort"));
-        } else {
-          transaction.dispatchEvent(new Event(type));
-        }
-      };
-      const request = operation => {
-        const pending = new EventTarget();
-        pending.transaction = transaction;
-        if (!queue.length) later(process);
-        queue.push({ pending, operation });
-        return pending;
-      };
-      function process() {
-        while (queue.length && !finished) {
-          const { pending, operation } = queue.shift();
-          try {
-            pending.result = operation();
-          } catch (error) {
-            finish("error", error);
-            return;
-          }
-          pending.dispatchEvent(new Event("success"));
-        }
-        if (!finished) later(() => { if (!queue.length) finish("complete"); else process(); });
+test("a version-1 backup is converted to permanent ids with its links and decisions", () => {
+  const payload = {
+    format: "catasto-visualizer-project",
+    version: 1,
+    project: {
+      name: "Old backup",
+      data: {
+        households: [
+          { id: "paolo-rossi", household_head: "Paolo Rossi", residence_links: [{ name: "Anna Bruno", household_id: "anna-bruno", candidate_household_ids: ["anna-bruno"] }] },
+          { id: "anna-bruno", household_head: "Anna Bruno", residence_links: [{ name: "Gone", household_id: "nobody" }] }
+        ],
+        duplicate_decisions: [{ key: "anna-bruno|paolo-rossi", status: "separate" }]
       }
-      transaction.abort = () => later(() => finish("abort"));
-      transaction.objectStore = () => ({
-        get: id => request(() => structuredClone(working.get(id))),
-        getAll: () => request(() => [...working.values()].map(value => structuredClone(value))),
-        put: value => request(() => { working.set(value.id, structuredClone(value)); }),
-        add: value => request(() => {
-          if (working.has(value.id)) throw new Error("ConstraintError: key already exists");
-          working.set(value.id, structuredClone(value));
-        }),
-        delete: id => request(() => { working.delete(id); })
-      });
-      return transaction;
     }
   };
+  let counter = 0;
+  const converted = vm.runInContext(`(() => {
+    crypto.randomUUID = () => "id-" + (++globalThis.counter);
+    return window.CatastoStorage.projectsFromImport(${JSON.stringify(payload)}, "backup")[0];
+  })()`, Object.assign(context, { counter }));
+  const [paolo, anna] = converted.data.households;
+  assert.match(paolo.id, /^h-id-/);
+  assert.equal(paolo.residence_links[0].household_id, anna.id);
+  assert.equal(converted.data.duplicate_decisions[0].key, [paolo.id, anna.id].sort().join("|"));
+  assert.equal(anna.residence_links[0].household_id, null);
+  assert.equal(converted.importChanges.length, 1);
+  assert.match(converted.importChanges[0], /“nobody” matched no single household/);
+});
+
+test("a backup from a newer app version is refused", () => {
+  assert.throws(() => projectsFromImport({ format: "catasto-visualizer-project", version: 99, project: { data: { households: [] } } }, "x"), /newer version/);
+});
+
+// Answers storage requests the way serve.py does and records each one. `respond` may return
+// { status, body } for a request; anything it leaves alone gets { ok: true }.
+function storageWithServer({ respond = () => undefined, browserProjects = null, flags = new Map() } = {}) {
+  const requests = [];
+  let nextId = 0;
+  const fetch = async (url, options = {}) => {
+    const call = { url, method: options.method, body: options.body === undefined ? undefined : JSON.parse(options.body) };
+    requests.push(call);
+    const answer = respond(call) || { status: 200, body: { ok: true } };
+    if (answer.network) throw new TypeError("Failed to fetch");
+    return {
+      ok: answer.status < 400,
+      status: answer.status,
+      json: async () => {
+        if (answer.html) throw new SyntaxError("Unexpected token <");
+        return structuredClone(answer.body);
+      }
+    };
+  };
+  const storageContext = {
+    window: {
+      location: { protocol: "http:" },
+      localStorage: { getItem: key => flags.get(key) ?? null, setItem: (key, value) => flags.set(key, value) }
+    },
+    fetch,
+    console: { warn() {} },
+    structuredClone,
+    crypto: { randomUUID: () => `project-${++nextId}` }
+  };
+  if (browserProjects) storageContext.indexedDB = fakeBrowserDatabase(browserProjects);
+  vm.createContext(storageContext);
+  vm.runInContext(recordsSource, storageContext);
+  vm.runInContext(source, storageContext);
+  return { storage: storageContext.window.CatastoStorage, requests, flags };
+}
+
+// The IndexedDB database earlier versions saved projects in, reduced to what migration reads.
+function fakeBrowserDatabase(projects) {
+  const later = callback => setTimeout(callback, 0);
+  const succeed = (target, result) => later(() => {
+    target.result = result;
+    target.dispatchEvent(new Event("success"));
+  });
+  const database = {
+    objectStoreNames: { contains: name => name === "projects" },
+    close() {},
+    transaction: () => ({
+      objectStore: () => ({
+        getAll() {
+          const reading = new EventTarget();
+          succeed(reading, structuredClone(projects));
+          return reading;
+        }
+      })
+    })
+  };
   return {
-    records,
+    databases: async () => [{ name: "catasto-visualizer" }],
     open() {
       const opening = new EventTarget();
-      later(() => {
-        opening.result = database;
-        opening.dispatchEvent(new Event("upgradeneeded"));
-        opening.dispatchEvent(new Event("success"));
-      });
+      succeed(opening, database);
       return opening;
     }
   };
 }
 
-function storageWithDatabase() {
-  const indexedDB = fakeIndexedDB();
-  let nextId = 0;
-  const storageContext = {
-    window: {},
-    indexedDB,
-    structuredClone,
-    crypto: { randomUUID: () => `project-${++nextId}` }
-  };
-  vm.runInNewContext(source, storageContext);
-  return { storage: storageContext.window.CatastoStorage, records: indexedDB.records };
-}
-
 const sampleData = () => ({ households: [{ id: "paolo-rossi", household_head: "Paolo Rossi" }] });
 
-test("a new project requires an explicit create and then saves normally", async () => {
-  const { storage, records } = storageWithDatabase();
+test("a save sends the loaded version and keeps the server's new one", async () => {
+  const { storage, requests } = storageWithServer({
+    respond: call => call.method === "PUT" ? { status: 200, body: { ...call.body.project, updatedAt: "2026-10-26T10:00:00.000Z" } } : undefined
+  });
   const project = storage.createProject({ name: "Marano", data: sampleData() });
-  await assert.rejects(storage.saveProject(project), /deleted in another tab/);
-  assert.equal(records.size, 0);
-
+  const loaded = project.updatedAt;
   await storage.saveProject(project, { create: true });
-  project.name = "Marano 1754";
-  await storage.saveProject(project);
-  assert.equal(records.get(project.id).name, "Marano 1754");
+
+  assert.equal(requests[0].url, `api/projects/${project.id}`);
+  assert.equal(requests[0].body.loadedUpdatedAt, loaded);
+  assert.equal(requests[0].body.create, true);
+  assert.equal(project.updatedAt, "2026-10-26T10:00:00.000Z");
 });
 
-test("a stale copy from another tab cannot overwrite a newer save", async () => {
-  const { storage, records } = storageWithDatabase();
+test("a refused save keeps the server's reason and the loaded version", async () => {
+  const { storage } = storageWithServer({
+    respond: () => ({ status: 409, body: { error: "This project was changed in another tab or window." } })
+  });
   const project = storage.createProject({ name: "Marano", data: sampleData() });
-  await storage.saveProject(project, { create: true });
-  const firstTab = await storage.getProject(project.id);
-  const secondTab = await storage.getProject(project.id);
-
-  firstTab.name = "Saved first";
-  await new Promise(resolve => setTimeout(resolve, 2));
-  await storage.saveProject(firstTab);
-  const staleUpdatedAt = secondTab.updatedAt;
-  secondTab.name = "Saved second";
-  await assert.rejects(storage.saveProject(secondTab), /changed in another tab/);
-
-  assert.equal(records.get(project.id).name, "Saved first");
-  assert.equal(secondTab.updatedAt, staleUpdatedAt);
+  const loaded = project.updatedAt;
+  await assert.rejects(storage.saveProject(project), /changed in another tab/);
+  assert.equal(project.updatedAt, loaded);
 });
 
-test("a project deleted in another tab is not recreated by a later save", async () => {
-  const { storage, records } = storageWithDatabase();
-  const project = storage.createProject({ name: "Marano", data: sampleData() });
-  await storage.saveProject(project, { create: true });
-  await storage.deleteProject(project.id);
-  await assert.rejects(storage.saveProject(project), /deleted in another tab/);
-  assert.equal(records.size, 0);
+test("a missing project reads as absent rather than as an error", async () => {
+  const { storage } = storageWithServer({
+    respond: call => call.url.startsWith("api/projects/") ? { status: 404, body: { error: "Project not found." } } : undefined
+  });
+  assert.equal(await storage.getProject("gone"), undefined);
 });
 
-test("an import that fails part-way stores none of its projects", async () => {
-  const { storage, records } = storageWithDatabase();
-  const existing = storage.createProject({ name: "Existing", data: sampleData() });
-  await storage.saveProject(existing, { create: true });
-  const fresh = storage.createProject({ name: "Fresh", data: sampleData() });
-  const collision = { ...storage.createProject({ name: "Collision", data: sampleData() }), id: existing.id };
+test("an import is sent as one request so the server stores all or none", async () => {
+  const { storage, requests } = storageWithServer();
+  const projects = [
+    storage.createProject({ name: "One", data: sampleData() }),
+    storage.createProject({ name: "Two", data: sampleData() })
+  ];
+  await storage.saveImportedProjects(projects);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "api/projects/import");
+  assert.deepEqual(requests[0].body.projects.map(project => project.name), ["One", "Two"]);
+});
 
-  await assert.rejects(storage.saveImportedProjects([fresh, collision]), /ConstraintError/);
-  assert.deepEqual([...records.keys()], [existing.id]);
+test("the app explains how to start it when no project server answers", async () => {
+  for (const answer of [{ network: true }, { status: 404, html: true }]) {
+    const { storage } = storageWithServer({ respond: () => answer });
+    await assert.rejects(storage.listProjects(), /Start the app with the “Start Catasto Visualizer” launcher/);
+  }
+});
+
+test("projects from an earlier version's browser storage are copied once", async () => {
+  const old = [{ id: "old-1", name: "Marano", data: sampleData() }];
+  const flags = new Map();
+  const first = storageWithServer({ browserProjects: old, flags, respond: call => call.method === "GET" ? { status: 200, body: [] } : undefined });
+  await first.storage.listProjects();
+  await first.storage.listProjects();
+  assert.deepEqual(first.requests.map(call => `${call.method} ${call.url}`), ["POST api/migrate", "GET api/projects", "GET api/projects"]);
+  const [sent] = first.requests[0].body.projects;
+  assert.equal(sent.id, "old-1");
+  assert.equal(sent.data.households[0].household_head, "Paolo Rossi");
+  assert.deepEqual(sent.data.households[0].residence, { place: null, description: null, adjacent_to: [] }, "repaired before sending");
+
+  const reopened = storageWithServer({ browserProjects: old, flags, respond: call => call.method === "GET" ? { status: 200, body: [] } : undefined });
+  await reopened.storage.listProjects();
+  assert.deepEqual(reopened.requests.map(call => call.url), ["api/projects"]);
+});
+
+test("a failed copy is retried on the next load instead of being marked done", async () => {
+  const old = [{ id: "old-1", name: "Marano", data: sampleData() }];
+  let fail = true;
+  const { storage, requests, flags } = storageWithServer({
+    browserProjects: old,
+    respond: call => call.url === "api/migrate" && fail ? { network: true } : call.method === "GET" ? { status: 200, body: [] } : undefined
+  });
+  await assert.rejects(storage.listProjects(), /Project storage is not available/);
+  assert.equal(flags.size, 0);
+  fail = false;
+  await storage.listProjects();
+  assert.deepEqual(requests.map(call => call.url), ["api/migrate", "api/migrate", "api/projects"]);
+  assert.equal(flags.size, 1);
 });

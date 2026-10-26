@@ -313,3 +313,29 @@ test("the Italian and English sides of the bilingual transcription agree", { ski
   assert.ok(sameHead / english.length >= 0.8, `household heads agree for ${sameHead} of ${english.length}`);
   assert.ok(matchedNeighbors / englishNeighbors >= 0.9, `residence neighbors agree for ${matchedNeighbors} of ${englishNeighbors}`);
 });
+
+test("residence places written as a neighborhood, house name, or contextual clause are all read", () => {
+  const data = parsePlainText([
+    "Angelo Chiappetta, shepherd, age 30",
+    "Tax base two.",
+    "He lives in his own house in the Pajoli neighborhood bordering the property of Isabella Orrico and the public road.",
+    "",
+    "Andrea Orrico, day laborer, age 50",
+    "Tax base two.",
+    "He lives in a house called Li Malvitani, bordering Angelo Chiappetta.",
+    "",
+    "Paolo Rossi, day laborer, age 40",
+    "Tax base two.",
+    "He lives in a house rented from Andrea Orrico."
+  ].join("\n"));
+  assert.deepEqual([...data.households.map(record => record.residence.place)], ["Pajoli", "Li Malvitani", "Not Listed"]);
+  assert.equal(data.parser_version, context.window.CatastoParser.PARSER_VERSION);
+});
+
+test("Admin and the Visualizer share one parser", async () => {
+  const [app, admin] = await Promise.all(["./app.js", "./admin.js"].map(path => readFile(new URL(path, import.meta.url), "utf8")));
+  for (const name of ["parsePlainText", "parseResidence", "linkResidenceAdjacency", "segmentHouseholds"]) {
+    assert.doesNotMatch(app, new RegExp(`\\bfunction ${name}\\(`), `app.js must not define its own ${name}`);
+  }
+  assert.match(admin, /CatastoParser\.parsePlainText\(/);
+});

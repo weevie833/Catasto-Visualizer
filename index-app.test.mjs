@@ -3,12 +3,11 @@ import test from "node:test";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
-// Runs the real inline application script from index.html against a minimal DOM and an in-memory
-// project store, so the visualizer's data workflows can be tested without a browser.
-const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
+// Runs the real Visualizer script (app.js) against a minimal DOM and an in-memory project store,
+// so the visualizer's data workflows can be tested without a browser.
 const parserSource = await readFile(new URL("./catasto-parser.js", import.meta.url), "utf8");
-const scriptStart = html.indexOf("<script>", html.indexOf('<script src="./catasto-storage.js"></script>')) + "<script>".length;
-const appScript = html.slice(scriptStart, html.indexOf("</script>", scriptStart));
+const recordsSource = await readFile(new URL("./catasto-records.js", import.meta.url), "utf8");
+const appScript = await readFile(new URL("./app.js", import.meta.url), "utf8");
 
 function fakeDocument() {
   const elements = new Map();
@@ -53,9 +52,11 @@ function memoryStorage(initialProjects) {
     rawProject: null,
     async listProjects() { return [...projects.values()].map(project => structuredClone(project)); },
     async getProject(id) { return this.rawProject?.id === id ? this.rawProject : structuredClone(projects.get(id)); },
-    async saveProject(project) {
+    snapshots: new Map(),
+    async saveProject(project, { snapshot = null } = {}) {
       if (this.failSaves) throw new Error("Simulated storage failure.");
       this.saves += 1;
+      if (snapshot) this.snapshots.set(project.id, { reason: snapshot, data: structuredClone(projects.get(project.id).data) });
       projects.set(project.id, structuredClone(project));
       return project;
     },
@@ -89,13 +90,17 @@ async function loadApp(projects, { rememberedId = null, blockedLocalStorage = fa
     CustomEvent: class {},
     Option: class { constructor(text, value) { this.text = text; this.value = value; } },
     structuredClone,
+    crypto,
+    TextEncoder,
     BroadcastChannel,
     fetch: async () => { throw new Error("No network in tests."); },
     CatastoStorage: storage
   };
   vm.createContext(context);
   vm.runInContext(parserSource, context);
+  vm.runInContext(recordsSource, context);
   context.CatastoParser = context.window.CatastoParser;
+  context.CatastoRecords = context.window.CatastoRecords;
   vm.runInContext(appScript, context);
   await new Promise(resolve => setTimeout(resolve, 10));
   return {
@@ -134,6 +139,7 @@ function sameNameProject() {
     sourceText: "",
     updatedAt: "2026-01-01T00:00:00.000Z",
     data: {
+      record_id_version: 2,
       households: [
         record("angelo-chiappetta", "Angelo Chiappetta"),
         record("giacomo-covello", "Giacomo Covello"),
@@ -335,4 +341,88 @@ Possiede un castagneto di San Nicola in capacità moggio uno, confina Daniele Sa
   assert.equal(parcel.income, "stimata la rendita per molti ducati cinque, sono — oncie — 16.20");
   assert.deepEqual([...parcel.adjacentNames], ["Daniele Santanna"]);
   assert.ok(parcel.assets.some(asset => asset.type === "trees"));
+});
+
+test("a project with name-based ids is given permanent ids once at startup, keeping its links", async () => {
+  const project = sameNameProject();
+  delete project.data.record_id_version;
+  project.data.households[0].residence_links = [{ name: "Maria Rossi", kind: "person", household_id: "maria-rossi", candidate_household_ids: ["maria-rossi"] }];
+  project.data.duplicate_decisions = [{ key: "giacomo-covello|giacomo-covello-2", status: "separate" }];
+  const app = await loadApp([project]);
+  const stored = app.storage.projects.get("project-a");
+  const [angelo, giacomo, maria, giacomo2] = stored.data.households;
+  assert.equal(stored.data.record_id_version, 2);
+  assert.match(maria.id, /^h-/);
+  assert.equal(angelo.residence_links[0].household_id, maria.id);
+  assert.equal(stored.data.duplicate_decisions[0].key, [giacomo.id, giacomo2.id].sort().join("|"));
+  assert.equal(app.storage.saves, 1);
+});
+
+test("an older project is offered a reparse, which keeps a snapshot and the user's edits", async () => {
+  const project = sameNameProject();
+  project.sourceText = [
+    "Angelo Chiappetta, day laborer, age 40",
+    "He lives in his own house in the Pajoli neighborhood.",
+    "",
+    "Maria Rossi, day laborer, age 40",
+    "She lives in her own house in the Malvitani neighborhood."
+  ].join("\n");
+  project.data.households[2].source_edited_at = "2026-10-01T00:00:00.000Z";
+  project.data.households[2].residence.place = "Corrected by hand";
+  const app = await loadApp([project]);
+  assert.equal(app.document.querySelector("#reparseNotice").hidden, false);
+
+  app.run("openReparseReview()");
+  assert.match(app.document.querySelector("#reparseSummary").innerHTML, /Records with your edits or merges, kept unchanged: 1/);
+  assert.match(app.document.querySelector("#reparseSummary").innerHTML, /Saved residences kept where the new parse reads them differently: 1/);
+  await app.run("applyReparse()");
+  const stored = app.storage.projects.get("project-a");
+  assert.equal(app.storage.snapshots.get("project-a").data.households.length, 4);
+  assert.equal(stored.migrationSnapshot, undefined, "the snapshot is kept outside the project");
+  const maria = stored.data.households.find(item => item.household_head === "Maria Rossi");
+  assert.equal(maria.residence.place, "Corrected by hand");
+  assert.equal(maria.id, "maria-rossi");
+  // The stored place is kept where the new parse reads it differently, since it may be a hand correction.
+  assert.equal(stored.data.households.find(item => item.household_head === "Angelo Chiappetta").residence.place, "Pasolani");
+  assert.equal(app.document.querySelector("#reparseNotice").hidden, true);
+});
+
+test("a conversion that would drop links waits for review and keeps the old data as the snapshot", async () => {
+  const project = sameNameProject();
+  delete project.data.record_id_version;
+  project.data.households[0].residence_links = [{ name: "Giacomo Covello", kind: "person", household_id: "nobody", candidate_household_ids: [] }];
+  const app = await loadApp([project]);
+  assert.equal(app.storage.saves, 0, "nothing is saved before review");
+  assert.equal(app.document.querySelector("#reparseNotice").hidden, false);
+  app.run("openReparseReview()");
+  assert.match(app.document.querySelector("#reparseChanges").innerHTML, /“nobody” matched no single household/);
+  await app.run("applyReparse()");
+  const stored = app.storage.projects.get("project-a");
+  assert.equal(stored.data.record_id_version, 2);
+  assert.equal(app.storage.snapshots.get("project-a").data.households[0].id, "angelo-chiappetta");
+});
+
+test("saving one household's source entry leaves other households' neighbors as they were", async () => {
+  const project = sameNameProject();
+  project.data.households[0].residence.adjacent_to = ["Curated Neighbor"];
+  const app = await loadApp([project]);
+  selectRecord(app, 2);
+  app.document.querySelector("#sourceEditText").value = "Maria Rossi, day laborer, age 41\nShe lives in her own house in the Pasolani district.";
+  await app.run("saveSourceEntry()");
+  assert.deepEqual([...app.storage.projects.get("project-a").data.households[0].residence.adjacent_to], ["Curated Neighbor"]);
+});
+
+test("a project still being recovered is listed but not opened", async () => {
+  const healthy = sameNameProject();
+  const app = await loadApp([healthy]);
+  app.storage.listProjects = async () => [
+    { id: "stuck", name: "Stuck", unavailable: "This project is still being recovered from an interrupted update." },
+    { id: healthy.id, name: healthy.name }
+  ];
+  await app.run("refreshProjects()");
+  assert.equal(app.run("activeProject.id"), healthy.id);
+  const options = app.document.querySelector("#projectSelect").options;
+  const stuck = options.find(option => option.value === "stuck");
+  assert.equal(stuck.disabled, true);
+  assert.match(stuck.text, /being recovered/);
 });

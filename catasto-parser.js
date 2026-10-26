@@ -91,31 +91,25 @@
     return /\b(?:tax(?:able)?|heads?|industry|assessment|lives?|resides?|dwells?|inhabits?|possesses?|owns?|house|landholding|property|portion|garden|vineyard|chestnut|grove|livestock|sheep|goats?|mules?|mares?|income|total|deductions?|liabilit|pays?|debt|carried forward|brought forward|recorded|oncie|ounces?|grana|carlini|ducats?|moggi|capacity|teste|industria|abita|habita|possiede|confin\w*|giusta|rendita|stimat[ao]|sono in tutto|pesi|riporto|paga|resta|casa|casaggio|possessione|porzione|castagneto|ducati|docati|annui)\b/i.test(line);
   }
 
-  function normalizeName(name) {
+  // Strips a leading title or "property of" from one person's name; used for Italian names and family lines.
+  function cleanPersonName(name) {
     return String(name || "")
       .replace(/^(?:the\s+property\s+of|property\s+of|master|magnificent|magnific[oa]|reverend[oa]|signor[ae]?|don|donna)\s+/i, "")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  function personKey(name) {
-    return normalizeName(name).toLowerCase();
-  }
 
-  function isPublicAnchor(name) {
-    return /^(?:public road|running river|river|via pub+lica|strada(?: pub+lica)?|vico|fiume(?: corrente| secco)?|vallone)$/i.test(normalizeName(name));
-  }
 
-  function placeKey(place) {
-    return normalizeName(place)
-      .toLowerCase()
-      .replace(/^(?:li|la|le|lo|il)\s+/, "")
-      .replace(/\b(?:saint|santo|san)\s+nic(?:holas|ola)\b/g, "san nicola");
+
+  // Exact public places named as a neighbor in Italian border clauses.
+  function isExactPublicAnchor(name) {
+    return /^(?:public road|running river|river|via pub+lica|strada(?: pub+lica)?|vico|fiume(?: corrente| secco)?|vallone)$/i.test(cleanPersonName(name));
   }
 
   function surnameFromPerson(name) {
     const particles = /^(?:di|de|del|della|da|dal|dalla|lo|la|le|li)$/i;
-    const parts = normalizeName(name).replace(/[.,]/g, "").split(/\s+/).filter(Boolean);
+    const parts = cleanPersonName(name).replace(/[.,]/g, "").split(/\s+/).filter(Boolean);
     if (parts.length < 2) return "";
     let start = parts.length - 1;
     while (start > 0 && particles.test(parts[start - 1])) start -= 1;
@@ -135,7 +129,7 @@
     const widowMatch = headLine.match(/\b(?:widow\s+of(?:\s+the\s+late)?|vedova\s+(?:del\s+fu|di|del|dello|della))\s+([^,;—–\n]+?)(?=\s*(?:[,;—–]|\bage(?:d)?\b|\banni\b|$))/i);
     if (!widowMatch) return { members: lines, relationships: [] };
 
-    const father = normalizeName(widowMatch[1]);
+    const father = cleanPersonName(widowMatch[1]);
     const childSurname = surnameFromPerson(father);
     if (!childSurname) return { members: lines, relationships: [] };
 
@@ -159,61 +153,8 @@
     return { members, relationships };
   }
 
-  function normalizeKinshipNeighborPhrases(raw) {
-    const name = "[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ'’.-]*";
-    const person = `${name}(?:\\s+(?:(?:di|de|del|della|lo|la)\\s+)?${name}){0,3}`;
-    const pattern = new RegExp(`(^|\\band\\s+)(${person}),\\s*(son|daughter)\\s+of\\s+(the\\s+late\\s+)?(${person})(?=\\s*(?:,|;|\\band\\b|$))`, "gi");
-    return String(raw || "").replace(pattern, (match, prefix, child, relationship, deceased, parent) => {
-      const childName = normalizeName(child);
-      const inheritedSurname = surnameFromPerson(parent);
-      const resolvedChild = childName.split(/\s+/).length > 1 || !inheritedSurname
-        ? childName
-        : `${childName} ${inheritedSurname}`;
-      return `${prefix || ""}${resolvedChild}`;
-    });
-  }
 
-  function expandNeighborNames(raw) {
-    const cleaned = normalizeKinshipNeighborPhrases(raw)
-      .replace(/\b(?:and\s+)?the\s+public\s+road\b/gi, match => match.toLowerCase().includes("and") ? ", public road" : "public road")
-      .replace(/\b(?:and\s+)?the\s+running\s+river\b/gi, ", running river")
-      .replace(/\b(?:and\s+)?the\s+river\b/gi, ", river")
-      .replace(/\s+and\s+/gi, ", ");
-    const parts = cleaned.split(",").map(normalizeName).filter(name =>
-      name && !/\b(?:annual|income|estimated|equals?|oncie|ounces?|grana|carlini|ducats?|capacity|moggi)\b/i.test(name)
-    );
-    const expanded = [];
-    parts.forEach((part, index) => {
-      if (/^(?:public road|running river|river)$/i.test(part)) {
-        expanded.push(part);
-        return;
-      }
-      const hasSurname = part.split(/\s+/).length > 1;
-      const nextSurname = parts.slice(index + 1).map(name => name.split(/\s+/)).find(words => words.length > 1)?.slice(-1)[0];
-      expanded.push(hasSurname || !nextSurname ? part : `${part} ${nextSurname}`);
-    });
-    return [...new Set(expanded)];
-  }
 
-  function parseResidence(entry) {
-    const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n\n)/i)?.[0] ||
-      entry.match(/\b(?:He|She|They)\s+(?:possesses|owns)\s+(?:the|a)\s+house[\s\S]*?(?:\.|\n\n|$)/i)?.[0] || "";
-    if (!sentence) {
-      const italian = parseItalianResidence(entry);
-      if (italian) return italian;
-    }
-    const placeMatch =
-      sentence.match(/\bsituated in (?:the )?(?:neighborhood of |place called |district of )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
-      sentence.match(/\blocated in (?:the )?(?:neighborhood of |place called )?([^,.]+?)(?:\s+neighborhood|,|\.|\s+bordering)/i) ||
-      sentence.match(/\bplace called ([^,.]+?)(?:,|\.|\s+bordering)/i) ||
-      sentence.match(/\bin (?:the )?place called ([^,.]+?)(?:,|\.|\s+bordering)/i);
-    const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|\n)/i);
-    return {
-      place: placeMatch ? normalizeName(placeMatch[1]) : null,
-      description: sentence.trim() || null,
-      adjacent_to: borderMatch ? expandNeighborNames(borderMatch[1]) : []
-    };
-  }
 
   // Italian border clauses name neighbors after "giusta li beni di", "confina (alli beni di)", or "contiguo
   // alli beni di", joined by "e"/"ed"; "via publica", "vico", and "fiume" are public anchors.
@@ -232,17 +173,17 @@
         .replace(/^(?:(?:e|ed|di|de|del|della|dello|delli|degli|dei|il|lo|la|al|alla|con)\s+|d['’]\s*)+/i, "")
         .replace(/[.:]+$/, "")
         .trim())
-      .map(normalizeName)
-      .filter(name => name && (/[A-ZÀ-Ý]/.test(name) || isPublicAnchor(name)) &&
+      .map(cleanPersonName)
+      .filter(name => name && (/[A-ZÀ-Ý]/.test(name) || isExactPublicAnchor(name)) &&
         !/\b(?:oncie|once|carlini|ducati|docati|grana|rendita|stimat\w*|capacità|moggi\w*|annui|sono)\b/i.test(name));
     const expanded = [];
     parts.forEach((part, index) => {
-      if (isPublicAnchor(part)) {
+      if (isExactPublicAnchor(part)) {
         expanded.push(part.toLowerCase());
         return;
       }
       const hasSurname = part.split(/\s+/).length > 1;
-      const nextSurname = parts.slice(index + 1).filter(name => !isPublicAnchor(name))
+      const nextSurname = parts.slice(index + 1).filter(name => !isExactPublicAnchor(name))
         .map(surnameFromPerson).find(Boolean);
       expanded.push(hasSurname || !nextSurname ? part : `${part} ${nextSurname}`);
     });
@@ -312,111 +253,7 @@
     };
   }
 
-  function linkResidenceAdjacency(records) {
-    const knownHeads = new Map();
-    records.forEach(record => {
-      const key = personKey(record.household_head);
-      if (!knownHeads.has(key)) knownHeads.set(key, []);
-      knownHeads.get(key).push(record);
-    });
 
-    return records.map(record => ({
-      ...record,
-      residence_links: (record.residence?.adjacent_to || []).map(name => {
-        if (isPublicAnchor(name)) {
-          return { name, kind: "public-anchor", household_id: null, candidate_household_ids: [] };
-        }
-        const candidates = knownHeads.get(personKey(name)) || [];
-        const reciprocal = candidates.filter(candidate =>
-          (candidate.residence?.adjacent_to || []).some(adjacent => personKey(adjacent) === personKey(record.household_head))
-        );
-        const samePlace = candidates.filter(candidate =>
-          placeKey(candidate.residence?.place) && placeKey(candidate.residence?.place) === placeKey(record.residence?.place)
-        );
-        const resolved = candidates.length === 1
-          ? candidates[0]
-          : reciprocal.length === 1
-            ? reciprocal[0]
-            : samePlace.length === 1
-              ? samePlace[0]
-              : null;
-        return {
-          name,
-          kind: "person",
-          household_id: resolved?.id || null,
-          candidate_household_ids: candidates.map(candidate => candidate.id),
-          resolution_status: resolved ? "resolved" : candidates.length > 1 ? "ambiguous" : "unresolved"
-        };
-      })
-    }));
-  }
-
-  function triangulateResidenceAdjacency(records) {
-    const byId = new Map(records.map(record => [record.id, record]));
-    let changed = true;
-    let pass = 0;
-
-    while (changed && pass < records.length) {
-      changed = false;
-      pass += 1;
-      const inboundNeighbors = new Map(records.map(record => [record.id, new Set()]));
-      records.forEach(source => {
-        (source.residence_links || []).forEach(link => {
-          if (link.household_id && inboundNeighbors.has(link.household_id)) {
-            inboundNeighbors.get(link.household_id).add(personKey(source.household_head));
-          }
-        });
-      });
-
-      records.forEach(source => {
-        const links = source.residence_links || [];
-        links.forEach(link => {
-          if (link.resolution_status !== "ambiguous" || link.household_id) return;
-          const contextKeys = [...new Set(links
-            .filter(other => other !== link && other.kind === "person")
-            .map(other => personKey(other.name))
-            .filter(Boolean))];
-          if (!contextKeys.length) return;
-
-          const scored = (link.candidate_household_ids || []).map(id => {
-            const candidate = byId.get(id);
-            if (!candidate) return null;
-            const candidateNeighborKeys = new Set((candidate.residence?.adjacent_to || [])
-              .filter(name => !isPublicAnchor(name))
-              .map(personKey));
-            (inboundNeighbors.get(id) || []).forEach(key => candidateNeighborKeys.add(key));
-            const sharedNeighbors = contextKeys.filter(key => candidateNeighborKeys.has(key));
-            const reciprocal = candidateNeighborKeys.has(personKey(source.household_head));
-            const samePlace = placeKey(candidate.residence?.place) &&
-              placeKey(candidate.residence?.place) === placeKey(source.residence?.place);
-            return {
-              candidate,
-              sharedNeighbors,
-              reciprocal,
-              samePlace,
-              score: sharedNeighbors.length * 6 + (reciprocal ? 5 : 0) + (samePlace ? 2 : 0)
-            };
-          }).filter(Boolean).sort((a, b) => b.score - a.score);
-
-          const best = scored[0];
-          const runnerUp = scored[1];
-          if (!best?.sharedNeighbors.length || best.score < 6 || best.score - (runnerUp?.score || 0) < 4) return;
-          link.household_id = best.candidate.id;
-          link.resolution_status = "inferred";
-          link.resolution_method = "shared-neighbor-triangulation";
-          link.resolution_score = best.score;
-          link.confidence = best.score >= 8 ? "high" : "medium";
-          link.resolution_evidence = [
-            ...best.sharedNeighbors.map(key => `Shared residence neighbor: ${links.find(other => personKey(other.name) === key)?.name || key}`),
-            ...(best.samePlace ? [`Same residence district: ${source.residence?.place}`] : []),
-            ...(best.reciprocal ? [`Reciprocal residence reference: ${source.household_head}`] : [])
-          ];
-          changed = true;
-        });
-      });
-    }
-    return records;
-  }
 
   const sectionHeadings = {
     en: /^(?:English\s+Translation|Traduzione\s+inglese)\s*:?\s*(.*)$/i,
@@ -496,6 +333,206 @@
     };
   }
 
+
+
+
+  // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
+  // and neighbor links are normalized the same way for both languages.
+  const PARSER_VERSION = 6;
+
+  function stripNamePrefixes(name) {
+    return String(name || "")
+      .replace(/\b(Most\s+Illustrious|Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|C(?:h)?ierico|Cherico|Sacerdote)\b\.?/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function surnamePhrase(parts) {
+    if (!parts.length) return "";
+    const surnameParticles = /^(di|de|del|della|da|dal|dalla|lo|la|le|li)$/i;
+    let start = parts.length - 1;
+    while (start > 0 && surnameParticles.test(parts[start - 1])) {
+      start -= 1;
+    }
+    return parts.slice(start).join(" ");
+  }
+
+  function surnameFromName(name) {
+    const parts = stripNamePrefixes(name).replace(/[.,]/g, "").trim().split(/\s+/);
+    return parts.length > 1 ? surnamePhrase(parts) : parts[0] || "";
+  }
+
+  function titleCasePlace(value) {
+    return value.replace(/\b\w/g, char => char.toUpperCase());
+  }
+
+  function canonicalPlace(value) {
+    const raw = String(value || "No residence listed").trim() || "No residence listed";
+    let key = raw
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\b(neighborhood|district|contrada|place called|place|called|located|situated|said|aforementioned)\b/g, " ")
+      .replace(/\b(?:a|an|cluster|group)\b/g, " ")
+      .replace(/\b(li|lo|la|le|il|i|l)\b/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+
+    const aliases = {
+      "pasolani": "pasolani",
+      "san nicolo": "san nicolo",
+      "san nicola": "san nicolo",
+      "saint nicholas": "san nicolo",
+      "st nicholas": "san nicolo",
+      "nicola": "san nicolo",
+      "santo nicola": "san nicolo",
+      "pajoli": "pasolani",
+      "not indicated": "not listed",
+      "not listed": "not listed",
+      "no residence listed": "no residence listed"
+    };
+    if (/\bpagliara\b/.test(key)) key = "costa della pagliara";
+    else if (/^(?:san\s+|li\s+)?(?:juani|guanni|janni|giovanni)$/.test(key)) key = "san janni";
+    else key = aliases[key] || key || "no residence listed";
+    return {
+      key,
+      label: key === "no residence listed" ? "No residence listed" : titleCasePlace(key)
+    };
+  }
+
+  function isPublicAnchor(name) {
+    return /\b(?:public road|running river|river|road|via pub+lica|strada|vico|fiume|vallone)\b/i.test(name);
+  }
+
+  function sentenceList(text) {
+    return text
+      .replace(/\r/g, "")
+      .split(/\n\s*\n|(?<=[.!?])\s+/)
+      .map(sentence => sentence.replace(/\n+/g, " ").trim())
+      .filter(Boolean);
+  }
+
+  function personKey(name) {
+    return normalizeName(stripNamePrefixes(name)).toLowerCase();
+  }
+
+  function normalizeName(name) {
+    return name
+      .replace(/\[[^\]]+\]/g, "")
+      .replace(/\b(the|property|properties|of|and|bordering|borders|Magnificent|Most Illustrious|Illustrious|Master)\b/gi, " ")
+      .replace(/[.;:—–-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeResidencePlace(name) {
+    return normalizeName(name)
+      .replace(/\b(own house|group of houses|cluster of houses|casaggio|house|houses)\b/gi, " ")
+      .replace(/\b(?:a|an|cluster|group)\b/gi, " ")
+      .replace(/\b(his|her|their|own|in|the|neighborhood|district|place|called|located|situated)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function contextualResidencePlace(entry, residenceSentence = "") {
+    const clauses = [residenceSentence, ...sentenceList(entry).filter(clause =>
+      /\b(?:house|houses|casaggio|home|dwelling|residen\w*|lives?|resides?|dwells?|inhabits?)\b/i.test(clause)
+    )].filter(Boolean);
+    const neighborhoodPattern = /\b(?:a\s+)?(?:cluster|group)(?:\s+of\s+houses)?\s+(?:in\s+)?(?:the\s+)?(malvitani|pasolani|pajoli|san\s+nicola|san\s+nicol[oò]|li\s+nicola|li\s+nicol[oò]|saint\s+nicholas|st\.?\s+nicholas)\b|\b(?:li\s+)?(malvitani|pasolani|pajoli|san\s+nicola|san\s+nicol[oò]|li\s+nicola|li\s+nicol[oò]|saint\s+nicholas|st\.?\s+nicholas)\b/i;
+    for (const clause of clauses) {
+      const match = clause.match(neighborhoodPattern);
+      if (match) return normalizeResidencePlace(match[1] || match[2]);
+      const bracketedPlace = clause.match(/\\?\[\s*in\s*\\?\]\s*([A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+(?:\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+){0,2})/);
+      if (bracketedPlace) return normalizeResidencePlace(bracketedPlace[1]);
+    }
+    if (/continued on next page/i.test(entry)) {
+      const continuation = entry.match(/continued on next page[\s\S]{0,180}?(?:place\\?\]?\s+called|district(?:\s+of)?|neighborhood(?:\s+of)?)\s+(?:li\s+)?(malvitani|pasolani|pajoli|san\s+nicola|san\s+nicol[oò])/i);
+      if (continuation) return normalizeResidencePlace(continuation[1]);
+    }
+    return "";
+  }
+
+  function expandNeighborNames(raw) {
+    const name = "[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ'’.-]*";
+    const person = `${name}(?:\\s+(?:(?:di|de|del|della|lo|la)\\s+)?${name}){0,3}`;
+    const kinshipPattern = new RegExp(`(^|\\band\\s+)(${person}),\\s*(son|daughter)\\s+of\\s+(the\\s+late\\s+)?(${person})(?=\\s*(?:,|;|\\band\\b|$))`, "gi");
+    const normalizedKinship = String(raw || "").replace(kinshipPattern, (match, prefix, child, relationship, deceased, parent) => {
+      const childName = normalizeName(child);
+      const inheritedSurname = surnameFromName(parent);
+      const resolvedChild = childName.split(/\s+/).length > 1 || !inheritedSurname
+        ? childName
+        : `${childName} ${inheritedSurname}`;
+      return `${prefix || ""}${resolvedChild}`;
+    });
+    const cleaned = normalizedKinship
+      .replace(/\bthe property of\b/gi, "")
+      .replace(/\bproperties of\b/gi, "")
+      .replace(/\bthe public road\b/gi, "public road")
+      .replace(/\[[^\]]+\]/g, "")
+      .replace(/\b(?:with|for|and pays|paying|who pays)\b[\s\S]*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const parts = cleaned.split(/\s*(?:,|;|\band\b)\s*/i).map(normalizeName).filter(name =>
+      name && !/\b(?:annual|income|estimated|equals?|oncie|ounces?|grana|carlini|ducats?|capacity|moggi)\b/i.test(name)
+    );
+    const expanded = [];
+    parts.forEach((part, index) => {
+      if (part.toLowerCase() === "public road") {
+        expanded.push(part);
+        return;
+      }
+      const hasSurname = part.split(/\s+/).length > 1;
+      const nextSurname = parts.slice(index + 1).map(name => name.split(/\s+/)).find(words => words.length > 1)?.slice(-1)[0];
+      expanded.push(hasSurname || !nextSurname ? part : `${part} ${nextSurname}`);
+    });
+    return [...new Set(expanded)];
+  }
+
+  function isUnlocatedHostedResidence(sentence) {
+    return /\b(?:house|houses|group of houses|cluster of houses|casaggio)\s+(?:of|belonging to|rented from)\b/i.test(sentence) ||
+      /\brented\s+from\b/i.test(sentence);
+  }
+
+  function parseResidence(entry) {
+    const sentence = entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[^\n]*?(?:\.|$)/i)?.[0] ||
+      entry.match(/\b(?:He|She|They)\s+(?:lives|resides)[\s\S]*?(?:\.|\n\n|$)/i)?.[0] ||
+      entry.match(/\b(?:He|She|They)\s+(?:possesses|owns)\s+(?:the|a)\s+house[\s\S]*?(?:\.|\n\n|$)/i)?.[0] ||
+      entry.match(/\b(?:The|His|Her|Their)\s+(?:house|residence|home|dwelling)[^\n]*(?:\.|$)/i)?.[0] ||
+      "";
+    if (!sentence) {
+      const italian = parseItalianResidence(entry);
+      if (italian) return italian;
+    }
+    const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|\n|$)/i);
+    const adjacentTo = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
+    const placeMatch =
+      sentence.match(/\bin (?:a |his |her |their |own )?(?:group of houses|cluster of houses|casaggio|house|houses)(?:\s+\[[^\]]+\])?\s+in\s+(?:the )?(?:neighborhood|district|place)\s+of\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
+      sentence.match(/\bin (?:a |his |her |their |own )?(?:group of houses|cluster of houses|casaggio|house|houses)(?:\s+\[[^\]]+\])?\s+in\s+(?:the )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+      sentence.match(/\b(?:group of houses|cluster of houses|casaggio|house|houses)\s+called\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
+      sentence.match(/\b(?:local\s+)?(?:group of houses|cluster of houses|casaggio|house|houses)\s+in\s+(?:the )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+      sentence.match(/\bin\s+(?:the )?((?:Li\s+)?(?:Pasolani|Malvitani|San Nicola|San Nicolo|Pajoli|Saint Nicholas))\s+house\b/i) ||
+      sentence.match(/\bin\s+(?:the )?([^,.]+?)\s+district(?:,|\.|\s+bordering)/i) ||
+      sentence.match(/\bin\s+((?:Li\s+)?(?:Pasolani|Malvitani|San Nicola|San Nicolo|Pajoli|Saint Nicholas))(?:,|\.|\s+bordering)/i) ||
+      sentence.match(/\bsituated in (?:the )?(?:neighborhood of |place called |district of )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+      sentence.match(/\blocated in (?:the )?(?:neighborhood of |place called |district of )?([^,.]+?)(?:\s+neighborhood|\s+district|,|\.|\s+bordering)/i) ||
+      sentence.match(/\bin (?:the )?(?:neighborhood|district|place)\s+of\s+([^,.]+?)(?:,|\.|\s+bordering)/i) ||
+      sentence.match(/\bplace called ([^,.]+?)(?:,|\.|\s+bordering)/i);
+    const place = placeMatch ? normalizeResidencePlace(placeMatch[1]) : contextualResidencePlace(entry, sentence);
+    if (isUnlocatedHostedResidence(sentence) && !place) {
+      return {
+        place: "Not Listed",
+        description: sentence.trim() || null,
+        adjacent_to: adjacentTo
+      };
+    }
+    return {
+      place: place || null,
+      description: sentence.trim() || null,
+      adjacent_to: adjacentTo
+    };
+  }
+
   function splitEntries(text) {
     const lines = text.replace(/\r/g, "").split("\n");
     const entries = [];
@@ -511,7 +548,8 @@
       }
       if (pendingPageMarker && !trimmed) return;
       const memberLine = isMemberLine(trimmed);
-      if (memberLine && current.length && sawMember && narrativeStarted && !isDependentHouseholdMember(trimmed)) {
+      const startsNext = memberLine && current.length && sawMember && narrativeStarted && !isDependentHouseholdMember(trimmed);
+      if (startsNext) {
         entries.push(current.join("\n").trim());
         current = [];
         sawMember = false;
@@ -526,47 +564,213 @@
       else if (sawMember && isHouseholdNarrativeLine(trimmed)) narrativeStarted = true;
     });
     if (current.join("").trim()) entries.push(current.join("\n").trim());
-    return entries.filter(entry => entry.split("\n").some(isMemberLine));
+    return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line)));
   }
 
-  function parsePlainText(text, language = "en") {
-    const prepared = extractTranscriptionSections(text, language);
-    const seenHouseholds = new Map();
-    const records = splitEntries(prepared.text).map((entry, index) => {
+  function segmentHouseholds(text) {
+    return splitEntries(text).map((entry, index) => {
       const sourcePages = [...entry.matchAll(/\[\[SOURCE_PAGE:(\d+)\]\]/g)].map(match => Number(match[1]));
       const cleanEntry = entry.replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim();
       const memberBlock = cleanEntry.split("\n").map(line => line.trim()).filter(Boolean);
       const members = memberBlock.filter(isMemberLine);
       const headLine = members[0] || memberBlock[0] || `Household ${index + 1}, age ?`;
-      const head = memberPersonName(headLine) || headLine.split(",")[0].trim();
-      const family = inferFamilyRelationships(members);
-      const baseId = slugify(head || `household-${index + 1}`) || `household-${index + 1}`;
-      const duplicateCount = seenHouseholds.get(baseId) || 0;
-      seenHouseholds.set(baseId, duplicateCount + 1);
-      const householdId = duplicateCount ? `${baseId}-${duplicateCount + 1}` : baseId;
-      const memberIdentities = family.members.map((line, memberIndex) => ({
-        id: memberIndex === 0 ? householdId : `${householdId}-member-${String(memberIndex).padStart(2, "0")}`,
-        household_id: householdId,
-        identity_type: memberIndex === 0 ? "household-head" : "household-member",
-        position: memberIndex,
+      const rawHead = memberPersonName(headLine) || headLine.split(",")[0].trim();
+      const landResidence = rawHead.match(/\s+of\s+(?:the\s+)?land\s+of\s+(.+)$/i);
+      const italianOrigin = isItalianMemberLine(headLine) ? splitItalianMemberLine(headLine).origin : null;
+      const head = landResidence ? rawHead.slice(0, landResidence.index).trim() : rawHead;
+      const cleanedMembers = members.map(line => line.replace(/\s+of\s+(?:the\s+)?land\s+of\s+[^,]+/i, ""));
+      return {
+        index,
+        entry: cleanEntry,
+        sourcePages: [...new Set(sourcePages)],
+        memberBlock,
+        members: cleanedMembers,
+        headLine,
+        head,
+        headResidence: landResidence?.[1]?.replace(/[.,;]+$/, "").trim() || italianOrigin || null
+      };
+    });
+  }
+
+  function extractResidenceFacts(segments) {
+    return segments.map(segment => {
+      const residence = parseResidence(segment.entry);
+      return {
+        ...segment,
+        residence: {
+          ...residence,
+          place: residence.place || segment.headResidence || null
+        }
+      };
+    });
+  }
+
+  function normalizeNeighborhoodFacts(records) {
+    return records.map(record => ({
+      ...record,
+      residence: {
+        ...record.residence,
+        place: record.residence?.place ? normalizeResidencePlace(record.residence.place) : record.residence?.place || null,
+        adjacent_to: [...new Set((record.residence?.adjacent_to || []).map(normalizeName).filter(Boolean))]
+      }
+    }));
+  }
+
+  function resolveHouseholdIdentities(records) {
+    const seen = new Map();
+    return records.map(record => {
+      const baseId = slugify(record.head || `household-${record.index + 1}`) || `household-${record.index + 1}`;
+      const count = seen.get(baseId) || 0;
+      seen.set(baseId, count + 1);
+      return { ...record, id: count ? `${baseId}-${count + 1}` : baseId };
+    });
+  }
+
+  function linkResidenceAdjacency(records) {
+    const knownHeads = new Map();
+    records.forEach(record => {
+      const key = personKey(record.head);
+      if (!knownHeads.has(key)) knownHeads.set(key, []);
+      knownHeads.get(key).push(record);
+    });
+    return records.map(record => ({
+      ...record,
+      residence_links: (record.residence?.adjacent_to || [])
+        .map(name => {
+          if (isPublicAnchor(name)) return { name, kind: "public-anchor", household_id: null, candidate_household_ids: [] };
+          const candidates = knownHeads.get(personKey(name)) || [];
+          const reciprocal = candidates.filter(candidate =>
+            (candidate.residence?.adjacent_to || []).some(adjacent => personKey(adjacent) === personKey(record.head))
+          );
+          const sourcePlace = canonicalPlace(record.residence?.place || "No residence listed").key;
+          const samePlace = candidates.filter(candidate => canonicalPlace(candidate.residence?.place || "No residence listed").key === sourcePlace);
+          const resolved = candidates.length === 1 ? candidates[0] : reciprocal.length === 1 ? reciprocal[0] : samePlace.length === 1 ? samePlace[0] : null;
+          return {
+            name,
+            kind: "person",
+            household_id: resolved?.id || null,
+            candidate_household_ids: candidates.map(candidate => candidate.id),
+            resolution_status: resolved ? "resolved" : candidates.length > 1 ? "ambiguous" : "unresolved"
+          };
+        })
+    }));
+  }
+
+  function triangulateResidenceAdjacency(records) {
+    const byId = new Map(records.map(record => [record.id, record]));
+    let changed = true;
+    let pass = 0;
+
+    while (changed && pass < records.length) {
+      changed = false;
+      pass += 1;
+      const inboundNeighbors = new Map(records.map(record => [record.id, new Set()]));
+      records.forEach(source => {
+        (source.residence_links || []).forEach(link => {
+          if (link.household_id && inboundNeighbors.has(link.household_id)) {
+            inboundNeighbors.get(link.household_id).add(personKey(source.head || source.household_head));
+          }
+        });
+      });
+
+      records.forEach(source => {
+        const links = source.residence_links || [];
+        links.forEach(link => {
+          if (link.resolution_status !== "ambiguous" || link.household_id) return;
+          const contextKeys = [...new Set(links
+            .filter(other => other !== link && other.kind === "person")
+            .map(other => personKey(other.name))
+            .filter(Boolean))];
+          if (!contextKeys.length) return;
+
+          const scored = (link.candidate_household_ids || []).map(id => {
+            const candidate = byId.get(id);
+            if (!candidate) return null;
+            const candidateNeighborKeys = new Set((candidate.residence?.adjacent_to || [])
+              .filter(name => !isPublicAnchor(name))
+              .map(personKey));
+            (inboundNeighbors.get(id) || []).forEach(key => candidateNeighborKeys.add(key));
+            const sharedNeighbors = contextKeys.filter(key => candidateNeighborKeys.has(key));
+            const sourceHead = source.head || source.household_head;
+            const reciprocal = candidateNeighborKeys.has(personKey(sourceHead));
+            const samePlace = canonicalPlace(candidate.residence?.place || "No residence listed").key ===
+              canonicalPlace(source.residence?.place || "No residence listed").key;
+            return {
+              candidate,
+              sharedNeighbors,
+              reciprocal,
+              samePlace,
+              score: sharedNeighbors.length * 6 + (reciprocal ? 5 : 0) + (samePlace ? 2 : 0)
+            };
+          }).filter(Boolean).sort((a, b) => b.score - a.score);
+
+          const best = scored[0];
+          const runnerUp = scored[1];
+          if (!best?.sharedNeighbors.length || best.score < 6 || best.score - (runnerUp?.score || 0) < 4) return;
+          link.household_id = best.candidate.id;
+          link.resolution_status = "inferred";
+          link.resolution_method = "shared-neighbor-triangulation";
+          link.resolution_score = best.score;
+          link.confidence = best.score >= 8 ? "high" : "medium";
+          link.resolution_evidence = [
+            ...best.sharedNeighbors.map(key => `Shared residence neighbor: ${links.find(other => personKey(other.name) === key)?.name || key}`),
+            ...(best.samePlace ? [`Same residence district: ${source.residence?.place}`] : []),
+            ...(best.reciprocal ? [`Reciprocal residence reference: ${source.head || source.household_head}`] : [])
+          ];
+          changed = true;
+        });
+      });
+    }
+    return records;
+  }
+
+  function cleanedGraphRecordsFromText(text) {
+    const segments = segmentHouseholds(text);
+    const withResidence = extractResidenceFacts(segments);
+    const normalized = normalizeNeighborhoodFacts(withResidence);
+    const withIdentities = resolveHouseholdIdentities(normalized);
+    return triangulateResidenceAdjacency(linkResidenceAdjacency(withIdentities)).map(record => {
+      const family = inferFamilyRelationships(record.members);
+      const memberIdentities = family.members.map((line, index) => ({
+        id: index === 0 ? record.id : `${record.id}-member-${String(index).padStart(2, "0")}`,
+        household_id: record.id,
+        identity_type: index === 0 ? "household-head" : "household-member",
+        position: index,
         source_line: line
       }));
       return {
-        id: householdId,
-        household_id: householdId,
-        household_head: head,
-        source_pages: [...new Set(sourcePages)],
-        members_text: family.members.join("\n") || headLine,
+        id: record.id,
+        household_id: record.id,
+        household_head: record.head,
+        source_pages: record.sourcePages,
+        members_text: family.members.join("\n") || record.headLine,
         family_relationships: family.relationships,
         member_identities: memberIdentities,
-        residence: parseResidence(entry),
-        source_entry: cleanEntry
+        residence: record.residence,
+        residence_links: record.residence_links,
+        source_entry: record.entry
       };
     });
-    const linkedRecords = triangulateResidenceAdjacency(linkResidenceAdjacency(records));
+  }
+
+  function parsePlainText(text, sourceLanguage = "en") {
+    const unescapedText = String(text || "").replace(/\\/g, "");
+    const prepared = extractTranscriptionSections(unescapedText, sourceLanguage);
+    const records = cleanedGraphRecordsFromText(prepared.text);
     return {
-      source_document: "Uploaded plain text",
+      parser_version: PARSER_VERSION,
+      pipeline_version: "semantic-cleaning-v2-identity-triangulation",
+      entry_boundary_version: 5,
       source_title: prepared.sourceTitle,
+      cleaning_pipeline: [
+        "segment_households",
+        "extract_residence_facts",
+        "normalize_neighborhoods",
+        "resolve_household_identities",
+        "link_residence_adjacency",
+        "triangulate_ambiguous_identities"
+      ],
+      source_document: "Uploaded plain text",
       source_range: "Uploaded text",
       source_language: prepared.language,
       source_language_used: prepared.usedSectionsOnly
@@ -577,14 +781,14 @@
       note: prepared.usedSectionsOnly
         ? `Generated in browser from uploaded plain text after excluding non-${languageNames[prepared.language]} sections.`
         : "Generated in browser from uploaded plain text.",
-      pipeline_version: "semantic-cleaning-v2-identity-triangulation",
-      entry_boundary_version: 5,
-      households: linkedRecords
+      households: records
     };
   }
 
   window.CatastoParser = {
-    parsePlainText, inferFamilyRelationships, linkResidenceAdjacency, triangulateResidenceAdjacency,
+    PARSER_VERSION, parsePlainText, inferFamilyRelationships, linkResidenceAdjacency, triangulateResidenceAdjacency,
+    canonicalPlace, isPublicAnchor, normalizeName, normalizeResidencePlace, personKey, sentenceList, stripNamePrefixes,
+    surnameFromName, surnamePhrase, titleCasePlace, expandNeighborNames, parseResidence,
     extractTranscriptionSections, detectLanguage, languageMismatch,
     isMemberLine, memberPersonName, isDependentHouseholdMember, isHouseholdNarrativeLine,
     isItalianMemberLine, splitItalianMemberLine, parseItalianResidence, expandItalianNeighborNames,

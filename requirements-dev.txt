@@ -1,0 +1,2 @@
+# Development tools only; the app itself needs no Python packages.
+ruff==0.17.2

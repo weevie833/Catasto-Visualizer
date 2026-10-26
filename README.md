@@ -20,8 +20,8 @@ uncluttered scene (Escape exits), and Details toggles the household card. With t
 focused, use arrow keys to pan, +/− to zoom, F to focus, H for overview, and T for
 the overhead view.
 
-At startup, the app opens the last selected Catasto project from browser-local
-IndexedDB. The app ships with no data: on first use the library is empty, and
+At startup, the app opens the last selected Catasto project from the local
+project folder. The app ships with no data: on first use the library is empty, and
 the Admin page creates a project from a transcription file or imports a
 `.catasto.json` backup. Admin creates, imports, exports, and deletes projects
 without coupling user data to app files.
@@ -31,7 +31,7 @@ bilingual file is parsed from the sections in the chosen language, and an
 Italian-only transcription needs IT. Italian projects display the source's
 Italian terms, such as `bracciale`, `castagneto`, and `moggio mezzo`.
 The Source tax entry panel can edit a household's transcription and residence;
-saving updates that project's IndexedDB record and the visualization immediately.
+saving updates that project's file and the visualization immediately.
 Leaving and returning to the browser does not reload the project or reset the
 selected household and camera; Focus and Overview reposition the view only when
 the user requests it.
@@ -128,16 +128,19 @@ browser then refuses to start the 3D view.
 
 ## Current Files
 
-- `index.html` - interactive visualization and project selector
-- `admin.html` / `admin.js` - project administration opened in a new tab
-- `catasto-storage.js` - IndexedDB persistence and portable project exchange
-- `catasto-parser.js` - plain-text parser used by project administration
-- `scene3d.js` / `scene3d.css` - interactive 3D environment and controls
+- `index.html` / `index.css` / `app.js` - interactive visualization and project selector
+- `admin.html` / `admin.css` / `admin.js` - project administration opened in a new tab
+- `catasto-storage.js` - browser side of project storage, IndexedDB migration, and portable project exchange
+- `project_store.py` - project files in the per-user data folder
+- `catasto-parser.js` - the single plain-text parser, used by Admin and by reparsing
+- `catasto-records.js` - permanent household ids, import repair, and reparse planning
+- `scene3d.js` / `scene3d.css` / `scene3d-boot.js` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
-- `serve.py` - local server with fixed file types (`python3 serve.py`; `--open` also opens the browser)
+- `serve.py` - local server with fixed file types and the project-storage API (`python3 serve.py`; `--open` also opens the browser)
 - `Start Catasto Visualizer (Mac).command` / `(Windows).bat` - double-click launchers for `serve.py --open`
 - `*.test.mjs` - parser, style-rule, storage, Admin, and visualizer-workflow regression checks (`node --test *.test.mjs`)
 - `test_serve.py` - local-server checks (`python3 -m unittest test_serve.py`)
+- `eslint.config.mjs`, `package.json`, `ruff.toml`, `requirements-dev.txt` - development linting only (`npm install && npx eslint .`; `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/ruff check .`). The app itself needs no packages.
 - `vendor/` - pinned local Three.js renderer, controls, and license
 - `README.md` - project notes and visualization rules
 - `INSTALL.md` - step-by-step installation guide for Mac and Windows
@@ -147,19 +150,22 @@ browser then refuses to start the 3D view.
 
 ## Project Data
 
-Projects are stored locally in IndexedDB and remain separate from application
-files. Export a `.catasto.json` file for backup or exchange with another user.
+Projects are saved as JSON files in a per-user folder outside the app folder
+(`%APPDATA%\Catasto Visualizer\projects\` on Windows,
+`~/Library/Application Support/Catasto Visualizer/projects/` on macOS), so
+updates and clearing browser data leave them in place. The app must be started
+with `serve.py` (or a launcher) to reach them. Export a `.catasto.json` file for backup or exchange with another user.
 Use Admin's **Import JSON backup or Catasto text** button to restore that file;
 the **Source text file** picker in **Create Project from Catasto Text** accepts `.md` and `.txt`
 transcriptions, which are parsed into new projects. A transcription file does
 not preserve corrections made to a saved project. An open Visualizer tab
 switches to a newly imported or created project automatically, unless a source
 edit is open there; then only its project list is updated.
-Browser storage is tied to the app origin, so continue serving the project from
-the same host and port to access the same local library.
+Projects saved in the browser by versions up to V 0.05 are copied into the
+folder the first time this version opens in that browser at the same address.
 
 The repository contains no project data, and `.gitignore` excludes transcription
 files (`MM *.md`, `MM *.txt`), `.docx` sources, `.catasto.json` backups, and
 local correction files. Keep these in a folder outside the app so the app folder
 can be replaced on update. Projects created by earlier versions, which built the
-Marano project automatically, remain in the browser and continue to open.
+Marano project automatically, are copied into the folder and continue to open.

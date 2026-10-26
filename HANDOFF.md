@@ -25,12 +25,17 @@ built-in server can label `.js` as `text/plain` on Windows, which stops the 3D m
 ```bash
 node --test *.test.mjs
 python3 -m unittest test_serve.py
+npx eslint .
+.venv/bin/ruff check .
 ```
 
-The Node suite contains 54 parser, building-style, storage, Admin, and visualizer-workflow
-tests; `test_serve.py` contains 4 server tests. Browser-local
-IndexedDB is origin-specific, so continue using port 8000 for the user's live
-project library.
+The Node suite contains 79 parser, records, building-style, storage, Admin, and visualizer-workflow
+tests; `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
+`npm install` and `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. Projects
+live in the per-user data folder (`~/Library/Application Support/Catasto
+Visualizer/projects/` on this Mac), not in browser storage, so the port no
+longer selects the library. Keep port 8000 only so projects still in an old
+browser's IndexedDB at that address are migrated.
 
 ## Current application
 
@@ -44,8 +49,10 @@ project library.
 - The header Upload button was removed. Project creation and import belong in
   the Admin area.
 - Admin provides project creation, import, export, and deletion.
-- Projects and parsed records are stored in IndexedDB through
-  `catasto-storage.js`.
+- Projects and parsed records are JSON files in the per-user data folder,
+  written by `project_store.py` through `serve.py`'s `/api/` and reached from
+  the pages through `catasto-storage.js`. Projects from IndexedDB (V 0.05 and
+  earlier) are copied once on first load.
 - The source-entry editor can correct an individual stored entry. Saving
   recalculates residence links, identities, and search data.
 
@@ -131,21 +138,36 @@ Identity-resolution migration version 4 is active.
 
 ## Key files
 
-- `index.html` — application shell, parsing pipeline, search, project migration,
-  source editing, and visualization data preparation.
+- `index.html` / `index.css` — Visualizer page and styles.
+- `app.js` — Visualizer code: search, project activation, the reparse offer,
+  source editing, merging, and visualization data preparation.
+- `catasto-records.js` / `catasto-records.test.mjs` — permanent ids, import repair, reparse planning.
 - `scene3d.js` / `scene3d.css` — Three.js household and landholding scenes.
-- `catasto-parser.js` — reusable plain-text parser used by Admin.
+- `catasto-parser.js` — the single parser, used by Admin and by reparsing.
 - `catasto-parser.test.mjs` — parser regression tests.
 - `index-app.test.mjs` — visualizer workflows (editing, merging, selection, malformed
-  records, migrations) run from the inline `index.html` script with a stub DOM.
-- `catasto-storage.test.mjs` — exchange format, stale-write refusal, and atomic import.
+  records, id conversion, reparsing) run from `app.js` with a stub DOM.
+- `catasto-storage.test.mjs` — exchange format, storage requests, no-server message, and IndexedDB migration.
 - `admin.test.mjs` — Admin announces imports, creations, and deletions to open Visualizer tabs.
-- `serve.py` / `test_serve.py` — local server with fixed file types, bound to 127.0.0.1.
-- `catasto-storage.js` — IndexedDB project persistence and exchange format.
+- `serve.py` / `test_serve.py` — local server with fixed file types and the project API, bound to 127.0.0.1.
+- `project_store.py` — project files, stale-write refusal, atomic import, and migration record.
+- `catasto-storage.js` — browser side of project storage, IndexedDB migration, and exchange format.
 - `admin.html` / `admin.js` — project library management.
 - `building-types.js` / `building-types.test.mjs` — architectural source cues.
 - `INSTALL.md` — step-by-step installation guide for Mac and Windows users.
 - `ARCHITECTURE.md` — architecture and identity rules.
+
+## Updating the vendored Three.js
+
+`vendor/three.module.js` and `vendor/OrbitControls.js` are Three.js r170 (MIT, `vendor/THREE-LICENSE.txt`).
+`npm audit` does not cover them. To update:
+
+1. Check the Three.js release notes and GitHub security advisories for the new release.
+2. Copy `build/three.module.js` and `examples/jsm/controls/OrbitControls.js` from that release into `vendor/`,
+   with its `LICENSE` as `THREE-LICENSE.txt`.
+3. In `vendor/OrbitControls.js`, change `from 'three'` to `from './three.module.js'`; the CSP blocks
+   import maps, so this one line is the only local change.
+4. Run the tests, then check the 3D view, both layers, and navigation in a browser.
 
 ## Requested next feature: dedicated record editor
 

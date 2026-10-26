@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from './vendor/three.module.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { classifyBuilding } from './building-types.js';
 
@@ -618,7 +618,7 @@ function rebuild() {
   const area = ordered.reduce((total, g) => total + (g.layout.width + 18) * (g.layout.depth + 18), 0);
   const shelfWidth = Math.max(90, Math.sqrt(area) * 1.3, ...ordered.map(g => g.layout.width));
   let x = 0, z = 0, rowDepth = 0;
-  ordered.forEach((group, index) => {
+  ordered.forEach(group => {
     if (x && x + group.layout.width > shelfWidth) { x = 0; z += rowDepth + 24; rowDepth = 0; }
     const { width, depth, points } = group.layout;
     const island = createRuralTerrain(group, x, z);
@@ -1006,7 +1006,7 @@ function sync() {
   }
 }
 
-function setMode(next) {
+function setMode() {
   mode = '3d';
   root.hidden = false;
   resize(); fitView();

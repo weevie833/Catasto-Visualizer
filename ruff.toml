@@ -1,0 +1,6 @@
+# Lint for the local server. Run: .venv/bin/ruff check .
+target-version = "py37"
+extend-exclude = ["vendor", "extract_page_5_13_households.py"]
+
+[lint]
+extend-select = ["B"]

@@ -91,20 +91,86 @@
       .replace(/^-|-$/g, "");
   }
 
-  function downloadProject(project) {
-    const blob = new Blob([CatastoStorage.serializeProject(project)], { type: "application/json" });
+  // Lists what repairing the file changed, so nothing is altered without the user seeing it first.
+  function importReport(changes) {
+    const shown = changes.slice(0, 12).map(change => `• ${change}`);
+    if (changes.length > shown.length) shown.push(`• …and ${changes.length - shown.length} more.`);
+    return `Some records in this file had to be repaired before import:\n\n${shown.join("\n")}\n\nImport the repaired projects?`;
+  }
+
+  function downloadFile(contents, fileName) {
+    const blob = new Blob([contents], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `${slugify(project.name) || "catasto-project"}.catasto.json`;
+    link.download = fileName;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+  }
+
+  async function downloadProject(project) {
+    const exported = await CatastoStorage.exportProject(project.id);
+    downloadFile(CatastoStorage.serializeProject(exported.project, exported.previousVersion), `${slugify(exported.project.name) || "catasto-project"}.catasto.json`);
+  }
+
+  // The previous version exactly as stored, as a project file that Admin can import (repairing it then).
+  async function downloadPreviousVersion(project) {
+    const previous = await CatastoStorage.getSnapshot(project.id);
+    if (!previous) return;
+    const payload = {
+      format: "catasto-visualizer-project",
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      project: {
+        name: `${project.name} (previous version, ${formatDate(previous.createdAt)})`,
+        sourceFile: project.sourceFile,
+        sourceText: project.sourceText || "",
+        createdAt: previous.createdAt,
+        updatedAt: previous.updatedAt,
+        data: previous.data
+      }
+    };
+    downloadFile(JSON.stringify(payload, null, 2), `${slugify(project.name) || "catasto-project"}-previous-version.catasto.json`);
+  }
+
+  // A previous version saved before the current record rules is repaired on a copy; the user sees each
+  // repair before the copy replaces the current data.
+  async function restorePreviousVersion(project) {
+    const previous = await CatastoStorage.getSnapshot(project.id);
+    if (!previous) return null;
+    const data = JSON.parse(JSON.stringify(previous.data));
+    const changes = CatastoRecords.repairProjectData(data);
+    const repairs = changes.length
+      ? `\n\nThis version predates the current record rules, so a copy of it was repaired:\n${changes.slice(0, 12).map(change => `• ${change}`).join("\n")}${changes.length > 12 ? `\n• …and ${changes.length - 12} more.` : ""}\nUse Download previous version first to keep it exactly as saved.`
+      : "";
+    const question = `Restore “${project.name}” to the version saved ${formatDate(previous.createdAt)} (${previous.reason.toLowerCase()})? The current version becomes the previous version, so this can be undone.${repairs}`;
+    if (!window.confirm(question)) return null;
+    await CatastoStorage.restoreSnapshot(project, data);
+    return `Restored the previous version of “${project.name}”.`;
+  }
+
+  function formatDate(value) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "earlier" : date.toLocaleString();
   }
 
   async function renderProjects() {
     const projects = await CatastoStorage.listProjects();
     projectList.innerHTML = projects.length ? projects.map(project => {
-      const count = project.data.households.length;
-      const language = project.data.source_language === "it" ? " · Italian" : "";
+      if (project.unavailable) {
+        return `
+        <article class="project">
+          <div>
+            <h3>${escapeHtml(project.name)}</h3>
+            <div class="meta">Unavailable: ${escapeHtml(project.unavailable)}</div>
+          </div>
+        </article>`;
+      }
+      const count = project.householdCount;
+      const language = project.sourceLanguage === "it" ? " · Italian" : "";
+      const restore = project.snapshotCreatedAt
+        ? `<button class="secondary restore" type="button" title="Saved ${escapeHtml(formatDate(project.snapshotCreatedAt))}">Restore previous version</button>
+           <button class="secondary download-previous" type="button">Download previous version</button>`
+        : "";
       return `
         <article class="project" data-project-id="${escapeHtml(project.id)}">
           <div>
@@ -113,6 +179,7 @@
           </div>
           <div class="actions">
             <button class="secondary export" type="button">Export JSON</button>
+            ${restore}
             <button class="danger delete" type="button">Delete</button>
           </div>
         </article>`;
@@ -126,12 +193,31 @@
     const project = await CatastoStorage.getProject(projectElement.dataset.projectId);
     if (!project) return;
     if (event.target.closest(".export")) {
-      downloadProject(project);
-    } else if (event.target.closest(".delete")) {
-      if (!window.confirm(`Delete “${project.name}” from this browser? Export it first if you need a backup.`)) return;
-      await CatastoStorage.deleteProject(project.id);
-      announceLibraryChange("deleted", project.id);
+      await downloadProject(project);
+    } else if (event.target.closest(".download-previous")) {
+      await downloadPreviousVersion(project);
+    } else if (event.target.closest(".restore")) {
+      let message;
+      try {
+        message = await restorePreviousVersion(project);
+        if (!message) return;
+        announceLibraryChange("restored", project.id);
+      } catch (error) {
+        message = `Restore failed: ${error.message}`;
+      }
       await renderProjects();
+      libraryStatus.textContent = message;
+    } else if (event.target.closest(".delete")) {
+      if (!window.confirm(`Delete “${project.name}” from this computer? Its previous version is deleted too. Export JSON first if you need a backup; the export includes the previous version.`)) return;
+      let message = "";
+      try {
+        await CatastoStorage.deleteProject(project);
+        announceLibraryChange("deleted", project.id);
+      } catch (error) {
+        message = error.message;
+      }
+      await renderProjects();
+      if (message) libraryStatus.textContent = message;
     }
   });
 
@@ -199,6 +285,11 @@
         })];
       } else {
         throw new Error("Choose a Catasto JSON backup, .md transcription, or .txt transcription.");
+      }
+      const changes = projects.flatMap(project => project.importChanges.map(change => projects.length > 1 ? `${project.name}: ${change}` : change));
+      if (changes.length && !window.confirm(importReport(changes))) {
+        libraryStatus.textContent = "Import cancelled; nothing was saved.";
+        return;
       }
       await CatastoStorage.saveImportedProjects(projects);
       savePreference("catasto-active-project", projects.at(-1).id);
