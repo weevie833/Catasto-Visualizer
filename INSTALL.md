@@ -195,7 +195,7 @@ so they stay where they are.
 ### Check which version you have
 
 The version number appears at the bottom of the Visualizer's left panel and at
-the bottom of the Admin page, for example **V 0.04**. To see whether a newer
+the bottom of the Admin page, for example **V 0.05**. To see whether a newer
 version exists, visit the app's GitHub page
 (<https://github.com/weevie833/Catasto-Visualizer>) or ask the person who
 shared the app with you.
