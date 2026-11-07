@@ -52,6 +52,7 @@ APP_FILES = {
     "/building-types.js",
     "/catasto-parser.js",
     "/catasto-records.js",
+    "/catasto-relations.js",
     "/catasto-storage.js",
     "/index.css",
     "/scene3d-boot.js",

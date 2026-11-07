@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Catasto Visualizer</title>
   <link rel="stylesheet" href="./index.css">
-  <link rel="stylesheet" href="./scene3d.css?v=8">
+  <link rel="stylesheet" href="./scene3d.css?v=11">
 </head>
 <body>
   <div class="app">
@@ -32,7 +32,7 @@
         </fieldset>
       </div>
       <div class="household-list" id="householdList"></div>
-      <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.06</footer>
+      <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.07</footer>
     </aside>
 
     <main class="workspace">
@@ -94,13 +94,21 @@
             <div class="scene-bottom"><span id="navigationHelp">Drag to pan · Right-drag to orbit · Scroll to zoom<br>Touch: one finger to pan; two fingers to pan / zoom</span><span class="scene-key"><i></i> Selected <i></i> Named neighbor</span></div>
           </section>
           <p id="sceneStatus" class="scene-status" role="status" hidden></p>
-          <div class="evidence">
+          <div class="panel-divider" id="panelDivider" role="separator" tabindex="0" aria-orientation="horizontal" aria-controls="evidencePanels" aria-label="Resize text panels" title="Drag to resize the text panels; double-click to reset"><span aria-hidden="true"></span></div>
+          <div class="evidence" id="evidencePanels">
             <div class="evidence-block">
               <div class="evidence-heading">
                 <h3 id="sourceEntryLabel">Source tax entry</h3>
                 <button class="source-edit-button" id="editSourceEntry" type="button" hidden>Edit</button>
               </div>
               <p id="sourceEntry">Loading projects...</p>
+            </div>
+            <div class="evidence-block">
+              <div class="evidence-heading">
+                <h3 id="evidenceReportLabel">Adjacent evidence</h3>
+                <button class="report-back" id="evidenceBack" type="button" hidden>Back</button>
+              </div>
+              <div id="evidenceReport" class="evidence-report" aria-live="polite"></div>
             </div>
           </div>
         </div>
@@ -157,6 +165,7 @@
 
   <script src="./catasto-parser.js"></script>
   <script src="./catasto-records.js"></script>
+  <script src="./catasto-relations.js"></script>
   <script src="./catasto-storage.js"></script>
   <script src="./app.js"></script>
   <script type="module" src="./scene3d-boot.js"></script>

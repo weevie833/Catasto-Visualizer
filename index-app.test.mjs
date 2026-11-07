@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 // so the visualizer's data workflows can be tested without a browser.
 const parserSource = await readFile(new URL("./catasto-parser.js", import.meta.url), "utf8");
 const recordsSource = await readFile(new URL("./catasto-records.js", import.meta.url), "utf8");
+const relationsSource = await readFile(new URL("./catasto-relations.js", import.meta.url), "utf8");
 const appScript = await readFile(new URL("./app.js", import.meta.url), "utf8");
 
 function fakeDocument() {
@@ -99,6 +100,7 @@ async function loadApp(projects, { rememberedId = null, blockedLocalStorage = fa
   vm.createContext(context);
   vm.runInContext(parserSource, context);
   vm.runInContext(recordsSource, context);
+  vm.runInContext(relationsSource, context);
   context.CatastoParser = context.window.CatastoParser;
   context.CatastoRecords = context.window.CatastoRecords;
   vm.runInContext(appScript, context);
@@ -425,4 +427,63 @@ test("a project still being recovered is listed but not opened", async () => {
   const stuck = options.find(option => option.value === "stuck");
   assert.equal(stuck.disabled, true);
   assert.match(stuck.text, /being recovered/);
+});
+
+test("the Adjacent Evidence report follows the person chosen, and the 3D view returns it to the head", async () => {
+  const project = sameNameProject();
+  project.data.households[1].members_text = "Giacomo Covello, day laborer, age 40\nMaria, daughter, age 12";
+  project.data.households[1].source_entry = `${project.data.households[1].members_text}\nHe lives in his own house in the Pasolani district.`;
+  const app = await loadApp([project]);
+  const label = () => app.document.querySelector("#evidenceReportLabel").textContent;
+  const unitId = app.run("households.find(unit => unit.recordIndex === 1).id");
+  const householdId = app.run(`householdById.get(${JSON.stringify(unitId)}).householdId`);
+
+  app.run(`selectHousehold(${JSON.stringify(unitId)}, "", { householdId: ${JSON.stringify(householdId)}, position: 1 })`);
+  assert.equal(label(), "Adjacent evidence: Maria Covello");
+
+  app.run("language = 'it'; applyLanguage()");
+  assert.equal(label(), "Prove adiacenti: Maria Covello", "a language change keeps the person");
+
+  app.run(`window.catasto.select(${JSON.stringify(unitId)})`);
+  assert.equal(label(), "Prove adiacenti: Giacomo Covello");
+});
+
+test("following a name in the report shows that person, and Back returns to the previous one", async () => {
+  const project = sameNameProject();
+  project.data.households[1].members_text = "Giacomo Covello, day laborer, age 40\nMaria, daughter, age 12";
+  project.data.households[1].source_entry = `${project.data.households[1].members_text}\nHe lives in his own house in the Pasolani district.`;
+  const app = await loadApp([project]);
+  const label = () => app.document.querySelector("#evidenceReportLabel").textContent;
+  const unitId = app.run("households.find(unit => unit.recordIndex === 1).id");
+  const householdId = app.run(`householdById.get(${JSON.stringify(unitId)}).householdId`);
+  app.run(`window.catasto.select(${JSON.stringify(unitId)})`);
+  assert.equal(app.document.querySelector("#evidenceBack").hidden, true);
+
+  app.run(`followReportLink({ householdId: ${JSON.stringify(householdId)}, position: 1 })`);
+  assert.equal(label(), "Adjacent evidence: Maria Covello");
+  assert.equal(app.document.querySelector("#evidenceBack").hidden, false);
+  assert.equal(app.run("view.reportHistory.length"), 1);
+
+  app.run("goBackInReport()");
+  assert.equal(label(), "Adjacent evidence: Giacomo Covello");
+  assert.equal(app.document.querySelector("#evidenceBack").hidden, true);
+
+  app.run(`followReportLink({ name: "Donato Ponzo" })`);
+  assert.equal(label(), "Adjacent evidence: Donato Ponzo");
+  app.run(`window.catasto.select(${JSON.stringify(unitId)})`);
+  assert.equal(app.run("view.reportHistory.length"), 0, "a selection outside the report starts a new trail");
+});
+
+test("names in the source entry are matched in place, each member only in their own line", async () => {
+  const app = await loadApp([sameNameProject()]);
+  const ranges = app.run(`JSON.stringify(sourceLinkRanges(
+    "Giacomo Covello, age 40\\nMaria, daughter\\nMaria, sister\\nBorders Pietro  Bruno and pietro bruno; Pietrobruno",
+    [
+      { label: "Giacomo Covello", line: "Giacomo Covello, age 40", target: { householdId: "h-1", position: 0 } },
+      { label: "Maria", line: "Maria, sister", target: { householdId: "h-1", position: 2 } },
+      { label: "Pietro Bruno", target: { name: "Pietro Bruno" } }
+    ],
+    { householdId: "h-1", position: 0 }
+  ).map(range => [range.start, range.end, range.target.position ?? range.target.name]))`);
+  assert.deepEqual(JSON.parse(ranges), [[40, 45, 2], [62, 75, "Pietro Bruno"], [80, 92, "Pietro Bruno"]], "the current person is left unlinked");
 });

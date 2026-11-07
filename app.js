@@ -22,6 +22,7 @@ const sourceEditText = document.querySelector("#sourceEditText");
 const sourceEditPlace = document.querySelector("#sourceEditPlace");
 const sourceEditStatus = document.querySelector("#sourceEditStatus");
 const sourceEditButton = document.querySelector("#editSourceEntry");
+const panelDivider = document.querySelector("#panelDivider");
 const duplicateModal = document.querySelector("#duplicateModal");
 const duplicateComparison = document.querySelector("#duplicateComparison");
 const duplicateStatus = document.querySelector("#duplicateStatus");
@@ -53,7 +54,10 @@ const UI_STRINGS = {
     editStoredLocally: "Changes are saved locally in this Catasto project.",
     householdHeadMatch: "Household head", householdMemberMatch: "Household member", residenceReferenceMatch: "Residence reference",
     landReferenceMatch: "Land reference", financialReferenceMatch: "Financial reference", sourceReferenceMatch: "Source reference",
-    filterResults: "Filter search results", familyMember: "Family member", reference: "Reference"
+    filterResults: "Filter search results", familyMember: "Family member", reference: "Reference",
+    adjacentEvidence: "Adjacent evidence", resizePanels: "Resize text panels", back: "Back",
+    backTo: name => `Back to ${name}`, openPerson: name => `Show ${name} in the Visualizer`,
+    resizePanelsHint: "Drag to resize the text panels; double-click to reset"
   },
   it: {
     households: "Famiglie", landholdings: "Terreni", landowners: "Proprietari",
@@ -74,7 +78,10 @@ const UI_STRINGS = {
     editStoredLocally: "Le modifiche vengono salvate localmente in questo progetto catastale.",
     householdHeadMatch: "Capofamiglia", householdMemberMatch: "Componente familiare", residenceReferenceMatch: "Riferimento di residenza",
     landReferenceMatch: "Riferimento fondiario", financialReferenceMatch: "Riferimento finanziario", sourceReferenceMatch: "Riferimento nella fonte",
-    filterResults: "Filtra i risultati", familyMember: "Familiare", reference: "Riferimento"
+    filterResults: "Filtra i risultati", familyMember: "Familiare", reference: "Riferimento",
+    adjacentEvidence: "Prove adiacenti", resizePanels: "Ridimensiona i pannelli di testo", back: "Indietro",
+    backTo: name => `Torna a ${name}`, openPerson: name => `Mostra ${name} nel Visualizzatore`,
+    resizePanelsHint: "Trascina per ridimensionare i pannelli di testo; doppio clic per ripristinare"
   }
 };
 function storedPreference(key) {
@@ -213,6 +220,8 @@ function applyLanguage() {
   document.querySelector("#navigationHelp").innerHTML = t("navigation");
   document.querySelector(".scene-key").innerHTML = '<i></i> ' + t("selected") + ' <i></i> ' + t("namedNeighbor");
   sourceEditStatus.textContent = t("editStoredLocally");
+  panelDivider.setAttribute("aria-label", t("resizePanels"));
+  panelDivider.title = t("resizePanelsHint");
   document.querySelector("#languageEnglish").setAttribute("aria-pressed", String(language === "en"));
   document.querySelector("#languageItalian").setAttribute("aria-pressed", String(language === "it"));
   document.querySelector("#languageEnglish").setAttribute("aria-label", language === "it" ? "Inglese" : "English");
@@ -230,6 +239,11 @@ const view = {
   y: 325,
   scale: 1,
   selectedId: null,
+  // Who the Adjacent Evidence report is about: null for the selected unit's household head, or a
+  // CatastoRelations subject ({ householdId, position } or { name, candidateIds }).
+  subject: null,
+  // The people visited by clicking names in the report, for its Back link. Kept for this session only.
+  reportHistory: [],
   layer: "household",
   search: ""
 };
@@ -933,6 +947,15 @@ function sourceReferenceName(context, query) {
   return source.slice(words[first].index, words[last].index + words[last][0].length);
 }
 
+// A person named in another entry: their own household when that entry's stored link identifies it,
+// otherwise the name alone.
+function referenceSubject(unit, name) {
+  const record = activeData?.households.find(item => item.id === unit.householdId);
+  const link = (record?.residence_links || []).find(item => personKey(item.name) === personKey(name));
+  if (link?.household_id && ["resolved", "inferred"].includes(link.resolution_status)) return { householdId: link.household_id, position: 0 };
+  return { name, candidateIds: link?.candidate_household_ids?.length ? link.candidate_household_ids : undefined };
+}
+
 function householdSearchMatches(household, query) {
   const needle = searchKey(query);
   if (!needle) return [];
@@ -943,16 +966,23 @@ function householdSearchMatches(household, query) {
   (household.members || []).slice(1).forEach((member, index) => {
     if (!searchKey(member).includes(needle)) return;
     const [name, ...details] = member.split(",");
-    matches.push({ primary: name.trim(), personId: household.memberIdentities?.[index + 1]?.id || null, detail: `${details.join(",").trim()} · ${household.displayHead || household.head} household`, type: "householdMemberMatch", category: "member", highlight: name.trim().split(/\s+/)[0] });
+    const identity = household.memberIdentities?.[index + 1];
+    // The member's whole source line marks the right person when two members share a first name.
+    const sourceLine = identity?.sourceLine && household.sourceEntry.includes(identity.sourceLine) ? identity.sourceLine : "";
+    matches.push({
+      primary: name.trim(), personId: identity?.id || null, detail: `${details.join(",").trim()} · ${household.displayHead || household.head} household`,
+      type: "householdMemberMatch", category: "member", highlight: sourceLine || name.trim().split(/\s+/)[0],
+      subject: household.householdId ? { householdId: household.householdId, position: index + 1 } : null
+    });
   });
   (household.adjacentNames || []).forEach(name => {
     if (!searchKey(name).includes(needle)) return;
-    matches.push({ primary: name, detail: `Mentioned in ${household.head}'s entry`, type: view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch", category: "reference", highlight: name });
+    matches.push({ primary: name, detail: `Mentioned in ${household.head}'s entry`, type: view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch", category: "reference", highlight: name, subject: referenceSubject(household, name) });
   });
   if (!matches.length && searchKey(household.sourceEntry).includes(needle)) {
     const context = sourceMatchContext(household.sourceEntry, query);
     const referenceName = sourceReferenceName(context, query);
-    matches.push({ primary: referenceName, detail: sourceMatchDetail(context, query) || `Mentioned in ${household.head}'s entry`, type: sourceReferenceType(context), category: "reference", highlight: referenceName });
+    matches.push({ primary: referenceName, detail: sourceMatchDetail(context, query) || `Mentioned in ${household.head}'s entry`, type: sourceReferenceType(context), category: "reference", highlight: referenceName, subject: referenceSubject(household, referenceName) });
   }
   return matches;
 }
@@ -1018,7 +1048,8 @@ function renderList() {
   list.querySelectorAll("button").forEach(button => {
     button.addEventListener("click", () => {
       const result = results[Number(button.dataset.resultIndex)];
-      selectHousehold(button.dataset.id, result?.match?.highlight || "");
+      view.reportHistory = [];
+      selectHousehold(button.dataset.id, result?.match?.highlight || "", result?.match?.subject || null);
     });
   });
 }
@@ -1031,7 +1062,66 @@ function renderLayerToggle() {
   document.querySelector("#sidebarTitle").textContent = view.layer === "land" ? t("landowners") : t("households");
 }
 
-function showSourceEntry(text, highlight = "") {
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sameTarget(target, subject) {
+  if (!target || !subject) return false;
+  if (target.householdId) return target.householdId === subject.householdId && (target.position || 0) === (subject.position || 0);
+  return !subject.householdId && personKey(target.name) === personKey(subject.name);
+}
+
+// Where each linked name appears in the source text. A household member is looked for only in their own
+// line; a neighbor wherever the entry names them. Overlapping matches keep the earlier, longer one.
+function sourceLinkRanges(raw, links, current) {
+  const ranges = [];
+  links.forEach(link => {
+    if (!link.label || sameTarget(link.target, current)) return;
+    const words = String(link.label).trim().split(/\s+/).map(escapeRegExp).join("\\s+");
+    const pattern = new RegExp(`(?<![\\p{L}\\p{M}])${words}(?![\\p{L}\\p{M}])`, "giu");
+    let from = 0;
+    let to = raw.length;
+    if (link.line) {
+      from = raw.indexOf(link.line);
+      if (from < 0) return;
+      to = from + link.line.length;
+    }
+    const scope = raw.slice(from, to);
+    for (const match of scope.matchAll(pattern)) {
+      ranges.push({ start: from + match.index, end: from + match.index + match[0].length, target: link.target });
+      if (link.line) break;
+    }
+  });
+  ranges.sort((a, b) => a.start - b.start || b.end - a.end);
+  const kept = [];
+  ranges.forEach(range => {
+    if (!kept.length || range.start >= kept[kept.length - 1].end) kept.push(range);
+  });
+  return kept;
+}
+
+function linkedSourceNodes(raw, from, to, ranges) {
+  const nodes = [];
+  let cursor = from;
+  ranges.filter(range => range.start >= from && range.end <= to).forEach(range => {
+    if (range.start > cursor) nodes.push(document.createTextNode(raw.slice(cursor, range.start)));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "report-link source-link";
+    button.textContent = raw.slice(range.start, range.end);
+    button.title = t("openPerson")(button.textContent);
+    button.addEventListener("click", () => followReportLink(range.target));
+    nodes.push(button);
+    cursor = range.end;
+  });
+  if (cursor < to) nodes.push(document.createTextNode(raw.slice(cursor, to)));
+  return nodes;
+}
+
+// links: people the entry names (CatastoRelations.sourceEntryLinks); each becomes a button that shows
+// that person, as names in the report do. current: the person already shown, left unlinked.
+function showSourceEntry(text, highlight = "", links = [], current = null) {
   const source = document.querySelector("#sourceEntry");
   const raw = String(text || "");
   const requested = String(highlight || "").trim();
@@ -1041,14 +1131,20 @@ function showSourceEntry(text, highlight = "") {
     matchedText = requested.split(/\s+/)[0];
     index = raw.toLowerCase().indexOf(matchedText.toLowerCase());
   }
-  if (index < 0 || !matchedText) {
-    source.textContent = raw;
+  const hasMark = index >= 0 && Boolean(matchedText);
+  const markStart = hasMark ? index : raw.length;
+  const markEnd = hasMark ? index + matchedText.length : raw.length;
+  // A link that straddles the highlight's edge would be cut in two, so it is left as text.
+  const ranges = sourceLinkRanges(raw, links, current)
+    .filter(range => range.end <= markStart || range.start >= markEnd || (range.start >= markStart && range.end <= markEnd));
+  if (!hasMark) {
+    source.replaceChildren(...linkedSourceNodes(raw, 0, raw.length, ranges));
     return;
   }
   const mark = document.createElement("mark");
   mark.className = "source-highlight";
-  mark.textContent = raw.slice(index, index + matchedText.length);
-  source.replaceChildren(document.createTextNode(raw.slice(0, index)), mark, document.createTextNode(raw.slice(index + matchedText.length)));
+  mark.replaceChildren(...linkedSourceNodes(raw, markStart, markEnd, ranges));
+  source.replaceChildren(...linkedSourceNodes(raw, 0, markStart, ranges), mark, ...linkedSourceNodes(raw, markEnd, raw.length, ranges));
   mark.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
@@ -1064,16 +1160,143 @@ function updateSourceEntryLabel(household) {
   document.querySelector("#sourceEntryLabel").textContent = `${t("sourceEntry")}: ${sourceTitle}: ${pageLabel}${inferred}`;
 }
 
-function selectHousehold(id, sourceHighlight = "") {
+function reportSubject(unit) {
+  if (view.subject) return view.subject;
+  if (unit.householdId && activeData?.households.some(record => record.id === unit.householdId)) return { householdId: unit.householdId, position: 0 };
+  return { name: unit.head, candidateIds: unit.candidateHouseholdIds };
+}
+
+// A report line, with each linked name made a button that shows that person in the Visualizer.
+function reportParagraph(className, text, links = []) {
+  const paragraph = document.createElement("p");
+  paragraph.className = className;
+  const parts = [];
+  let cursor = 0;
+  links.forEach(link => {
+    const start = link.label ? text.indexOf(link.label, cursor) : -1;
+    if (start < 0) return;
+    if (start > cursor) parts.push(document.createTextNode(text.slice(cursor, start)));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "report-link";
+    button.textContent = link.label;
+    button.title = t("openPerson")(link.label);
+    button.addEventListener("click", () => followReportLink(link.target));
+    parts.push(button);
+    cursor = start + link.label.length;
+  });
+  if (!parts.length) {
+    paragraph.textContent = text;
+    return paragraph;
+  }
+  if (cursor < text.length) parts.push(document.createTextNode(text.slice(cursor)));
+  paragraph.replaceChildren(...parts);
+  return paragraph;
+}
+
+// The unit showing a household in the current layer: the household itself, or one of its parcels.
+function unitForHousehold(householdId) {
+  return households.find(unit => unit.source === "extracted" && unit.householdId === householdId) || null;
+}
+
+function showReportTarget(target, subject) {
+  if (target.householdId) {
+    let unit = unitForHousehold(target.householdId);
+    if (!unit && view.layer === "land") {
+      // An owner without landholdings is shown in the Households view.
+      view.layer = "household";
+      useData(activeData, null, { keepReportHistory: true });
+      unit = unitForHousehold(target.householdId);
+    }
+    if (!unit) return false;
+    const member = target.position > 0 ? unit.memberIdentities?.[target.position] : null;
+    const highlight = member?.sourceLine && unit.sourceEntry.includes(member.sourceLine) ? member.sourceLine : member?.name || unit.head;
+    selectHousehold(unit.id, highlight, subject);
+    return true;
+  }
+  // Someone known only by name: their placeholder in the 3D view when there is one, otherwise the
+  // current entry, which names them.
+  const placeholder = households.find(unit => unit.source === "adjacent-placeholder" && personKey(unit.head) === personKey(target.name));
+  selectHousehold(placeholder?.id || view.selectedId, target.name, subject);
+  return true;
+}
+
+function followReportLink(target) {
+  const from = { selectedId: view.selectedId, subject: view.subject, layer: view.layer, highlight: view.sourceHighlight || "", name: currentReportName };
+  const subject = target.householdId ? { householdId: target.householdId, position: target.position || 0 } : { name: target.name, candidateIds: target.candidateIds };
+  if (showReportTarget(target, subject)) view.reportHistory.push(from);
+  renderEvidenceReport();
+}
+
+function goBackInReport() {
+  const previous = view.reportHistory.pop();
+  if (!previous) return;
+  if (previous.layer !== view.layer) {
+    view.layer = previous.layer;
+    useData(activeData, null, { keepReportHistory: true });
+  }
+  if (householdById.has(previous.selectedId)) selectHousehold(previous.selectedId, previous.highlight, previous.subject);
+  renderEvidenceReport();
+}
+
+let currentReportName = "";
+
+// Builds the Adjacent Evidence report for the selected person. It is computed each time and never saved.
+function renderEvidenceReport() {
+  const container = document.querySelector("#evidenceReport");
+  const label = document.querySelector("#evidenceReportLabel");
+  const back = document.querySelector("#evidenceBack");
+  const previous = view.reportHistory[view.reportHistory.length - 1];
+  back.hidden = !previous;
+  back.textContent = t("back");
+  back.title = previous ? t("backTo")(previous.name) : "";
+  const unit = householdById.get(view.selectedId);
+  if (!unit || !activeData || !window.CatastoRelations) {
+    label.textContent = t("adjacentEvidence");
+    currentReportName = "";
+    container.replaceChildren();
+    return;
+  }
+  const report = window.CatastoRelations.buildPersonReport(activeData, reportSubject(unit), {
+    language,
+    sourceTitle: activeData.source_title || activeProject?.name?.replace(/\s*·\s*/g, " ")
+  });
+  label.textContent = `${report.title}: ${report.subjectName}`;
+  label.title = label.textContent;
+  currentReportName = report.subjectName;
+  const nodes = report.summary.map(item => reportParagraph("report-line", item.text, item.links));
+  report.sections.forEach(part => {
+    nodes.push(reportParagraph("report-heading", part.heading));
+    if (part.emptyText) nodes.push(reportParagraph("report-empty", part.emptyText));
+    part.items.forEach(item => {
+      const kindClass = { subheading: "report-subheading", note: "report-pending", empty: "report-empty", lead: `report-lead report-${item.strength}` };
+      nodes.push(reportParagraph(kindClass[item.kind] || "report-line", item.text, item.links));
+      if (item.derived) nodes.push(reportParagraph("report-note", `(${item.derived})`));
+      (item.clues || []).forEach(clue => nodes.push(reportParagraph("report-clue", `– ${clue}`)));
+    });
+  });
+  container.replaceChildren(...nodes);
+  container.scrollTop = 0;
+}
+
+// subject: who the report is about (see view.subject); leaving it out keeps the current person when the
+// same unit is selected again, as when the language changes.
+function selectHousehold(id, sourceHighlight = "", subject) {
   const household = householdById.get(id);
   if (!household) return;
+  if (subject !== undefined || id !== view.selectedId) view.subject = subject || null;
   view.selectedId = id;
+  view.sourceHighlight = sourceHighlight;
   document.querySelector("#selectedTitle").textContent = view.layer === "land"
     ? `${household.displayHead || household.head} - ${household.parcelName} · ${localizedPlace(household.place)}`
     : `${household.displayHead || household.head} - ${localizedPlace(household.place)}`;
   updateSourceEntryLabel(household);
-  showSourceEntry(household.sourceEntry, sourceHighlight);
+  const sourceLinks = household.source === "extracted" && household.householdId && window.CatastoRelations?.sourceEntryLinks
+    ? window.CatastoRelations.sourceEntryLinks(activeData, household.householdId)
+    : [];
+  showSourceEntry(household.sourceEntry, sourceHighlight, sourceLinks, reportSubject(household));
   sourceEditButton.hidden = view.layer !== "household" || household.source !== "extracted" || !Number.isInteger(household.recordIndex);
+  renderEvidenceReport();
   renderList();
   announceScene();
 }
@@ -1094,12 +1317,14 @@ function withUniqueRecordIds(data) {
   };
 }
 
-function useData(data, preferredPerson = null) {
+function useData(data, preferredPerson = null, { keepReportHistory = false } = {}) {
   const preparedData = withUniqueRecordIds(data);
   activeData = preparedData;
   renderLayerToggle();
   households = buildUnits(preparedData);
   householdById = new Map(households.map(household => [household.id, household]));
+  view.subject = null;
+  if (!keepReportHistory) view.reportHistory = [];
   view.selectedId = matchingUnitIdForPerson(preferredPerson) || households[0]?.id || null;
   if (view.selectedId) {
     selectHousehold(view.selectedId);
@@ -1109,6 +1334,7 @@ function useData(data, preferredPerson = null) {
     document.querySelector("#sourceEntry").textContent = view.layer === "land"
       ? t("noLandSource")
       : t("noHouseholdSource");
+    renderEvidenceReport();
     announceScene();
   }
 }
@@ -1829,6 +2055,7 @@ projectSelect.addEventListener("change", event => {
     filenameLine.textContent = error.message;
   });
 });
+document.querySelector("#evidenceBack").addEventListener("click", goBackInReport);
 document.querySelector("#languageEnglish").addEventListener("click", () => {
   if (language === "en") return;
   language = "en";
@@ -1892,10 +2119,92 @@ function announceScene() {
   window.dispatchEvent(new CustomEvent("catasto:change"));
 }
 
+// The divider between the 3D view and the text panels. Its position is a display preference kept in
+// this browser only; narrow windows stack the panels instead and hide it.
+const evidencePanels = document.querySelector("#evidencePanels");
+const visualizationView = document.querySelector(".visualization-view");
+const EVIDENCE_HEIGHT_KEY = "catasto-evidence-height";
+const DEFAULT_EVIDENCE_HEIGHT = 220;
+const MIN_EVIDENCE_HEIGHT = 90;
+const MIN_SCENE_HEIGHT = 240;
+const KEYBOARD_STEP = 24;
+
+function dividerActive() {
+  return typeof window.matchMedia === "function" && window.matchMedia("(min-width: 901px)").matches;
+}
+
+function maxEvidenceHeight() {
+  const scene = document.querySelector("#scene3d");
+  const fixed = [...(visualizationView?.children || [])]
+    .filter(element => element !== scene && element !== evidencePanels)
+    .reduce((total, element) => total + (element.offsetHeight || 0), 0);
+  return Math.max(MIN_EVIDENCE_HEIGHT, (visualizationView?.clientHeight || 0) - fixed - MIN_SCENE_HEIGHT);
+}
+
+function setEvidenceHeight(height, { save = false } = {}) {
+  if (!dividerActive()) return;
+  const max = maxEvidenceHeight();
+  const value = Math.round(Math.min(max, Math.max(MIN_EVIDENCE_HEIGHT, Number(height) || DEFAULT_EVIDENCE_HEIGHT)));
+  visualizationView.style.setProperty("--evidence-height", `${value}px`);
+  panelDivider.setAttribute("aria-valuemin", String(MIN_EVIDENCE_HEIGHT));
+  panelDivider.setAttribute("aria-valuemax", String(max));
+  panelDivider.setAttribute("aria-valuenow", String(value));
+  if (save) savePreference(EVIDENCE_HEIGHT_KEY, String(value));
+}
+
+function currentEvidenceHeight() {
+  return evidencePanels.getBoundingClientRect().height;
+}
+
+function restoreEvidenceHeight() {
+  setEvidenceHeight(Number(storedPreference(EVIDENCE_HEIGHT_KEY)) || DEFAULT_EVIDENCE_HEIGHT);
+}
+
+panelDivider.addEventListener("pointerdown", event => {
+  if (!dividerActive() || event.button !== 0) return;
+  event.preventDefault();
+  const startY = event.clientY;
+  const startHeight = currentEvidenceHeight();
+  panelDivider.setPointerCapture(event.pointerId);
+  panelDivider.classList.add("dragging");
+  const move = moveEvent => setEvidenceHeight(startHeight - (moveEvent.clientY - startY));
+  const end = () => {
+    panelDivider.removeEventListener("pointermove", move);
+    panelDivider.removeEventListener("pointerup", end);
+    panelDivider.removeEventListener("pointercancel", end);
+    panelDivider.classList.remove("dragging");
+    setEvidenceHeight(currentEvidenceHeight(), { save: true });
+  };
+  panelDivider.addEventListener("pointermove", move);
+  panelDivider.addEventListener("pointerup", end);
+  panelDivider.addEventListener("pointercancel", end);
+});
+panelDivider.addEventListener("dblclick", () => {
+  removePreference(EVIDENCE_HEIGHT_KEY);
+  setEvidenceHeight(DEFAULT_EVIDENCE_HEIGHT);
+});
+panelDivider.addEventListener("keydown", event => {
+  const changes = { ArrowUp: KEYBOARD_STEP, ArrowDown: -KEYBOARD_STEP };
+  if (event.key in changes) {
+    setEvidenceHeight(currentEvidenceHeight() + changes[event.key], { save: true });
+  } else if (event.key === "Home" || event.key === "End") {
+    setEvidenceHeight(event.key === "Home" ? MIN_EVIDENCE_HEIGHT : maxEvidenceHeight(), { save: true });
+  } else {
+    return;
+  }
+  event.preventDefault();
+});
+if (typeof window.addEventListener === "function") window.addEventListener("resize", restoreEvidenceHeight);
+restoreEvidenceHeight();
+
 window.catasto = {
   getState: () => ({ units: households, selectedId: view.selectedId, layer: view.layer, search: view.search }),
   getLanguage: () => language,
-  select: selectHousehold
+  // Selecting from the 3D view always reports on the household head.
+  select: id => {
+    view.reportHistory = [];
+    selectHousehold(id, "", null);
+  }
 };
 
 applyLanguage();

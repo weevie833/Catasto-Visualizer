@@ -77,6 +77,7 @@ Clicking a name moves the Visualizer to that person and replaces the report with
 | Could be more than one household | Lists the candidates rather than choosing one |
 | Landholding | Switches to the Landholdings view and selects that parcel |
 
+- Names in the Source Tax Entry are links too: the head, each member (matched within their own line), and residence and land neighbors. The person already shown is left as plain text.
 - A small Back link in the report heading retraces the trail. It lasts only for the session and is never saved.
 - Member search results currently highlight only the first name at its first appearance, which can mark the wrong person. Matching the full source line fixes this for report links; use the same approach for search results.
 
@@ -171,7 +172,8 @@ Measured with rough pattern matching on the Italian side of the 300-page transcr
 
 ## Build order
 
-1. Split panel, draggable divider, person selection, and the report for stated kin and household neighbors.
-2. Derived kin, land neighbors, and clickable names with Back.
-3. Institutions, including the merged name list.
-4. Leads, including connections through a third party.
+1. Split panel, draggable divider, person selection, and the report for stated kin and household neighbors. **Built.**
+2. Derived kin, land neighbors, and clickable names with Back. **Built.**
+3. Family leads from other entries, moved ahead of institutions. **Built:** households of the same surname ranked by neighbors, two-step neighbors, land borders, district, age fit, and surname rarity; women of the surname in other households; widows' late husbands' families; in-laws who share the wife's surname.
+4. Institutions, including the merged name list.
+5. Connections through a third party, such as a shared church.

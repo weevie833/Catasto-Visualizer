@@ -7,8 +7,8 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`
-- Latest pushed commit: `b9bc543 Advance footer version to V 0.03`
+- Branch: `adjacent-evidence` (V 0.07), pushed to GitHub and not yet merged into `main`
+- `main` is at V 0.06 (`0800456`)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
@@ -29,8 +29,8 @@ npx eslint .
 .venv/bin/ruff check .
 ```
 
-The Node suite contains 79 parser, records, building-style, storage, Admin, and visualizer-workflow
-tests; `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
+The Node suite contains 104 parser, records, relations, building-style, storage, Admin, and
+visualizer-workflow tests; `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
 `npm install` and `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. Projects
 live in the per-user data folder (`~/Library/Application Support/Catasto
 Visualizer/projects/` on this Mac), not in browser storage, so the port no
@@ -55,6 +55,20 @@ browser's IndexedDB at that address are migrated.
   earlier) are copied once on first load.
 - The source-entry editor can correct an individual stored entry. Saving
   recalculates residence links, identities, and search data.
+- The lower panel is split: Source Tax Entry on the left, Adjacent Evidence on
+  the right. The report is built by `catasto-relations.js` for the person
+  selected (head, member, or a name known only from references) and is never
+  saved. It lists stated and derived family, residence and land neighbors, and
+  ranked family leads (Strong, Moderate, Weak) with their clues. Institutions
+  and connections through a third party are not built yet; see
+  `ADJACENT_EVIDENCE_PLAN.md`.
+- Names in the report and in the source entry are links that select that person;
+  Back retraces the trail for the session.
+- On wide windows a draggable divider sets the split between the 3D view and the
+  text panels; its position is kept in `localStorage` (`catasto-evidence-height`).
+- The Visualizer is a reading tool: relationship conclusions are made in other
+  systems (Ancestry, FamilySearch, a spreadsheet). Correcting a Catasto entry is
+  the only edit it offers.
 
 ## Source and parsing
 
@@ -99,9 +113,7 @@ The parser now uses a household-entry state machine:
 - Historical lines with missing commas or relationships placed before the
   comma are accommodated.
 
-The current parse produces 362 household entries. Entry-boundary migration
-version 5 rebuilt the browser database. The original 338-record dataset is
-retained inside the project as `entryBoundaryMigrationBackup`.
+The current parse produces 362 household entries.
 
 ## Identity resolution
 
@@ -118,8 +130,6 @@ retained inside the project as `entryBoundaryMigrationBackup`.
   resolution stores its method, score, confidence, and evidence.
 - Marco Todaro's Giacomo Covello reference resolves to Giacomo Covello, son of
   the late Antonio, using Ursula Salerno as the shared residence neighbor.
-
-Identity-resolution migration version 4 is active.
 
 ## Name and reference parsing
 
@@ -142,6 +152,8 @@ Identity-resolution migration version 4 is active.
 - `app.js` — Visualizer code: search, project activation, the reparse offer,
   source editing, merging, and visualization data preparation.
 - `catasto-records.js` / `catasto-records.test.mjs` — permanent ids, import repair, reparse planning.
+- `catasto-relations.js` / `catasto-relations.test.mjs` — the Adjacent Evidence report and source-entry links.
+- `ADJACENT_EVIDENCE_PLAN.md` — the report's plan and remaining build steps.
 - `scene3d.js` / `scene3d.css` — Three.js household and landholding scenes.
 - `catasto-parser.js` — the single parser, used by Admin and by reparsing.
 - `catasto-parser.test.mjs` — parser regression tests.
@@ -228,5 +240,9 @@ separate from true duplicate-household merges.
   not create a new adjacency that the source never stated.
 - Some same-name references remain unresolved because the record lacks enough
   evidence. Preserve that uncertainty.
-- Project migrations run when the application loads. Keep migrations versioned
-  and recoverable because the live data is stored in the browser, not Git.
+- Projects live in the per-user data folder, not Git. Changes to stored data go
+  through a reviewed update that keeps the previous version as a snapshot.
+- Family leads are speculation. Keep them labeled with their clues, and do not
+  match spelling variants (`Paolo`/`Paulo`) silently.
+- The updated Marano database, with more neighbor and institution detail, is
+  expected; re-measure the report's evidence on it before building institutions.
