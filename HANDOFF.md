@@ -7,8 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `adjacent-evidence` (V 0.07), pushed to GitHub and not yet merged into `main`
-- `main` is at V 0.06 (`0800456`)
+- Branch: `main`, at V 0.07 (the Adjacent Evidence report, merged from `adjacent-evidence`)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
