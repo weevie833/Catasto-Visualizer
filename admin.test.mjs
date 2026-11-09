@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 
 // Runs admin.js against a minimal DOM to check that every library change is announced to
 // open Visualizer tabs.
-const [adminSource, storageSource, parserSource, recordsSource] = await Promise.all(
-  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
+const [adminSource, storageSource, parserSource, recordsSource, relationsSource, nameIndexSource] = await Promise.all(
+  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js", "./catasto-relations.js", "./catasto-name-index.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
 );
 const sampleText = "Paolo Rossi, day laborer, age 40\nHe lives in his own house in the Pasolani district.";
 
@@ -18,18 +18,23 @@ async function loadAdmin({ preferences = new Map() } = {}) {
       elements.set(selector, {
         value: "", textContent: "", innerHTML: "", hidden: true, listeners,
         addEventListener: (type, listener) => { listeners[type] = listener; },
-        focus() { this.focused = true; }
+        focus() { this.focused = true; },
+        showModal() { this.open = true; }
       });
     }
     return elements.get(selector);
   };
   const messages = [];
   const confirmations = [];
+  const downloads = [];
+  const blobsMade = [];
   const stored = new Map([["existing", { id: "existing", name: "Existing", data: { households: [] } }]]);
   let nextId = 0;
   const context = {
     window: { confirm: message => { confirmations.push(message); return true; } },
-    document: { querySelector: element, createElement: () => ({ click() {} }) },
+    document: { querySelector: element, createElement: () => ({ click() { downloads.push({ name: this.download, blob: this.blobs.at(-1) }); }, blobs: blobsMade }) },
+    Blob: class { constructor(parts, options) { this.text = parts.join(""); this.type = options.type; blobsMade.push(this); } },
+    URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
     localStorage: {
       getItem: key => preferences.get(key) ?? null,
       setItem: (key, value) => preferences.set(key, String(value)),
@@ -48,6 +53,9 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   vm.runInContext(storageSource, context);
   vm.runInContext(parserSource, context);
   vm.runInContext(recordsSource, context);
+  vm.runInContext(relationsSource, context);
+  vm.runInContext(nameIndexSource, context);
+  context.CatastoNameIndex = context.window.CatastoNameIndex;
   context.CatastoStorage = context.window.CatastoStorage;
   context.CatastoParser = context.window.CatastoParser;
   context.CatastoRecords = context.window.CatastoRecords;
@@ -64,7 +72,7 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   vm.runInContext(adminSource, context);
   const settle = () => new Promise(resolve => setTimeout(resolve, 10));
   await settle();
-  return { element, messages, confirmations, stored, settle, preferences, storage: context.CatastoStorage };
+  return { element, messages, confirmations, downloads, stored, settle, preferences, storage: context.CatastoStorage };
 }
 
 test("importing a transcription announces the new project to open Visualizer tabs", async () => {
@@ -197,4 +205,30 @@ test("a delete refused because another tab saved is reported and nothing is remo
   assert.equal(admin.stored.has("existing"), true);
   assert.match(admin.element("#libraryStatus").textContent, /changed in another tab/);
   assert.equal(admin.messages.some(message => message.reason === "deleted"), false);
+});
+
+test("Name Index opens with the suggested village and exports JSON, CSV, and Markdown without saving", async () => {
+  const admin = await loadAdmin();
+  const data = admin.storage.createProject({ name: "Marano", data: { source_title: "Marano Marchesato 1754", households: [] } }).data;
+  data.households = [{ id: "h-1", household_head: "Paolo Rossi", members_text: "Paolo Rossi, day laborer, age 40\nPietro, son, age 3", source_entry: `${sampleText.replace("age 40", "age 40\nPietro, son, age 3")} He pays to Giuseppe Loizzo of the Land of Rende, for a principal of ten ducats.` }];
+  admin.stored.set("marano", { id: "marano", name: "Marano 1754", data });
+  const before = JSON.stringify(data);
+
+  await click(admin, "marano", ".name-index");
+  assert.equal(admin.element("#nameIndexDialog").open, true);
+  assert.equal(admin.element("#nameIndexVillage").value, "Marano Marchesato");
+  assert.equal(admin.element("#nameIndexProject").textContent, "Marano 1754");
+
+  admin.element("#nameIndexJson").listeners.click();
+  admin.element("#nameIndexCsv").listeners.click();
+  admin.element("#nameIndexMarkdown").listeners.click();
+  assert.deepEqual(admin.downloads.map(download => download.name), ["marano-1754-name-index.json", "marano-1754-name-index.csv", "marano-1754-name-index.md"]);
+  const people = JSON.parse(admin.downloads[0].blob.text).people.map(person => `${person.given_name} ${person.surname} (${person.residential_location})`);
+  assert.deepEqual(people, ["Paolo Rossi (Marano Marchesato)", "Pietro Rossi (Marano Marchesato)", "Giuseppe Loizzo (Rende)"]);
+  assert.equal(admin.downloads[1].blob.type, "text/csv");
+  assert.match(admin.downloads[1].blob.text, /^\ufeff"Honorific",/);
+  assert.equal(admin.downloads[2].blob.type, "text/markdown");
+  assert.match(admin.element("#nameIndexStatus").textContent, /^Exported 3 people\.$/);
+  assert.equal(JSON.stringify(data), before);
+  assert.deepEqual(admin.messages, []);
 });

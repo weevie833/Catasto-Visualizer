@@ -50,6 +50,7 @@ APP_FILES = {
     "/admin.js",
     "/app.js",
     "/building-types.js",
+    "/catasto-name-index.js",
     "/catasto-parser.js",
     "/catasto-records.js",
     "/catasto-relations.js",

@@ -37,3 +37,7 @@ select { border:1px solid var(--line); border-radius:8px; background:#fff; color
 .notice span { font-size:13px; }
 .license-footer { width:min(1040px,calc(100% - 32px)); margin:0 auto 24px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--muted); font-size:12px; line-height:1.4; padding:10px 12px; }
 @media (max-width:720px) { .grid { grid-template-columns:1fr; } .project { grid-template-columns:1fr; } header { align-items:flex-start; } }
+dialog { width:min(520px,calc(100% - 32px)); border:1px solid #d7dee8; border-radius:10px; padding:18px; color:var(--ink); box-shadow:0 20px 48px rgba(15,23,42,.18); }
+dialog::backdrop { background:rgba(15,23,42,.35); }
+dialog h2 { margin:0 0 14px; font-size:18px; }
+dialog .intro { margin:0 0 14px; font-size:13px; }

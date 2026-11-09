@@ -98,8 +98,8 @@
     return `Some records in this file had to be repaired before import:\n\n${shown.join("\n")}\n\nImport the repaired projects?`;
   }
 
-  function downloadFile(contents, fileName) {
-    const blob = new Blob([contents], { type: "application/json" });
+  function downloadFile(contents, fileName, type = "application/json") {
+    const blob = new Blob([contents], { type });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = fileName;
@@ -148,6 +148,35 @@
     return `Restored the previous version of “${project.name}”.`;
   }
 
+  // Name Index: built by catasto-name-index.js from the stored project when exported; nothing is saved.
+  const nameIndexDialog = document.querySelector("#nameIndexDialog");
+  const nameIndexVillage = document.querySelector("#nameIndexVillage");
+  const nameIndexStatus = document.querySelector("#nameIndexStatus");
+  let nameIndexProject = null;
+
+  function openNameIndex(project) {
+    nameIndexProject = project;
+    document.querySelector("#nameIndexProject").textContent = project.name;
+    nameIndexVillage.value = CatastoNameIndex.suggestedVillage(project.data);
+    nameIndexStatus.textContent = "";
+    nameIndexDialog.showModal();
+  }
+
+  function exportNameIndex(format) {
+    if (!nameIndexProject) return;
+    const index = CatastoNameIndex.buildNameIndex(nameIndexProject.data, { village: nameIndexVillage.value, projectName: nameIndexProject.name });
+    const base = `${slugify(nameIndexProject.name) || "catasto-project"}-name-index`;
+    if (format === "md") downloadFile(CatastoNameIndex.toMarkdown(index), `${base}.md`, "text/markdown");
+    else if (format === "csv") downloadFile(CatastoNameIndex.toCsv(index), `${base}.csv`, "text/csv");
+    else downloadFile(CatastoNameIndex.toJson(index), `${base}.json`);
+    const derived = index.people.filter(person => person.surname_derived).length;
+    nameIndexStatus.textContent = `Exported ${index.people.length} people${derived ? `, ${derived} with a derived surname to review` : ""}.`;
+  }
+
+  document.querySelector("#nameIndexJson").addEventListener("click", () => exportNameIndex("json"));
+  document.querySelector("#nameIndexCsv").addEventListener("click", () => exportNameIndex("csv"));
+  document.querySelector("#nameIndexMarkdown").addEventListener("click", () => exportNameIndex("md"));
+
   function formatDate(value) {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? "earlier" : date.toLocaleString();
@@ -179,6 +208,7 @@
           </div>
           <div class="actions">
             <button class="secondary export" type="button">Export JSON</button>
+            <button class="secondary name-index" type="button">Name Index</button>
             ${restore}
             <button class="danger delete" type="button">Delete</button>
           </div>
@@ -194,6 +224,8 @@
     if (!project) return;
     if (event.target.closest(".export")) {
       await downloadProject(project);
+    } else if (event.target.closest(".name-index")) {
+      openNameIndex(project);
     } else if (event.target.closest(".download-previous")) {
       await downloadPreviousVersion(project);
     } else if (event.target.closest(".restore")) {

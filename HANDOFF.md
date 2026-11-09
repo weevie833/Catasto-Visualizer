@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.07 (the Adjacent Evidence report, merged from `adjacent-evidence`)
+- Branch: `main`, at V 0.08 (the Name Index export in Admin; V 0.07 added the Adjacent Evidence report)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
@@ -28,8 +28,8 @@ npx eslint .
 .venv/bin/ruff check .
 ```
 
-The Node suite contains 104 parser, records, relations, building-style, storage, Admin, and
-visualizer-workflow tests; `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
+The Node suite contains 118 parser, records, relations, name-index, building-style, storage, Admin, and
+visualizer-workflow tests (one runs only when `CATASTO_VALIDATION_MD` names the corrected Marano transcription); `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
 `npm install` and `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. Projects
 live in the per-user data folder (`~/Library/Application Support/Catasto
 Visualizer/projects/` on this Mac), not in browser storage, so the port no
@@ -65,6 +65,10 @@ browser's IndexedDB at that address are migrated.
   Back retraces the trail for the session.
 - On wide windows a draggable divider sets the split between the 3D view and the
   text panels; its position is kept in `localStorage` (`catasto-evidence-height`).
+- Admin's **Name Index** button exports every person named in a project (honorific, surname, a note
+  when the surname is uncertain, given name, qualifier, residential location) as JSON, CSV (for Excel), or Markdown,
+  for use as a lexicon elsewhere, such as the Customizable Transcriber's name lexicon. It is built
+  by `catasto-name-index.js` when exported and never saved.
 - The Visualizer is a reading tool: relationship conclusions are made in other
   systems (Ancestry, FamilySearch, a spreadsheet). Correcting a Catasto entry is
   the only edit it offers.
@@ -152,6 +156,7 @@ The current parse produces 362 household entries.
   source editing, merging, and visualization data preparation.
 - `catasto-records.js` / `catasto-records.test.mjs` — permanent ids, import repair, reparse planning.
 - `catasto-relations.js` / `catasto-relations.test.mjs` — the Adjacent Evidence report and source-entry links.
+- `catasto-name-index.js` / `catasto-name-index.test.mjs` — the Name Index / Indice Onomastico export; see `NAME_INDEX_PLAN.md`.
 - `ADJACENT_EVIDENCE_PLAN.md` — the report's plan and remaining build steps.
 - `scene3d.js` / `scene3d.css` — Three.js household and landholding scenes.
 - `catasto-parser.js` — the single parser, used by Admin and by reparsing.

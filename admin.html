@@ -70,10 +70,29 @@
       <div class="project-list" id="projectList"></div>
     </section>
   </main>
-  <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.07</footer>
+  <dialog id="nameIndexDialog" aria-labelledby="nameIndexTitle" aria-describedby="nameIndexHelp">
+    <form method="dialog">
+      <h2 id="nameIndexTitle">Name Index / Indice Onomastico</h2>
+      <p class="intro" id="nameIndexHelp">Every person named in <strong id="nameIndexProject"></strong>, with honorific, surname, given name, qualifier, and residential location. People with no stated origin are placed in the village below.</p>
+      <div class="field">
+        <label for="nameIndexVillage">Village covered by this Catasto</label>
+        <input id="nameIndexVillage" type="text" autocomplete="off">
+      </div>
+      <div class="actions">
+        <button id="nameIndexJson" type="button" value="json">Export JSON</button>
+        <button id="nameIndexCsv" type="button" value="csv">Export CSV (Excel)</button>
+        <button id="nameIndexMarkdown" type="button" value="md">Export Markdown</button>
+        <button class="secondary" value="close">Close</button>
+      </div>
+      <p class="status" id="nameIndexStatus" role="status"></p>
+    </form>
+  </dialog>
+  <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.08</footer>
   <script src="catasto-storage.js"></script>
   <script src="catasto-parser.js"></script>
   <script src="catasto-records.js"></script>
+  <script src="catasto-relations.js"></script>
+  <script src="catasto-name-index.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>
