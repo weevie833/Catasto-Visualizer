@@ -207,14 +207,13 @@
             <div class="meta">${count} household${count === 1 ? "" : "s"}${language}${project.sourceFile ? ` · ${escapeHtml(project.sourceFile)}` : ""}</div>
           </div>
           <div class="actions">
-            <button class="secondary export" type="button">Export JSON</button>
-            <button class="secondary name-index" type="button">Name Index</button>
+            <button class="secondary export" type="button">Export Project JSON</button>
+            <button class="secondary name-index" type="button">Export Name Index</button>
             ${restore}
             <button class="danger delete" type="button">Delete</button>
           </div>
         </article>`;
     }).join("") : '<div class="empty">No Catasto projects are saved yet.</div>';
-    libraryStatus.textContent = `${projects.length} project${projects.length === 1 ? "" : "s"} stored locally.`;
   }
 
   projectList.addEventListener("click", async event => {
@@ -240,7 +239,7 @@
       await renderProjects();
       libraryStatus.textContent = message;
     } else if (event.target.closest(".delete")) {
-      if (!window.confirm(`Delete “${project.name}” from this computer? Its previous version is deleted too. Export JSON first if you need a backup; the export includes the previous version.`)) return;
+      if (!window.confirm(`Delete “${project.name}” from this computer? Its previous version is deleted too. Export Project JSON first if you need a backup; the export includes the previous version.`)) return;
       let message = "";
       try {
         await CatastoStorage.deleteProject(project);

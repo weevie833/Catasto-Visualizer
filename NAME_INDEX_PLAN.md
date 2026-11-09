@@ -19,9 +19,9 @@ In this order:
 | Field | Content |
 |---|---|
 | `honorific` | `Don`, `Reverend Don`, `Magnificent`, `Lady`, `Marchesa`, … or empty. When one person is called differently, the fullest form used is kept. |
+| `given_name` | As written, compounds kept whole (`Giovanni Battista`). |
 | `surname` | As written, with particles (`di Rangho`, `de Amato`), never annotated. Empty when the source does not establish it. |
 | `surname_derived` | Empty when the surname is written in the source or follows clearly from the listing. Otherwise a short note on how an uncertain surname was assigned, such as `Stepchild: head's surname` (see below). |
-| `given_name` | As written, compounds kept whole (`Giovanni Battista`). |
 | `qualifier` | How the scribe tells same-named people apart: `son of Santo`, `son of the late Francesco`, `widow of the late Domenico Covello`. Empty otherwise. |
 | `residential_location` | The village or city the person is from. |
 
@@ -71,7 +71,7 @@ Examples from the corrected transcription:
 - Francesco Puccio: `Antonio, son` and `Ursula Circhisa, daughter-in-law`, then five nephews and nieces (the Italian `nipote`, here grandchildren), who become Puccio.
 - Leonardo Coscarello: `Barbara, daughter, married`, then `Nicolò Guido, miller`, with no stated relation, then `Carlo, grandson`, who becomes Guido, noted `Relation of preceding man not stated`, because the source does not call Nicolò a son-in-law.
 
-**Noted surnames.** The JSON and the Markdown table both carry the `surname_derived` column, so the user can filter, exclude, or correct those people. The Transcriber lists include them like any other name: a noted surname is always one already attested in the project.
+**Noted surnames.** The JSON, CSV, and Markdown table all carry the `surname_derived` column, so the user can filter, exclude, or correct those people. The Transcriber lists include them like any other name: a noted surname is always one already attested in the project.
 
 People with an empty surname still contribute their given name to the Transcriber lists.
 
@@ -87,9 +87,11 @@ People with an empty surname still contribute their given name to the Transcribe
 
 ## One entry per person
 
-- An entry is one honorific-free surname, given name, qualifier, and location. Achille Covello, mentioned many times without a qualifier, appears once.
-- Two household heads named Gennaro Belmonte, told apart by `son of Santo` and another patronymic, appear twice.
-- A mention without a qualifier of a name that has qualified entries (a neighbor called just `Gennaro Belmonte`) adds no entry of its own. Two heads with the same name and place and no qualifier become one entry, since nothing in the source tells them apart.
+- De-duplication is by given name and surname only, across places. Achille Covello, mentioned many times, appears once.
+- Where a name has a version with a qualifier, that version is kept and the plain mentions join it: `Angela di Bartolo` and `Angela di Bartolo, widow of Gaetano Molinaro` give one entry, with the qualifier. Gennaro Belmonte appears once, as `son of Santo`, although the source also lists an unqualified head of that name.
+- A name with two different qualifiers keeps both (Antonio Chiappetta `son of Paulo` and `son of Tomaso`); plain mentions of it are dropped, since they could be either.
+- Without a qualifier, a name keeps the place written for it in a household entry; otherwise the place most mentions give.
+- A title without a given name (`Most Illustrious Lady Marchesa della Valle`, `Donna Ruffulo`) is not a name and is left out.
 - When one person is given several honorifics, the longest is kept. A surname written anywhere for a person clears a `surname_derived` note.
 
 ## Exports

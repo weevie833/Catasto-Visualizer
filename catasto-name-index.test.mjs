@@ -90,7 +90,7 @@ const one = (given, surname, extra) => {
 test("the village comes from the source title and fields follow the plan's order", () => {
   assert.equal(built.village, "Marano Marchesato");
   assert.equal(built.format, "catasto-name-index");
-  assert.deepEqual(Object.keys(built.people[0]), ["honorific", "surname", "surname_derived", "given_name", "qualifier", "residential_location"]);
+  assert.deepEqual(Object.keys(built.people[0]), ["honorific", "given_name", "surname", "surname_derived", "qualifier", "residential_location"]);
 });
 
 test("children take the father's surname, under a widow the late husband's", () => {
@@ -119,9 +119,8 @@ test("compound given names stay whole", () => {
   assert.equal(find("Francesco", "Antonio").length, 0);
 });
 
-test("same-named people stay apart by qualifier, and repeated mentions collapse", () => {
-  one("Gennaro", "Belmonte", { qualifier: "son of Santo" });
-  one("Gennaro", "Belmonte", { qualifier: "" });
+test("one entry per given name and surname, keeping the version with a qualifier", () => {
+  assert.equal(one("Gennaro", "Belmonte").qualifier, "son of Santo");
   one("Santo", "Belmonte");
   one("Achille", "Covello");
   one("Biasi", "Monaco", { qualifier: "son of the late Francesco" });
@@ -140,8 +139,8 @@ test("residential location follows the scribe's words", () => {
 test("honorifics have their own field; institutions and public places are left out", () => {
   assert.equal(one("Gaetano", "Ferrari").honorific, "Magnificent");
   assert.equal(one("Paulo", "Mandarino").honorific, "Reverend Don");
-  assert.equal(one("", "della Valle").honorific, "Most Illustrious Lady Marchesa");
-  assert.equal(one("", "Ruffulo").honorific, "Donna");
+  // A title without a given name is not a name.
+  assert.equal(built.people.some(person => /della Valle|Ruffulo/.test(person.surname)), false);
   assert.ok(built.people.every(person => !/Clergy|Chapel|Purgatory|road|river/i.test(Object.values(person).join(" "))));
 });
 
@@ -167,7 +166,7 @@ Abita in casa propria sita in San Nicola giusta li beni di Nicola Russo e di Ant
 
 test("Markdown has the table and the Transcriber's three lists", () => {
   const markdown = W.CatastoNameIndex.toMarkdown(built);
-  assert.match(markdown, /\| Honorific \| Surname \| Surname derived \| Given name \| Qualifier \| Residential location \|/);
+  assert.match(markdown, /\| Honorific \| Given name \| Surname \| Surname derived \| Qualifier \| Residential location \|\n\|---\|---\|---\|---\|---\|---\|/);
   const list = heading => markdown.split(`### ${heading}\n\n\`\`\`\n`)[1].split("\n```")[0].split("\n");
   const surnames = list("Surnames");
   assert.equal(new Set(surnames).size, surnames.length);
@@ -183,11 +182,11 @@ test("CSV opens in Excel: byte-order mark, header, quoted fields, no formulas", 
     { honorific: "Reverend Don", surname: "Mandarino", surname_derived: "", given_name: "Paulo", qualifier: "", residential_location: "Rende" },
     { honorific: "", surname: "Nicolò, \"il Vecchio\"", surname_derived: "", given_name: "=SUM(A1)", qualifier: "son of the late Francesco", residential_location: "Marano Marchesato" }
   ] });
-  assert.ok(csv.startsWith("\ufeff\"Honorific\",\"Surname\",\"Surname derived\",\"Given name\",\"Qualifier\",\"Residential location\"\r\n"));
+  assert.ok(csv.startsWith("﻿\"Honorific\",\"Given name\",\"Surname\",\"Surname derived\",\"Qualifier\",\"Residential location\"\r\n"));
   const lines = csv.slice(1).trimEnd().split("\r\n");
   assert.equal(lines.length, 3);
-  assert.equal(lines[1], '"Reverend Don","Mandarino","","Paulo","","Rende"');
-  assert.equal(lines[2], '"","Nicolò, ""il Vecchio""","","\'=SUM(A1)","son of the late Francesco","Marano Marchesato"');
+  assert.equal(lines[1], '"Reverend Don","Paulo","Mandarino","","","Rende"');
+  assert.equal(lines[2], '"","\'=SUM(A1)","Nicolò, ""il Vecchio""","","son of the late Francesco","Marano Marchesato"');
   assert.equal(W.CatastoNameIndex.toCsv(built).slice(1).trimEnd().split("\r\n").length, built.people.length + 1);
 });
 
@@ -200,7 +199,7 @@ test("the corrected Marano transcription, when CATASTO_VALIDATION_MD points to i
   const marano = index(await readFile(path, "utf8"));
   const people = (given, surname) => marano.people.filter(person => person.given_name === given && person.surname === surname);
   assert.equal(marano.village, "Marano Marchesato");
-  assert.equal(people("Gennaro", "Belmonte").filter(person => person.qualifier === "son of Santo").length, 1);
+  assert.deepEqual(people("Gennaro", "Belmonte").map(person => person.qualifier), ["son of Santo"]);
   assert.equal(people("Achille", "Covello").length, 1);
   assert.equal(people("Tomaso", "Spizzirri")[0]?.surname_derived, "Stepchild: head's surname");
   assert.equal(people("Carlo", "Guido")[0]?.surname_derived, "Relation of preceding man not stated");
@@ -208,4 +207,9 @@ test("the corrected Marano transcription, when CATASTO_VALIDATION_MD points to i
   assert.equal(people("Giulio", "Storino").length, 1);
   assert.equal(people("Rafaele", "di Bartolo")[0]?.residential_location, "Castelfranco");
   assert.ok(marano.people.every(person => !/Clergy|Chapel|Convent|Monastery/.test(Object.values(person).join(" "))));
+  assert.ok(marano.people.every(person => person.given_name));
+  const plain = marano.people.filter(person => !person.qualifier).map(person => `${person.given_name}|${person.surname}`);
+  assert.equal(new Set(plain).size, plain.length);
+  const qualified = new Set(marano.people.filter(person => person.qualifier).map(person => `${person.given_name}|${person.surname}`));
+  assert.ok(plain.every(name => !qualified.has(name)));
 });

@@ -120,7 +120,7 @@ The app starts with an empty library.
    - **Create Project from Catasto Text:** enter a project name, choose your
      transcription file (`.md` or `.txt`) under **Source text file**, and
      click **Create project**.
-   - **Import JSON backup or Catasto text:** choose a `.catasto.json` backup
+   - **Import Project JSON:** choose a `.catasto.json` backup
      that you or a colleague exported earlier.
 3. Switch back to the Visualizer tab. The new project opens automatically.
 
@@ -217,7 +217,7 @@ shared the app with you.
 
 ### Update the app
 
-1. **Back up your projects.** Open **ADMIN** and click **Export JSON** next to
+1. **Back up your projects.** Open **ADMIN** and click **Export Project JSON** next to
    each project. Save the files in your own projects folder, not in the app
    folder.
 2. **Stop the app** by quitting Terminal (Mac) or closing the Command Prompt
@@ -253,7 +253,7 @@ Python does not need to be reinstalled for updates.
   Visualizer in the same browser and at the same address as before
   (`http://127.0.0.1:8000/index.html`) so they can be copied over.
 - If they are still missing, open **ADMIN**, click
-  **Import JSON backup or Catasto text**, and choose the backups you exported
+  **Import Project JSON**, and choose the backups you exported
   in step 1.
 - If the new version does not start at all, stop it (see
   [Stopping the app](#stopping-the-app)) and start
@@ -298,7 +298,7 @@ app keeps one previous version of each project, saved before its last update.
 Restoring swaps the two, so you can restore again to undo it. If the previous
 version was saved by an older version of the app, the confirmation lists the
 repairs made to it first; click **Download previous version** beforehand to
-keep an exact copy. **Export JSON** also includes the previous version.
+keep an exact copy. **Export Project JSON** also includes the previous version.
 
 **Admin says some records had to be repaired before import.**
 The file contains records with missing or unreadable fields. The message lists

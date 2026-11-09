@@ -65,8 +65,7 @@ browser's IndexedDB at that address are migrated.
   Back retraces the trail for the session.
 - On wide windows a draggable divider sets the split between the 3D view and the
   text panels; its position is kept in `localStorage` (`catasto-evidence-height`).
-- Admin's **Name Index** button exports every person named in a project (honorific, surname, a note
-  when the surname is uncertain, given name, qualifier, residential location) as JSON, CSV (for Excel), or Markdown,
+- Admin's **Export Name Index** button exports every person named in a project (honorific, given name, surname, a note when the surname is uncertain, qualifier, residential location; one entry per given name and surname) as JSON, CSV (for Excel), or Markdown,
   for use as a lexicon elsewhere, such as the Customizable Transcriber's name lexicon. It is built
   by `catasto-name-index.js` when exported and never saved.
 - The Visualizer is a reading tool: relationship conclusions are made in other

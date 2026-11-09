@@ -300,15 +300,40 @@
     return [...people, ...parents].filter(person => person.given);
   }
 
+  // The exported fields, in column order.
+  const COLUMNS = [
+    ["honorific", "Honorific"], ["given_name", "Given name"], ["surname", "Surname"],
+    ["surname_derived", "Surname derived"], ["qualifier", "Qualifier"], ["residential_location", "Residential location"]
+  ];
+
   function entry(person, source) {
     return {
       honorific: person.honorific || "",
+      given_name: person.given || "",
       surname: person.surname || "",
       surname_derived: person.derived || "",
-      given_name: person.given || "",
       qualifier: person.qualifier || "",
       residential_location: person.location || "",
       source
+    };
+  }
+
+  function mostCommon(values) {
+    const counts = new Map();
+    values.forEach(value => counts.set(value, (counts.get(value) || 0) + 1));
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+  }
+
+  // Joins mentions of one person: the fullest honorific, and no surname note if any mention writes the surname.
+  function merge(mentions) {
+    const qualified = mentions.filter(person => person.qualifier);
+    const households = mentions.filter(person => person.source === "household");
+    return {
+      ...(qualified[0] || households[0] || mentions[0]),
+      honorific: mentions.map(person => person.honorific).sort((a, b) => b.length - a.length)[0],
+      surname_derived: mentions.every(person => person.surname_derived) ? mentions[0].surname_derived : "",
+      residential_location: qualified[0]?.residential_location ||
+        mostCommon((households.length ? households : mentions).map(person => person.residential_location))
     };
   }
 
@@ -336,27 +361,32 @@
       delete person.unlocated;
     });
 
-    const nameKey = person => [person.surname, person.given_name, person.residential_location].map(key).join("|");
-    const qualifiedNames = new Set(found.filter(person => person.qualifier).map(nameKey));
+    // One entry per given name and surname. Where the scribe tells same-named people apart ("Gennaro
+    // Belmonte son of Santo"), each qualified version is kept and the plain mentions join it; with several
+    // qualified versions the plain mentions are dropped, since they could be any of them.
+    // A title with no given name ("Most Illustrious Lady Marchesa della Valle") is not a name and is left out.
+    const groups = new Map();
+    found.filter(person => person.given_name).forEach(person => {
+      const id = personKey(person);
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(person);
+    });
     const byKey = new Map();
-    found.forEach(person => {
-      // A plain mention of a name the scribe distinguishes elsewhere ("Gennaro Belmonte") adds no entry.
-      if (!person.qualifier && person.source === "reference" && qualifiedNames.has(nameKey(person))) return;
-      const id = `${nameKey(person)}|${key(person.qualifier)}`;
-      const existing = byKey.get(id);
-      if (!existing) {
-        byKey.set(id, { ...person });
+    groups.forEach(mentions => {
+      const qualifiers = [...new Set(mentions.filter(person => person.qualifier).map(person => key(person.qualifier)))];
+      if (!qualifiers.length) {
+        byKey.set(personKey(mentions[0]), merge(mentions));
         return;
       }
-      if (person.honorific.length > existing.honorific.length) existing.honorific = person.honorific;
-      // A surname written anywhere for this person settles it.
-      if (!person.surname_derived) existing.surname_derived = "";
+      const plain = qualifiers.length === 1 ? mentions.filter(person => !person.qualifier) : [];
+      qualifiers.forEach(qualifier => {
+        const versions = mentions.filter(person => key(person.qualifier) === qualifier);
+        byKey.set(`${personKey(versions[0])}|${qualifier}`, merge([...versions, ...plain]));
+      });
     });
 
-    const people = [...byKey.values()].map(person => {
-      delete person.source;
-      return person;
-    }).sort((a, b) =>
+    const people = [...byKey.values()].map(({ honorific, given_name, surname, surname_derived, qualifier, residential_location }) =>
+      ({ honorific, given_name, surname, surname_derived, qualifier, residential_location })).sort((a, b) =>
       (a.residential_location === village ? -1 : 0) - (b.residential_location === village ? -1 : 0) ||
       key(a.residential_location).localeCompare(key(b.residential_location)) ||
       key(a.surname).localeCompare(key(b.surname)) || key(a.given_name).localeCompare(key(b.given_name)) ||
@@ -399,9 +429,9 @@
       "",
       "Surname derived is filled only where the source leaves the surname uncertain; the surname shown is the one assigned.",
       "",
-      "| Honorific | Surname | Surname derived | Given name | Qualifier | Residential location |",
-      "|---|---|---|---|---|---|",
-      ...people.map(person => `| ${[person.honorific, person.surname, person.surname_derived, person.given_name, person.qualifier, person.residential_location].map(cell).join(" | ")} |`),
+      `| ${COLUMNS.map(([, label]) => label).join(" | ")} |`,
+      `|${COLUMNS.map(() => "---|").join("")}`,
+      ...people.map(person => `| ${COLUMNS.map(([name]) => cell(person[name])).join(" | ")} |`),
       "",
       "## For the Customizable Transcriber",
       "",
@@ -432,16 +462,12 @@
   // For Excel: a byte-order mark so accented names open correctly, quoted fields, and Windows line endings.
   // A field starting with =, +, -, or @ gets a leading apostrophe so Excel does not run it as a formula.
   function toCsv(index) {
-    const columns = [
-      ["honorific", "Honorific"], ["surname", "Surname"], ["surname_derived", "Surname derived"],
-      ["given_name", "Given name"], ["qualifier", "Qualifier"], ["residential_location", "Residential location"]
-    ];
     const field = value => {
       const text = String(value || "");
       return `"${(/^[=+\-@]/.test(text) ? `'${text}` : text).replace(/"/g, "\"\"")}"`;
     };
-    const rows = [columns.map(([, label]) => field(label)).join(","),
-      ...(index.people || []).map(person => columns.map(([name]) => field(person[name])).join(","))];
+    const rows = [COLUMNS.map(([, label]) => field(label)).join(","),
+      ...(index.people || []).map(person => COLUMNS.map(([name]) => field(person[name])).join(","))];
     return `\ufeff${rows.join("\r\n")}\r\n`;
   }
 
