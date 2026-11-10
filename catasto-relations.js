@@ -975,5 +975,5 @@
     return lines.join("\n");
   }
 
-  window.CatastoRelations = { buildPersonReport, reportToText, roleOf, sourceEntryLinks };
+  window.CatastoRelations = { buildPersonReport, reportToText, roleOf, sourceEntryLinks, descriptionOf };
 }());

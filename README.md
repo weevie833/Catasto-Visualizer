@@ -25,6 +25,11 @@ project folder. The app ships with no data: on first use the library is empty, a
 the Admin page creates a project from a transcription file or imports a
 `.catasto.json` backup. Admin creates, imports, exports, and deletes projects
 without coupling user data to app files.
+Admin's **Export Name Index** button opens the Name Index / Indice Onomastico dialog. It exports every
+person a project names as JSON, CSV, or Markdown (a name lexicon for the Customizable Transcriber), or as
+an **XLSX Index**: one row per person in the layout of the Transcriber's Catasto Onciario Index template,
+with honorific, age, estimated birth year, occupation, parents, village, district, and the pages that mention
+them. Both are built when exported and never saved.
 Admin's Transcription Language setting chooses ENG (English Translation) or IT
 (Italian Transcription); ENG is used unless IT is saved as the default. A
 bilingual file is parsed from the sections in the chosen language, and an
@@ -134,11 +139,14 @@ browser then refuses to start the 3D view.
 - `project_store.py` - project files in the per-user data folder
 - `catasto-parser.js` - the single plain-text parser, used by Admin and by reparsing
 - `catasto-records.js` - permanent household ids, import repair, and reparse planning
+- `catasto-relations.js` - household relations and the Adjacent Evidence report
+- `catasto-name-index.js` - the Name Index export (Admin only; rules in `NAME_INDEX_PLAN.md`)
+- `catasto-xlsx-index.js` / `catasto-xlsx.js` - the XLSX Index export and its file writer (Admin only; rules in `XLSX_INDEX_PLAN.md`)
 - `scene3d.js` / `scene3d.css` / `scene3d-boot.js` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
 - `serve.py` - local server with fixed file types and the project-storage API (`python3 serve.py`; `--open` also opens the browser)
 - `Start Catasto Visualizer (Mac).command` / `(Windows).bat` - double-click launchers for `serve.py --open`
-- `*.test.mjs` - parser, style-rule, storage, Admin, and visualizer-workflow regression checks (`node --test *.test.mjs`)
+- `*.test.mjs` - parser, relations, name-index, XLSX-index, style-rule, storage, Admin, and visualizer-workflow regression checks (`node --test *.test.mjs`)
 - `test_serve.py` - local-server checks (`python3 -m unittest test_serve.py`)
 - `eslint.config.mjs`, `package.json`, `ruff.toml`, `requirements-dev.txt` - development linting only (`npm install && npx eslint .`; `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/ruff check .`). The app itself needs no packages.
 - `vendor/` - pinned local Three.js renderer, controls, and license

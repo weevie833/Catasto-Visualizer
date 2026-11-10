@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 
 // Runs admin.js against a minimal DOM to check that every library change is announced to
 // open Visualizer tabs.
-const [adminSource, storageSource, parserSource, recordsSource, relationsSource, nameIndexSource] = await Promise.all(
-  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js", "./catasto-relations.js", "./catasto-name-index.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
+const [adminSource, storageSource, parserSource, recordsSource, relationsSource, nameIndexSource, xlsxSource, xlsxIndexSource] = await Promise.all(
+  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js", "./catasto-relations.js", "./catasto-name-index.js", "./catasto-xlsx.js", "./catasto-xlsx-index.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
 );
 const sampleText = "Paolo Rossi, day laborer, age 40\nHe lives in his own house in the Pasolani district.";
 
@@ -33,7 +33,8 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   const context = {
     window: { confirm: message => { confirmations.push(message); return true; } },
     document: { querySelector: element, createElement: () => ({ click() { downloads.push({ name: this.download, blob: this.blobs.at(-1) }); }, blobs: blobsMade }) },
-    Blob: class { constructor(parts, options) { this.text = parts.join(""); this.type = options.type; blobsMade.push(this); } },
+    Blob: class { constructor(parts, options) { this.parts = parts; this.text = parts.join(""); this.type = options.type; blobsMade.push(this); } },
+    TextEncoder,
     URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
     localStorage: {
       getItem: key => preferences.get(key) ?? null,
@@ -55,7 +56,10 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   vm.runInContext(recordsSource, context);
   vm.runInContext(relationsSource, context);
   vm.runInContext(nameIndexSource, context);
+  vm.runInContext(xlsxSource, context);
+  vm.runInContext(xlsxIndexSource, context);
   context.CatastoNameIndex = context.window.CatastoNameIndex;
+  context.CatastoXlsxIndex = context.window.CatastoXlsxIndex;
   context.CatastoStorage = context.window.CatastoStorage;
   context.CatastoParser = context.window.CatastoParser;
   context.CatastoRecords = context.window.CatastoRecords;
@@ -207,7 +211,7 @@ test("a delete refused because another tab saved is reported and nothing is remo
   assert.equal(admin.messages.some(message => message.reason === "deleted"), false);
 });
 
-test("Name Index opens with the suggested village and exports JSON, CSV, and Markdown without saving", async () => {
+test("Name Index opens with the suggested village and exports JSON, CSV, Markdown, and XLSX without saving", async () => {
   const admin = await loadAdmin();
   const data = admin.storage.createProject({ name: "Marano", data: { source_title: "Marano Marchesato 1754", households: [] } }).data;
   data.households = [{ id: "h-1", household_head: "Paolo Rossi", members_text: "Paolo Rossi, day laborer, age 40\nPietro, son, age 3", source_entry: `${sampleText.replace("age 40", "age 40\nPietro, son, age 3")} He pays to Giuseppe Loizzo of the Land of Rende, for a principal of ten ducats.` }];
@@ -229,6 +233,11 @@ test("Name Index opens with the suggested village and exports JSON, CSV, and Mar
   assert.match(admin.downloads[1].blob.text, /^\ufeff"Honorific",/);
   assert.equal(admin.downloads[2].blob.type, "text/markdown");
   assert.match(admin.element("#nameIndexStatus").textContent, /^Exported 3 people\.$/);
+  admin.element("#nameIndexXlsx").listeners.click();
+  assert.equal(admin.downloads[3].name, "marano-1754-index.xlsx");
+  assert.equal(admin.downloads[3].blob.type, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  assert.deepEqual(Array.from(admin.downloads[3].blob.parts[0].slice(0, 2)), [0x50, 0x4B]);
+  assert.match(admin.element("#nameIndexStatus").textContent, /^Exported 3 rows/);
   assert.equal(JSON.stringify(data), before);
   assert.deepEqual(admin.messages, []);
 });

@@ -173,9 +173,20 @@
     nameIndexStatus.textContent = `Exported ${index.people.length} people${derived ? `, ${derived} with a derived surname to review` : ""}.`;
   }
 
+  // The Customizable Transcriber's Catasto Onciario Index layout: one row per person, with ages and parents.
+  function exportXlsxIndex() {
+    if (!nameIndexProject) return;
+    const index = CatastoXlsxIndex.buildXlsxIndex(nameIndexProject.data, { village: nameIndexVillage.value, projectName: nameIndexProject.name });
+    downloadFile(CatastoXlsxIndex.toXlsx(index), `${slugify(nameIndexProject.name) || "catasto-project"}-index.xlsx`,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    const review = index.rows.filter(row => /check the source/.test(row[row.length - 1])).length;
+    nameIndexStatus.textContent = `Exported ${index.rows.length} rows${review ? `, ${review} marked to check against the source` : ""}.`;
+  }
+
   document.querySelector("#nameIndexJson").addEventListener("click", () => exportNameIndex("json"));
   document.querySelector("#nameIndexCsv").addEventListener("click", () => exportNameIndex("csv"));
   document.querySelector("#nameIndexMarkdown").addEventListener("click", () => exportNameIndex("md"));
+  document.querySelector("#nameIndexXlsx").addEventListener("click", exportXlsxIndex);
 
   function formatDate(value) {
     const date = new Date(value);

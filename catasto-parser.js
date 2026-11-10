@@ -14,9 +14,11 @@
   const italianOccupation = /^(?:bracciale|bracciante|pecoraro|stroppio|decrepito|sacerdote|diacono|chierico|regrato|nobile|vivente|calzolai?o|calzolaro|ferraro|sartore|sarto|studente|scolare|servitore|vergine|nubile|maritata|monaca|vedov[oa])$/i;
   const italianRelation = /\b(?:moglie|marito|figli[oa]|figliastr[oa]|fratello|sorella|madre|padre|cognat[oa]|nipote|genero|nuora|s(?:u)?oc+er[oa]|serv[oa]|garzone|vedova|zi[oa])\b/i;
 
+  // A member line gives an age, or calls a child an infant ("Domenico, son, an infant"; "Tomaso figlio infante").
   function isMemberLine(line) {
     const text = String(line || "").trim();
-    return /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+.*\b(?:age|aged|anni)\s+\d+\b/i.test(text) &&
+    const infant = /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+[^.;:]*\b(?:infant|infante)\b/i.test(text) && text.split(/\s+/).length <= 12;
+    return (infant || /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’.-]+.*\b(?:age|aged|anni)\s+\d+\b/i.test(text)) &&
       !/\b(?:annual|income|ounces?|oncie|grana|ducats?|ducati|docati|carlini|moggi|capacity|annui|rendita|capitale)\b/i.test(text) &&
       !/^(?:Abita|Habita|Possiede|Più|Paga|Riporto|Pesi|Resta)\b/i.test(text);
   }
@@ -24,7 +26,7 @@
   // Italian member lines carry the age as "anni N" and usually separate name, occupation, and relation with
   // spaces or dashes rather than commas: "Marco Provenzano bracciale ——— anni 60".
   function isItalianMemberLine(line) {
-    return /\banni\s+\d+/i.test(line) && !/\b(?:age|aged)\s+\d+/i.test(line);
+    return (/\banni\s+\d+/i.test(line) || /\binfante\b/i.test(line)) && !/\b(?:age|aged)\s+\d+/i.test(line);
   }
 
   function splitItalianMemberLine(line) {
@@ -540,10 +542,13 @@
     let sawMember = false;
     let narrativeStarted = false;
     let pendingPageMarker = "";
+    // The page in progress, so an entry that starts mid-page records the page it starts on.
+    let lastPageMarker = "";
     lines.forEach(line => {
       const trimmed = line.trim();
       if (/^\[\[SOURCE_PAGE:\d+\]\]$/.test(trimmed)) {
         pendingPageMarker = trimmed;
+        lastPageMarker = trimmed;
         return;
       }
       if (pendingPageMarker && !trimmed) return;
@@ -551,7 +556,7 @@
       const startsNext = memberLine && current.length && sawMember && narrativeStarted && !isDependentHouseholdMember(trimmed);
       if (startsNext) {
         entries.push(current.join("\n").trim());
-        current = [];
+        current = pendingPageMarker || !lastPageMarker ? [] : [lastPageMarker];
         sawMember = false;
         narrativeStarted = false;
       }
@@ -570,6 +575,13 @@
   function segmentHouseholds(text) {
     return splitEntries(text).map((entry, index) => {
       const sourcePages = [...entry.matchAll(/\[\[SOURCE_PAGE:(\d+)\]\]/g)].map(match => Number(match[1]));
+      // Where each page begins, as the words that open it, so a name in the entry can be placed on its page.
+      const entryLines = entry.split("\n");
+      const pageBreaks = entryLines.flatMap((line, lineIndex) => {
+        const page = line.trim().match(/^\[\[SOURCE_PAGE:(\d+)\]\]$/)?.[1];
+        const opening = page && entryLines.slice(lineIndex + 1).map(next => next.trim()).find(next => next && !/^\[\[SOURCE_PAGE:/.test(next));
+        return opening ? [{ page: Number(page), starts_with: opening.slice(0, 80) }] : [];
+      });
       const cleanEntry = entry.replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim();
       const memberBlock = cleanEntry.split("\n").map(line => line.trim()).filter(Boolean);
       const members = memberBlock.filter(isMemberLine);
@@ -583,6 +595,7 @@
         index,
         entry: cleanEntry,
         sourcePages: [...new Set(sourcePages)],
+        pageBreaks,
         memberBlock,
         members: cleanedMembers,
         headLine,
@@ -743,6 +756,7 @@
         household_id: record.id,
         household_head: record.head,
         source_pages: record.sourcePages,
+        source_page_breaks: record.pageBreaks,
         members_text: family.members.join("\n") || record.headLine,
         family_relationships: family.relationships,
         member_identities: memberIdentities,

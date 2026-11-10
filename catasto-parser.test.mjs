@@ -339,3 +339,33 @@ test("Admin and the Visualizer share one parser", async () => {
   }
   assert.match(admin, /CatastoParser\.parsePlainText\(/);
 });
+
+test("an entry that starts mid-page records that page, and where each later page begins", () => {
+  const data = parsePlainText(`### **Marano Marchesato 1754: Page 5**
+
+English Translation:
+
+Angelo Chiappetta, shepherd, age 30
+Rosolia Bruno, wife, age 26
+
+He lives in his own house in the Pasolani district, bordering the public road.
+
+Andrea Orrico, day laborer, age 50
+Barbara Fabiano, wife, age 40
+
+He lives in his own house in San Nicola, bordering Pietro Tenuta.
+
+### **Marano Marchesato 1754: Page 6**
+
+English Translation:
+
+He possesses a portion of land bordering Carlo Aijello and the public road.
+`, "en");
+  const [first, second] = data.households;
+  assert.deepEqual([...first.source_pages], [5]);
+  assert.deepEqual([...second.source_pages], [5, 6]);
+  assert.deepEqual(JSON.parse(JSON.stringify(second.source_page_breaks)), [
+    { page: 5, starts_with: "Andrea Orrico, day laborer, age 50" },
+    { page: 6, starts_with: "He possesses a portion of land bordering Carlo Aijello and the public road." }
+  ]);
+});

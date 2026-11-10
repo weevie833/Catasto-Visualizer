@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.08 (the Name Index export in Admin; V 0.07 added the Adjacent Evidence report)
+- Branch: `main`, at V 0.08 (the Name Index and XLSX Index exports in Admin; V 0.07 added the Adjacent Evidence report)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
@@ -28,8 +28,8 @@ npx eslint .
 .venv/bin/ruff check .
 ```
 
-The Node suite contains 119 parser, records, relations, name-index, building-style, storage, Admin, and
-visualizer-workflow tests (one runs only when `CATASTO_VALIDATION_MD` names the corrected Marano transcription); `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
+The Node suite contains 130 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin, and
+visualizer-workflow tests (two run only when `CATASTO_VALIDATION_MD` names the corrected Marano transcription); `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
 `npm install` and `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. Projects
 live in the per-user data folder (`~/Library/Application Support/Catasto
 Visualizer/projects/` on this Mac), not in browser storage, so the port no
@@ -65,9 +65,11 @@ browser's IndexedDB at that address are migrated.
   Back retraces the trail for the session.
 - On wide windows a draggable divider sets the split between the 3D view and the
   text panels; its position is kept in `localStorage` (`catasto-evidence-height`).
-- Admin's **Export Name Index** button exports every person named in a project (honorific, given name, surname, a note when the surname is uncertain, qualifier, residential location; one entry per given name and surname) as JSON, CSV (for Excel), or Markdown,
+- Admin's **Export Name Index** button exports every person named in a project (honorific, given name, surname, a note when the surname is uncertain, qualifier, residential location; one entry per given name and surname) as JSON, CSV, or Markdown,
   for use as a lexicon elsewhere, such as the Customizable Transcriber's name lexicon. It is built
   by `catasto-name-index.js` when exported and never saved.
+- The same dialog's **Export XLSX Index** writes one row per person in the Customizable Transcriber's Catasto Onciario Index layout (ages, birth years, occupations, parents, village and district, pages); see `XLSX_INDEX_PLAN.md`.
+- The parser now reads infants listed without an age as household members, records the page an entry starts on when it starts mid-page, and records where each later page begins (`source_page_breaks`). Projects created earlier keep their old pages until created again.
 - The Visualizer is a reading tool: relationship conclusions are made in other
   systems (Ancestry, FamilySearch, a spreadsheet). Correcting a Catasto entry is
   the only edit it offers.
@@ -156,6 +158,7 @@ The current parse produces 362 household entries.
 - `catasto-records.js` / `catasto-records.test.mjs` — permanent ids, import repair, reparse planning.
 - `catasto-relations.js` / `catasto-relations.test.mjs` — the Adjacent Evidence report and source-entry links.
 - `catasto-name-index.js` / `catasto-name-index.test.mjs` — the Name Index / Indice Onomastico export; see `NAME_INDEX_PLAN.md`.
+- `catasto-xlsx-index.js`, `catasto-xlsx.js` / `catasto-xlsx-index.test.mjs` — the XLSX Index export; see `XLSX_INDEX_PLAN.md`.
 - `ADJACENT_EVIDENCE_PLAN.md` — the report's plan and remaining build steps.
 - `scene3d.js` / `scene3d.css` — Three.js household and landholding scenes.
 - `catasto-parser.js` — the single parser, used by Admin and by reparsing.

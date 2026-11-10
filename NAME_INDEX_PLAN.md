@@ -4,7 +4,7 @@
 
 ## Goal
 
-Admin exports every person named in a Catasto project as a lexicon for other projects, chiefly as the name lexicon in a Customizable Transcriber prompt profile. The same index is exported as JSON, CSV (for Excel), and Markdown.
+Admin exports every person named in a Catasto project as a lexicon for other projects, chiefly as the name lexicon in a Customizable Transcriber prompt profile. The same index is exported as JSON, CSV, and Markdown, and the XLSX Index (`XLSX_INDEX_PLAN.md`) lays the same people out with ages and parents.
 
 ## Scope
 
@@ -111,7 +111,7 @@ The feature is rarely used, so it stays out of the core files.
 - **New `catasto-name-index.js`**: `buildNameIndex(data, { village, projectName })`, `toJson`, `toMarkdown`, `suggestedVillage`. It holds the honorific and institution lists, location phrases (English and Italian), the clauses that name people (borders, payments, collections, landlords), surname inheritance, and de-duplication. It reads the member lines and narrative of each stored source entry and uses the parser's exported helpers (`isMemberLine`, `isHouseholdNarrativeLine`, `memberPersonName`, `isItalianMemberLine`, `splitItalianMemberLine`, `surnamePhrase`, `isPublicAnchor`) and `CatastoRelations.roleOf`. Only `admin.html` loads it.
 - **`catasto-relations.js`**: unchanged. Its `landNeighborNames` normalizes away honorifics and origins, so the index reads border clauses itself; Admin loads the file for `roleOf`.
 - **`app.js`**: unchanged. Its `splitHonorificName` stays where it is; the index keeps its own honorific list, since sharing it would mean moving code out of the Visualizer for one export.
-- **`admin.html` / `admin.js` / `admin.css`**: a Name Index button on each project row opens a small dialog with the village and three buttons: Export JSON, Export CSV (Excel), and Export Markdown. About 30 lines in `admin.js`; the dialog is in `admin.html`.
+- **`admin.html` / `admin.js` / `admin.css`**: a Name Index button on each project row opens a small dialog with the village and three buttons: Export JSON, Export CSV, and Export Markdown, plus Export XLSX Index (`XLSX_INDEX_PLAN.md`). About 30 lines in `admin.js`; the dialog is in `admin.html`.
 - **`serve.py`**: `catasto-name-index.js` is in `APP_FILES`. `eslint.config.mjs` declares `CatastoNameIndex`.
 
 ## Known limits

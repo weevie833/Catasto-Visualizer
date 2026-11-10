@@ -55,6 +55,8 @@ APP_FILES = {
     "/catasto-records.js",
     "/catasto-relations.js",
     "/catasto-storage.js",
+    "/catasto-xlsx-index.js",
+    "/catasto-xlsx.js",
     "/index.css",
     "/scene3d-boot.js",
     "/scene3d.css",

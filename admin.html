@@ -73,15 +73,16 @@
   <dialog id="nameIndexDialog" aria-labelledby="nameIndexTitle" aria-describedby="nameIndexHelp">
     <form method="dialog">
       <h2 id="nameIndexTitle">Name Index / Indice Onomastico</h2>
-      <p class="intro" id="nameIndexHelp">Every person named in <strong id="nameIndexProject"></strong>, with honorific, surname, given name, qualifier, and residential location. People with no stated origin are placed in the village below.</p>
+      <p class="intro" id="nameIndexHelp">Every person named in <strong id="nameIndexProject"></strong>, with honorific, given name, surname, qualifier, and residential location. The XLSX Index adds ages, occupations, parents, districts, and pages, one row per person. People with no stated origin are placed in the village below.</p>
       <div class="field">
         <label for="nameIndexVillage">Village covered by this Catasto</label>
         <input id="nameIndexVillage" type="text" autocomplete="off">
       </div>
       <div class="actions">
         <button id="nameIndexJson" type="button" value="json">Export JSON</button>
-        <button id="nameIndexCsv" type="button" value="csv">Export CSV (Excel)</button>
+        <button id="nameIndexCsv" type="button" value="csv">Export CSV</button>
         <button id="nameIndexMarkdown" type="button" value="md">Export Markdown</button>
+        <button id="nameIndexXlsx" type="button" value="xlsx">Export XLSX Index</button>
         <button class="secondary" value="close">Close</button>
       </div>
       <p class="status" id="nameIndexStatus" role="status"></p>
@@ -93,6 +94,8 @@
   <script src="catasto-records.js"></script>
   <script src="catasto-relations.js"></script>
   <script src="catasto-name-index.js"></script>
+  <script src="catasto-xlsx.js"></script>
+  <script src="catasto-xlsx-index.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

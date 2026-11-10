@@ -188,9 +188,26 @@
     return people.filter(person => person.surname && (person.given || person.honorific));
   }
 
+  // The entry's text page by page, from the page breaks the parser records. Projects created before
+  // those were recorded give the whole entry with all its pages.
+  function pageParts(record) {
+    const entry = String(record.source_entry || "");
+    const pages = Array.isArray(record.source_pages) ? record.source_pages : [];
+    const breaks = (Array.isArray(record.source_page_breaks) ? record.source_page_breaks : [])
+      .map(item => ({ page: item.page, at: entry.indexOf(item.starts_with) }))
+      .filter(item => Number.isFinite(item.page) && item.at >= 0).sort((a, b) => a.at - b.at);
+    if (!breaks.length) return [{ text: entry, pages }];
+    if (breaks[0].at > 0) breaks.unshift({ page: breaks[0].page, at: 0 });
+    return breaks.map((item, index) => ({ text: entry.slice(item.at, breaks[index + 1]?.at ?? entry.length), pages: [item.page] }));
+  }
+
   // People named in the narrative: neighbors, land borders, creditors, debtors, landlords.
   function referencedPeople(record, context) {
-    const text = clean(String(record.source_entry || "").split("\n").filter(line => !P().isMemberLine(line.trim())).join(" "));
+    return pageParts(record).flatMap(part => referencedIn(part.text, context).map(person => ({ ...person, pages: part.pages })));
+  }
+
+  function referencedIn(entryText, context) {
+    const text = clean(String(entryText || "").split("\n").filter(line => !P().isMemberLine(line.trim())).join(" "));
     const people = [];
     for (const match of text.matchAll(TRIGGER)) {
       people.push(...readList(text.slice(match.index + match[0].length), context));
@@ -221,7 +238,9 @@
       qualifier: kin ? kin[1].replace(/\s+/g, " ").trim() : "",
       relative: kin ? kin[2].trim() : "",
       role: R().roleOf(text),
-      age: Number(text.match(/\b(?:age|aged|anni)\s+(\d+)/i)?.[1] ?? NaN),
+      // An infant listed without an age is age 0.
+      age: Number(text.match(/\b(?:age|aged|anni)\s+(\d+)/i)?.[1] ?? (/\b(?:infant|infante)\b/i.test(text) ? 0 : NaN)),
+      line: text,
       location: origin.location || (headOrigin ? context.placeName(headOrigin) : null)
     };
   }
@@ -255,7 +274,7 @@
     const lineage = husband?.surname || (widow ? "" : head.surname);
     const wife = members.slice(1).find(member => member.role === "wife");
     const spouseSurname = widow ? husband?.surname || "" : wife?.surname || "";
-    const people = [{ ...head, derived: "" }];
+    const people = [{ ...head, derived: "", kind: "member" }];
     let lastMan = null;
 
     members.slice(1).forEach(member => {
@@ -263,7 +282,7 @@
       if (member.surname && KIN_ROLES.has(member.role) && tokens.every(token => context.givenNames.has(key(token)))) {
         Object.assign(member, { given: tokens.join(" "), surname: "" });
       }
-      const person = { ...member, derived: "" };
+      const person = { ...member, derived: "", kind: "member" };
       const written = Boolean(member.surname);
       if (!written) {
         if (["son", "daughter"].includes(member.role)) person.surname = lineage;
@@ -276,6 +295,7 @@
           person.derived = "Stepchild: head's surname";
         } else if (CHILD_ROLES.has(member.role)) {
           if (lastMan) {
+            person.precedingMan = lastMan.person;
             person.surname = lastMan.surname;
             person.derived = lastMan.derived;
           } else {
@@ -286,7 +306,7 @@
       }
       const adult = !(member.age < ADULT);
       if (MAN_ROLES.has(member.role) && adult && person.surname && (member.role !== "member" || written)) {
-        lastMan = { surname: person.surname, derived: member.role === "member" ? "Relation of preceding man not stated" : person.derived };
+        lastMan = { surname: person.surname, derived: member.role === "member" ? "Relation of preceding man not stated" : person.derived, person };
       }
       people.push(person);
     });
@@ -296,9 +316,12 @@
       person.location = person.location || location;
       if (!person.relative || /^(?:widow|vedova|wife|moglie)\b/i.test(person.qualifier)) return;
       const parent = splitName(person.relative);
-      if (parent) parents.push({ ...parent, surname: parent.surname || person.surname, qualifier: "", derived: "", location: person.location });
+      if (parent) {
+        parents.push({ ...parent, surname: parent.surname || person.surname, qualifier: "", derived: "", location: person.location,
+          kind: "father", of: person, deceased: /\b(?:late|fu|quondam)\b/i.test(person.qualifier) });
+      }
     });
-    if (husband) parents.push({ ...husband, surname: husband.surname, qualifier: "", derived: "", location });
+    if (husband) parents.push({ ...husband, surname: husband.surname, qualifier: "", derived: "", location, kind: "husband", of: people[0], deceased: true });
     return [...people, ...parents].filter(person => person.given);
   }
 
@@ -339,18 +362,24 @@
     };
   }
 
-  function buildNameIndex(data, options = {}) {
+  const personKey = person => `${key(person.surname)}|${key(person.given_name)}`;
+
+  // Every mention of a person, with its residential location settled. Each mention keeps the person as read
+  // (person), its household record, and its pages, for the XLSX index.
+  function collectMentions(data, options = {}) {
     const village = clean(options.village) || suggestedVillage(data) || "Not stated";
     const context = makeContext(data, village);
     const found = [];
     context.households.forEach(record => {
-      householdPeople(record, context).forEach(person => found.push(entry(person, "household")));
-      referencedPeople(record, context).forEach(person => found.push({ ...entry({ ...person, location: person.location || village }, "reference"), unlocated: !person.location }));
+      const pages = Array.isArray(record.source_pages) ? record.source_pages : [];
+      householdPeople(record, context).forEach(person => found.push({ ...entry(person, "household"), person, record, pages }));
+      referencedPeople(record, context).forEach(person => found.push({
+        ...entry({ ...person, location: person.location || village }, "reference"), unlocated: !person.location, person, record, pages: person.pages
+      }));
     });
 
     // A mention with no origin is of the village, unless the name is found only with one other origin
     // ("bordering Gaetano Ferrari" where he is elsewhere "of the city of Castelfranco").
-    const personKey = person => `${key(person.surname)}|${key(person.given_name)}`;
     const villagePeople = new Set(found.filter(person => !person.unlocated && person.residential_location === village).map(personKey));
     const elsewhere = new Map();
     found.filter(person => !person.unlocated && person.residential_location !== village).forEach(person => {
@@ -362,6 +391,11 @@
       if (person.unlocated && !villagePeople.has(personKey(person)) && places?.size === 1) [person.residential_location] = places;
       delete person.unlocated;
     });
+    return { village, context, found };
+  }
+
+  function buildNameIndex(data, options = {}) {
+    const { village, found } = collectMentions(data, options);
 
     // One entry per given name and surname. Where the scribe tells same-named people apart ("Gennaro
     // Belmonte son of Santo"), each qualified version is kept and the plain mentions join it; with several
@@ -473,5 +507,5 @@
     return `\ufeff${rows.join("\r\n")}\r\n`;
   }
 
-  window.CatastoNameIndex = { buildNameIndex, toJson, toMarkdown, toCsv, suggestedVillage };
+  window.CatastoNameIndex = { buildNameIndex, toJson, toMarkdown, toCsv, suggestedVillage, collectMentions, key, clean };
 }());
