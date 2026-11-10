@@ -69,8 +69,9 @@ He lives in his own house in San Nicola, bordering Pietro Tenuta and the public 
 
 Andrea Covello, day laborer, age 40
 Francesco Antonio, his son, aged 8
+Maurizio, his son, aged 5
 
-He lives in his own house in San Nicola, bordering Mercurio Savaglio of the Land of Marano Principato and Biasi Monaco, son of the late Francesco.
+He lives in his own house in San Nicola, bordering Mercurio Savaglio of the Land of Marano Principato and Biasi Monaco, son of the late Francesco. He owns a field bordering the property of Francesco and Matalena Orrico. For the legacy left for the soul, for the Magnificent Maurizio and Don Gaetano Cusinelli, for five masses.
 `;
 
 function index(text, language = "en", options = {}) {
@@ -124,6 +125,14 @@ test("one entry per given name and surname, keeping the version with a qualifier
   one("Santo", "Belmonte");
   one("Achille", "Covello");
   one("Biasi", "Monaco", { qualifier: "son of the late Francesco" });
+});
+
+test("two given names before one surname are two people, men or women", () => {
+  one("Angelo", "Ferrari");
+  one("Francesco", "Orrico");
+  one("Matalena", "Orrico");
+  assert.equal(one("Maurizio", "Cusinelli").honorific, "Magnificent");
+  assert.equal(one("Gaetano", "Cusinelli").honorific, "Don");
 });
 
 test("residential location follows the scribe's words", () => {

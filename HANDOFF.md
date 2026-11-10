@@ -28,7 +28,7 @@ npx eslint .
 .venv/bin/ruff check .
 ```
 
-The Node suite contains 118 parser, records, relations, name-index, building-style, storage, Admin, and
+The Node suite contains 119 parser, records, relations, name-index, building-style, storage, Admin, and
 visualizer-workflow tests (one runs only when `CATASTO_VALIDATION_MD` names the corrected Marano transcription); `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
 `npm install` and `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. Projects
 live in the per-user data folder (`~/Library/Application Support/Catasto

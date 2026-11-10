@@ -29,6 +29,8 @@
     String.raw`\bcollects?\s+from`, String.raw`\breceives?\s+from`, String.raw`(?:^|[.:]\s+)(?:To|From)`,
     String.raw`\bhouses?\s+of`, String.raw`\bbelonging\s+to`, String.raw`\brented\s+from`,
     String.raw`\bgiusta\s+(?:li\s+)?beni\s+di`, String.raw`\bconfin[ae]\w*(?:\s+(?:con|a(?:lli?|i|gli)?\s+beni\s+di))?`,
+    // "for the Magnificent Maurizio and Don Gaetano Cusinelli": a titled beneficiary.
+    String.raw`\b(?:for|per)(?:\s+(?:the|li|il))?(?=\s+(?:Magnificent|Magnifici|Magnifico|Reverend|Don|Donna|Noble|Master|Mastro)\b)`,
     String.raw`\bcontigu[oa]\s+(?:alli\s+beni\s+di)?`, String.raw`\bpaga\s+(?:a|al|alla|alli|ai)`, String.raw`\besige\s+da`
   ];
   const TRIGGER = new RegExp(`(?:${TRIGGERS.join("|")})\\s+`, "g");

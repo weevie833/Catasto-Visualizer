@@ -33,6 +33,8 @@ No frequency field: the Transcriber's lexicon has no weighting, so a count would
 - Parents named in a patronymic (`son of the late Antonio`), deceased or not.
 - A widow head's late husband (`widow of the late Francesco Marino`).
 - People named as residence neighbors, land borders, and in payment clauses (`pays to`, `paid to`, `is owed by`).
+- Titled beneficiaries of legacies (`for the Magnificent Maurizio and Don Gaetano Cusinelli`).
+- Two given names before one surname are two people, men or women alike: `Giacomo and Antonio Belmonte`, `Francesco and Matalena Orrico`. A lone word after a title (`Donna Ruffulo`) is read as a surname unless it appears as a given name in a household.
 - Not included: institutions and public anchors (`the Chapel of the Purgatory of this Land`, `the Reverend Clergy of the Land of Rende`, the public road, the river).
 
 ## Surnames for people listed without one
@@ -114,7 +116,7 @@ The feature is rarely used, so it stays out of the core files.
 
 ## Known limits
 
-- Names are read only after the words that introduce them (bordering, pays to, collects from, the house of, giusta li beni di, confina, paga a, esige da). A person named elsewhere in the narrative is not indexed.
+- Names are read only after the words that introduce them (bordering, pays to, collects from, the house of, for the [title], giusta li beni di, confina, paga a, esige da). A person named elsewhere in the narrative is not indexed.
 - Some scribal or translation errors pass through as written, such as `Merano Principato` or `Carlo Padre`; correct the entry to change them.
 - The corrected bilingual file puts `Italian Transcription` on the page-heading line, which the parser does not yet read as an Italian section, so an IT project from that file has one household. ENG is unaffected.
 
