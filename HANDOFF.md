@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.08 (the Name Index and XLSX Index exports in Admin; V 0.07 added the Adjacent Evidence report)
+- Branch: `main`, at V 0.09 (the Codex review fixes: durable storage, merging removed, browser and fixture tests; V 0.08 added the Name Index and XLSX Index exports in Admin)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
