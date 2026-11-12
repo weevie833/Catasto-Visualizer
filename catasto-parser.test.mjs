@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { validationSource } from "./validation-source.mjs";
 
 const source = await readFile(new URL("./catasto-parser.js", import.meta.url), "utf8");
 const context = { window: {} };
@@ -282,17 +282,25 @@ test("the selected language is checked against the text before parsing", () => {
   assert.equal(languageMismatch("Short note.", "it"), null);
 });
 
-// The bilingual source transcription stays on the developer's computer; when it is present, its Italian and
-// English sides must describe the same households.
-const bilingualSource = new URL("./MM 1754 Catasto Onciario Transcription 300.md", import.meta.url);
-test("the Italian and English sides of the bilingual transcription agree", { skip: !existsSync(bilingualSource) && "bilingual source not present" }, async () => {
-  const text = await readFile(bilingualSource, "utf8");
+// The bilingual Marano source stays on the developer's computer; when CATASTO_VALIDATION_MD names it, its
+// Italian and English sides must describe the same households.
+const bilingualSource = await validationSource();
+test("the Italian and English sides of the current Marano source agree", { skip: !bilingualSource && "CATASTO_VALIDATION_MD is not set" }, async () => {
+  const text = bilingualSource;
   const english = parsePlainText(text, "en").households;
   const italian = parsePlainText(text, "it").households;
-  assert.equal(italian.length, english.length);
 
   const key = name => String(name || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/\b(?:the|magnific[oa]|magnificent|don|donna|via publica|public road)\b/g, "").replace(/[^a-z]+/g, " ").trim();
+  // A household read on one side only usually means a formatting problem in the source on the other
+  // side (a member list run into one heading line, or an age written another way); the message names them.
+  const heads = records => new Set(records.map(record => key(record.household_head).split(" of ")[0]));
+  const only = (records, other) => records.filter(record => !other.has(key(record.household_head).split(" of ")[0]))
+    .map(record => `${record.household_head} (p. ${record.source_pages.join(", ")})`);
+  const onlyEnglish = only(english, heads(italian));
+  const onlyItalian = only(italian, heads(english));
+  assert.equal(italian.length, english.length,
+    `English ${english.length} households, Italian ${italian.length}. Only in English: ${onlyEnglish.join("; ") || "none"}. Only in Italian: ${onlyItalian.join("; ") || "none"}.`);
   let sameHead = 0;
   let englishNeighbors = 0;
   let matchedNeighbors = 0;
@@ -368,4 +376,26 @@ He possesses a portion of land bordering Carlo Aijello and the public road.
     { page: 5, starts_with: "Andrea Orrico, day laborer, age 50" },
     { page: 6, starts_with: "He possesses a portion of land bordering Carlo Aijello and the public road." }
   ]);
+});
+
+test("a section label on the page heading's own line is read", () => {
+  const text = `### **Casale Esempio 1760: Page 3** **Italian Transcription:**
+
+Pietro Lombardo massaro — anni 60
+Abita in casa propria sita nel Piano, giusta li beni di Matteo Ferrandina.
+
+**English Translation:**
+
+Pietro Lombardo, farmer — age 60
+He lives in his own house situated in Piano, bordering Matteo Ferrandina.
+
+### **Casale Esempio 1760: Page 4 Book cover**
+
+Not part of either section.`;
+  const italian = parsePlainText(text, "it");
+  assert.deepEqual([...italian.households.map(record => record.household_head)], ["Pietro Lombardo"]);
+  assert.deepEqual([...italian.households[0].source_pages], [3]);
+  assert.match(italian.households[0].source_entry, /Abita/);
+  assert.doesNotMatch(italian.households[0].source_entry, /lives|Not part/);
+  assert.doesNotMatch(parsePlainText(text, "en").households[0].source_entry, /Abita|Not part/);
 });

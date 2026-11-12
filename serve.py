@@ -18,14 +18,21 @@ import argparse
 import errno
 import functools
 import http.server
-import json
 import posixpath
 import threading
 import urllib.parse
 import webbrowser
 from pathlib import Path
 
-from project_store import ProjectError, ProjectStore, default_data_dir
+from project_store import (
+    DataDirInUse,
+    DataDirLock,
+    ProjectError,
+    ProjectStore,
+    default_data_dir,
+    dumps,
+    loads,
+)
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -144,7 +151,7 @@ class CatastoRequestHandler(http.server.SimpleHTTPRequestHandler):
         if length > MAX_REQUEST_BYTES:
             raise ProjectError(413, "The project is too large to save.")
         try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = loads(self.rfile.read(length).decode("utf-8"))
         except (UnicodeDecodeError, ValueError):
             raise ProjectError(400, "The request is not valid JSON.") from None
         if not isinstance(payload, dict):
@@ -152,7 +159,7 @@ class CatastoRequestHandler(http.server.SimpleHTTPRequestHandler):
         return payload
 
     def send_json(self, status: int, payload: object) -> None:
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        body = dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -220,9 +227,18 @@ class CatastoRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
 class CatastoServer(http.server.ThreadingHTTPServer):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, store: ProjectStore | None = None, data_lock: DataDirLock | None = None, **kwargs):
         self.slots = threading.BoundedSemaphore(MAX_CONCURRENT_REQUESTS)
+        self.store = store
+        self.data_lock = data_lock
         super().__init__(*args, **kwargs)
+
+    def server_close(self):
+        try:
+            super().server_close()
+        finally:
+            if self.data_lock:
+                self.data_lock.release()
 
     def process_request(self, request, client_address):
         self.slots.acquire()
@@ -239,10 +255,18 @@ class CatastoServer(http.server.ThreadingHTTPServer):
             self.slots.release()
 
 
+# The project folder is locked before its interrupted changes are recovered, so a second launch,
+# on any port, stops here (DataDirInUse) instead of recovering or changing a running server's work.
 def create_server(port: int = DEFAULT_PORT, directory: Path = ROOT, data_dir: Path | None = None) -> CatastoServer:
-    store = ProjectStore(data_dir or default_data_dir())
-    handler = functools.partial(CatastoRequestHandler, directory=str(directory), store=store)
-    return CatastoServer((HOST, port), handler)
+    data_dir = data_dir or default_data_dir()
+    lock = DataDirLock(data_dir)
+    try:
+        store = ProjectStore(data_dir)
+        handler = functools.partial(CatastoRequestHandler, directory=str(directory), store=store)
+        return CatastoServer((HOST, port), handler, store=store, data_lock=lock)
+    except BaseException:
+        lock.release()
+        raise
 
 
 def main() -> None:
@@ -254,6 +278,13 @@ def main() -> None:
     url = f"http://{HOST}:{args.port}/index.html"
     try:
         server = create_server(args.port)
+    except DataDirInUse:
+        # Another launch, perhaps on a different port, is already serving this computer's projects.
+        print("The Catasto Visualizer is already running; this launch was stopped so it cannot change the open one's projects.")
+        print(f"If it was started on port {args.port}, it is at {url}")
+        if args.open:
+            webbrowser.open(url)
+        return
     except OSError as error:
         if error.errno != errno.EADDRINUSE:
             raise

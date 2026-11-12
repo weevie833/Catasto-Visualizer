@@ -104,6 +104,33 @@ test("only projects with their transcription and an older parser are offered a r
   assert.equal(CatastoRecords.needsReparse({ ...storedProject([]), sourceText: "" }), false);
 });
 
+test("a project parsed before same-line section labels were read is offered the update, which adds the missed entry", () => {
+  const italian = [
+    "### **Casale Esempio 1760: Page 1**", "", "**Italian Transcription:**", "",
+    "Bruno Ventrella bracciale — anni 44",
+    "Abita in casa propria sita nel Borgo Alto, giusta li beni di Matteo Ferrandina.", "",
+    "### **Casale Esempio 1760: Page 2** **Italian Transcription:**", "",
+    "Matteo Ferrandina massaro — anni 50",
+    "Abita in casa propria sita nel Piano, giusta li beni di Bruno Ventrella."
+  ].join("\n");
+  const fresh = CatastoParser.parsePlainText(italian, "it");
+  assert.deepEqual(plain(fresh.households.map(record => record.household_head)), ["Bruno Ventrella", "Matteo Ferrandina"]);
+  // What parser version 6 saved: only the first page's entry, here with a correction by the user.
+  const project = {
+    id: "p", name: "P", sourceText: italian,
+    data: { parser_version: 6, record_id_version: 2, households: [{
+      ...fresh.households[0], id: "h-bruno", source_edited_at: "2026-10-01", residence: { ...fresh.households[0].residence, place: "Corrected" }
+    }] }
+  };
+  assert.equal(CatastoRecords.needsReparse(project), true);
+  const { data, summary } = CatastoRecords.planReparse(project, fresh);
+  assert.deepEqual(plain(data.households.map(record => record.household_head)), ["Bruno Ventrella", "Matteo Ferrandina"]);
+  assert.equal(data.households[0].id, "h-bruno");
+  assert.equal(data.households[0].residence.place, "Corrected");
+  assert.equal(summary.added, 1);
+  assert.equal(summary.keptEdits, 1);
+});
+
 test("a merged record claims every entry it merged, so an update does not bring the duplicate back", () => {
   const parsed = CatastoParser.parsePlainText(transcription);
   const [angelo, andrea] = parsed.households;

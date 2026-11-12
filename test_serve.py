@@ -148,6 +148,94 @@ class ProjectApiTests(ServerFixture, unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertEqual(self.api("GET", "projects/p1")[1]["name"], "First")
 
+    def test_saves_within_one_millisecond_off_its_boundary_still_detect_a_stale_copy(self):
+        # The stored token keeps milliseconds; a clock reading later in the same millisecond, or set
+        # back, must still produce a new token.
+        original = project_store.datetime
+        readings = iter(["2026-10-26T10:00:00.123000", "2026-10-26T10:00:00.123456", "2026-10-26T10:00:00.123789",
+                         "2026-10-26T09:00:00.000000", "2026-10-26T09:00:00.000000"])
+        class SteppedClock(original):
+            @classmethod
+            def now(cls, tz=None):
+                return original.fromisoformat(next(readings) + "+00:00")
+        project_store.datetime = SteppedClock
+        try:
+            _, created = self.api("PUT", "projects/p1", {"project": project("p1"), "create": True})
+            _, first = self.api("PUT", "projects/p1", {"project": {**created, "name": "First"}, "loadedUpdatedAt": created["updatedAt"]})
+            stale_save, _ = self.api("PUT", "projects/p1", {"project": {**created, "name": "Stale"}, "loadedUpdatedAt": created["updatedAt"]})
+            _, second = self.api("PUT", "projects/p1", {"project": {**first, "name": "Second"}, "loadedUpdatedAt": first["updatedAt"]})
+            _, third = self.api("PUT", "projects/p1", {"project": {**second, "name": "Third"}, "loadedUpdatedAt": second["updatedAt"]})
+            stale_delete, _ = self.api("DELETE", "projects/p1", {"loadedUpdatedAt": second["updatedAt"]})
+        finally:
+            project_store.datetime = original
+        tokens = [created["updatedAt"], first["updatedAt"], second["updatedAt"], third["updatedAt"]]
+        self.assertEqual(len(set(tokens)), 4, tokens)
+        self.assertEqual(tokens, sorted(tokens))
+        self.assertEqual((stale_save, stale_delete), (409, 409))
+        self.assertEqual(self.api("GET", "projects/p1")[1]["name"], "Third")
+
+    def test_non_finite_numbers_are_refused(self):
+        body = '{"project": {"id": "p1", "name": "x", "data": {"households": [{"id": "h", "household_head": "a", "source_pages": [NaN]}]}}, "create": true}'
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/projects/p1", method="PUT", data=body.encode(),
+                                         headers={"Origin": f"http://127.0.0.1:{self.port}", "Content-Type": "application/json"})
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(request)
+        self.assertEqual(error.exception.code, 400)
+        self.assertEqual(self.project_files(), [])
+
+    def put_raw(self, project_id, body):
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/projects/{project_id}", method="PUT", data=body.encode(),
+                                         headers={"Origin": f"http://127.0.0.1:{self.port}", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            return error.code, json.loads(error.read())
+
+    def test_numbers_too_large_for_a_browser_are_refused_with_a_reply(self):
+        for pages in ("[" + "1" * 400 + "]", "[1e999]", "[9007199254740993]"):
+            body = '{"project": {"id": "p1", "name": "x", "data": {"households": [{"id": "h", "household_head": "a", "source_pages": ' + pages + '}]}}, "create": true}'
+            status, reply = self.put_raw("p1", body)
+            self.assertEqual(status, 400, pages[:20])
+            self.assertIn("error", reply)
+        # Elsewhere in a request, an overflowing number is refused as invalid JSON.
+        status, _ = self.put_raw("p1", '{"project": {"id": "p1", "name": "x", "extra": -1e999, "data": {"households": []}}, "create": true}')
+        self.assertEqual(status, 400)
+        self.assertEqual(self.project_files(), [])
+
+    def test_a_saved_file_with_an_overflowing_number_is_reported_damaged_not_sent(self):
+        projects = Path(self.data.name) / "projects"
+        projects.mkdir(parents=True, exist_ok=True)
+        text = '{"id": "big", "name": "Big", "extra": {"nested": [1e999]}, "data": {"households": []}}'
+        (projects / "big.json").write_text(text, encoding="utf-8")
+        status, body = self.api("GET", "projects/big")
+        self.assertEqual(status, 500)
+        self.assertIn("damaged", body["error"])
+        self.assertEqual((projects / "big.json").read_text(encoding="utf-8"), text)
+
+    def test_a_damaged_project_file_gets_a_clear_error_and_is_kept(self):
+        self.api("PUT", "projects/good", {"project": project("good"), "create": True})
+        projects = Path(self.data.name) / "projects"
+        (projects / "broken.json").write_text("{oops", encoding="utf-8")
+        (projects / "shape.json").write_text('{"id": "shape", "name": "Shape", "data": {"households": 5}}', encoding="utf-8")
+        status, listed = self.api("GET", "projects")
+        self.assertEqual(status, 200)
+        self.assertIn("good", [item["id"] for item in listed])
+        status, body = self.api("GET", "projects/broken")
+        self.assertEqual(status, 500)
+        self.assertIn("damaged", body["error"])
+        self.assertEqual((projects / "broken.json").read_text(encoding="utf-8"), "{oops")
+
+    def test_a_second_server_on_the_same_project_folder_is_refused_before_recovery(self):
+        journal = Path(self.data.name) / project_store.IMPORT_JOURNAL
+        self.server.store.write(project("importing"))
+        project_store.atomic_write_text(journal, json.dumps({"ids": ["importing"]}))
+        with self.assertRaises(project_store.DataDirInUse):
+            serve.create_server(port=0, directory=Path(self.directory.name), data_dir=Path(self.data.name))
+        # The running server's import was not treated as a crashed one.
+        self.assertTrue(journal.exists())
+        self.assertTrue(self.server.store.path_for("importing").exists())
+
     def project_files(self):
         return sorted(path.name for path in (Path(self.data.name) / "projects").glob("*.json"))
 
@@ -501,6 +589,160 @@ class ProjectStoreTests(unittest.TestCase):
             store.add_all([project("new-1"), project("new-2")])
         self.assertEqual(store.list(), [])
         self.assertFalse((self.root / project_store.IMPORT_JOURNAL).exists())
+
+    def test_an_import_whose_undo_fails_keeps_its_journal_and_refuses_its_projects(self):
+        store = project_store.ProjectStore(self.root)
+        store.write(project("kept"))
+        original_write, original_remove = store.write, project_store.remove_file
+        def write_then_fail(item):
+            if item["id"] == "new-2":
+                raise OSError("disk full")
+            original_write(item)
+        def remove_except_new_1(path):
+            if path.name == "new-1.json":
+                raise PermissionError("locked")
+            original_remove(path)
+        store.write = write_then_fail
+        project_store.remove_file = remove_except_new_1
+        try:
+            with self.assertRaises(OSError):
+                store.add_all([project("new-1"), project("new-2")])
+            self.assertTrue((self.root / project_store.IMPORT_JOURNAL).exists())
+            with self.assertRaises(project_store.ProjectError) as refused:
+                store.get("new-1")
+            self.assertEqual(refused.exception.status, 503)
+            listed = {item["id"]: item for item in store.list()}
+            self.assertIn("unavailable", listed["new-1"])
+            self.assertNotIn("unavailable", listed["kept"])
+            self.assertEqual(store.get("kept")["id"], "kept")
+        finally:
+            project_store.remove_file = original_remove
+        # Once the file can be removed, the next access finishes undoing the import.
+        self.assertIsNone(store.get("new-1"))
+        self.assertFalse((self.root / project_store.IMPORT_JOURNAL).exists())
+        self.assertEqual([item["id"] for item in store.list()], ["kept"])
+
+    def test_an_import_waits_while_an_earlier_failed_import_is_still_being_undone(self):
+        store = project_store.ProjectStore(self.root)
+        original_write, original_remove = store.write, project_store.remove_file
+        def write_then_fail(item):
+            if item["id"] == "new-2":
+                raise OSError("disk full")
+            original_write(item)
+        def remove_except_new_1(path):
+            if path.name == "new-1.json":
+                raise PermissionError("locked")
+            original_remove(path)
+        store.write = write_then_fail
+        project_store.remove_file = remove_except_new_1
+        try:
+            with self.assertRaises(OSError):
+                store.add_all([project("new-1"), project("new-2")])
+            store.write = original_write
+            # The journal still names new-1; a second import must not replace or remove it.
+            with self.assertRaises(project_store.ProjectError) as refused:
+                store.add_all([project("other")])
+            self.assertEqual(refused.exception.status, 503)
+            self.assertFalse((self.root / "projects" / "other.json").exists())
+            self.assertEqual(store.import_ids(), ["new-1", "new-2"])
+        finally:
+            project_store.remove_file = original_remove
+        # After a restart the failed import is undone, and the next import goes through.
+        restarted = project_store.ProjectStore(self.root)
+        self.assertIsNone(restarted.get("new-1"))
+        restarted.add_all([project("other")])
+        self.assertEqual([item["id"] for item in restarted.list()], ["other"])
+        self.assertFalse((self.root / project_store.IMPORT_JOURNAL).exists())
+
+    def test_non_finite_numbers_are_refused_by_the_store(self):
+        store = project_store.ProjectStore(self.root)
+        bad = {**project("p1"), "data": {"households": [{**household("a"), "source_pages": [float("nan")]}]}}
+        with self.assertRaises(project_store.ProjectError) as error:
+            store.save(bad, None, create=True)
+        self.assertEqual(error.exception.status, 400)
+        self.assertEqual(store.list(), [])
+
+    def test_the_project_folder_lock_excludes_another_process_and_is_released_on_close(self):
+        import subprocess
+        import sys
+        probe = ("import sys, project_store\n"
+                 "try:\n    project_store.DataDirLock(sys.argv[1])\nexcept project_store.DataDirInUse:\n    sys.exit(3)\n")
+        run = lambda: subprocess.run([sys.executable, "-c", probe, str(self.root)], check=False, cwd=str(Path(__file__).parent),
+                                     env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, timeout=30).returncode
+        server = serve.create_server(port=0, directory=self.root, data_dir=self.root)
+        try:
+            self.assertEqual(run(), 3)
+        finally:
+            server.server_close()
+        self.assertEqual(run(), 0)
+        serve.create_server(port=0, directory=self.root, data_dir=self.root).server_close()
+
+    # Records flushes, folder flushes, renames and removals in the order they happen (decision D11).
+    def record_disk_events(self):
+        events = []
+        originals = (project_store.sync_descriptor, project_store.sync_dir, os.replace, os.unlink)
+        project_store.sync_descriptor = lambda descriptor: events.append(("flush", None))
+        project_store.sync_dir = lambda path: events.append(("dir", Path(path).name))
+        os.replace = lambda src, dst: (events.append(("replace", Path(dst).name)), originals[2](src, dst))[1]
+        os.unlink = lambda path, **kw: (events.append(("remove", Path(path).name)), originals[3](path, **kw))[1]
+        def restore():
+            project_store.sync_descriptor, project_store.sync_dir, os.replace, os.unlink = originals
+        self.addCleanup(restore)
+        return events
+
+    def test_an_update_reaches_the_disk_in_an_order_a_power_loss_cannot_break(self):
+        store, stored = self.stored_pair()
+        events = self.record_disk_events()
+        store.save({**stored, "data": {"households": [household("c")]}}, stored["updatedAt"], snapshot={"reason": "Second update"})
+        at = events.index
+        record = "transaction-p1.json"
+        # Each staged file and the transaction record are flushed before they are renamed into place.
+        for name in ("p1.snapshot.json", "p1.project.json", record):
+            self.assertEqual(events[at(("replace", name)) - 1], ("flush", None), name)
+        # The staged files' folder is on the disk before the record that commits them.
+        self.assertLess(at(("dir", project_store.PENDING_FOLDER)), at(("replace", record)))
+        # The record is on the disk before the real files are replaced.
+        self.assertEqual(events[at(("replace", record)) + 1], ("dir", self.root.name))
+        first_real = max(i for i, event in enumerate(events) if event == ("replace", "p1.json"))
+        self.assertLess(at(("replace", record)), first_real)
+        # Both replacements are on the disk before the record is removed, and the removal itself is flushed.
+        removed = at(("remove", record))
+        self.assertLess(at(("dir", "projects")), removed)
+        self.assertLess(at(("dir", project_store.SNAPSHOT_FOLDER)), removed)
+        self.assertEqual(events[-1], ("dir", self.root.name))
+        self.assertEqual(self.heads(store.get("p1")), ["c"])
+
+    def test_an_import_is_on_the_disk_before_its_journal_is_removed(self):
+        store = project_store.ProjectStore(self.root)
+        events = self.record_disk_events()
+        store.add_all([project("new-1"), project("new-2")])
+        journal = project_store.IMPORT_JOURNAL
+        removed = events.index(("remove", journal))
+        for name in ("new-1.json", "new-2.json"):
+            self.assertEqual(events[events.index(("replace", name)) - 1], ("flush", None))
+            self.assertLess(events.index(("replace", name)), removed)
+        self.assertEqual(events[removed + 1], ("dir", self.root.name))
+
+    def test_a_delete_is_on_the_disk_before_it_is_reported(self):
+        store, stored = self.stored_pair()
+        events = self.record_disk_events()
+        store.delete("p1", stored["updatedAt"])
+        self.assertEqual(events[events.index(("remove", "p1.json")) + 1], ("dir", "projects"))
+        self.assertEqual(events[-1], ("dir", project_store.SNAPSHOT_FOLDER))
+        store.delete("absent", None)
+
+    @unittest.skipUnless(os.uname().sysname == "Darwin" if hasattr(os, "uname") else False, "F_FULLFSYNC is macOS only")
+    def test_macos_writes_through_the_drive_cache(self):
+        import fcntl
+        calls = []
+        original_fcntl, original_fsync = fcntl.fcntl, os.fsync
+        fcntl.fcntl = lambda descriptor, command, *args: calls.append(command)
+        os.fsync = lambda descriptor: calls.append("fsync")
+        try:
+            project_store.atomic_write_text(self.root / "x.json", "{}")
+        finally:
+            fcntl.fcntl, os.fsync = original_fcntl, original_fsync
+        self.assertEqual(calls, [fcntl.F_FULLFSYNC, fcntl.F_FULLFSYNC])
 
     def test_a_successful_import_leaves_no_journal(self):
         store = project_store.ProjectStore(self.root)

@@ -18,7 +18,12 @@ export default [
     languageOptions: { sourceType: "module" }
   },
   {
-    files: ["**/*.test.mjs", "eslint.config.mjs"],
+    files: ["**/*.test.mjs", "validation-source.mjs", "eslint.config.mjs"],
     languageOptions: { sourceType: "module", globals: { ...globals.node } }
+  },
+  {
+    // Playwright tests run in Node and pass callbacks to the page, so both sets apply.
+    files: ["**/*.browser.mjs"],
+    languageOptions: { sourceType: "module", globals: { ...globals.node, ...globals.browser } }
   }
 ];

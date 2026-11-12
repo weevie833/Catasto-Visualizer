@@ -134,7 +134,7 @@ The feature is rarely used, so it stays out of the core files.
 - Institutions and public anchors left out; honorifics kept in their own field.
 - Markdown lists unique and honorific-free; JSON field order.
 
-A fixture test runs on the corrected bilingual Marano transcription (`MM 1754 Catasto Onciario Transcription-CORRECTED-ENG.md`) when `CATASTO_VALIDATION_MD` points to it, and is skipped otherwise. The file stays outside the repository.
+A fixture test runs on the current Marano source when `CATASTO_VALIDATION_MD` names it, and is skipped otherwise. It may name the saved project's file (its stored source text is used), an Admin export, or a transcription (`.md`). Earlier source files are no longer used. The source stays outside the repository.
 
 ## Release
 

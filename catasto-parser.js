@@ -276,7 +276,9 @@
       const trimmed = line.trim();
       const heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/__/g, "").trim();
       const pageMatch = heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
-      const sectionLanguage = ["en", "it"].find(key => sectionHeadings[key].test(heading));
+      // The section label may follow the page on the same line: "Marano Marchesato 1754: Page 4 Italian Transcription:".
+      const label = pageMatch ? heading.slice(pageMatch[0].length).replace(/^[\s:.—–-]+/, "") : heading;
+      const sectionLanguage = ["en", "it"].find(key => sectionHeadings[key].test(label));
       if (pageMatch) {
         sourceTitle = pageMatch[1].trim();
         currentPage = Number(pageMatch[2]);
@@ -286,7 +288,7 @@
         mode = sectionLanguage;
         if (sectionLanguage !== target) return;
         if (currentPage) kept.push(`[[SOURCE_PAGE:${currentPage}]]`);
-        const inline = heading.match(sectionHeadings[sectionLanguage])[1];
+        const inline = label.match(sectionHeadings[sectionLanguage])[1];
         if (inline) kept.push(inline);
       } else if (pageMatch) {
         mode = "unknown";
@@ -340,7 +342,7 @@
 
   // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
   // and neighbor links are normalized the same way for both languages.
-  const PARSER_VERSION = 6;
+  const PARSER_VERSION = 7;
 
   function stripNamePrefixes(name) {
     return String(name || "")

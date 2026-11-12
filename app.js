@@ -16,6 +16,9 @@ const personSearch = document.querySelector("#personSearch");
 const runPersonSearch = document.querySelector("#runPersonSearch");
 const clearPersonSearch = document.querySelector("#clearPersonSearch");
 const filenameLine = document.querySelector("#filenameLine");
+// A failed read or save that the user must know about; the file name line is not shown.
+const storageNotice = document.querySelector("#storageNotice");
+const storageNoticeText = document.querySelector("#storageNoticeText");
 const projectSelect = document.querySelector("#projectSelect");
 const sourceEditModal = document.querySelector("#sourceEditModal");
 const sourceEditText = document.querySelector("#sourceEditText");
@@ -23,12 +26,6 @@ const sourceEditPlace = document.querySelector("#sourceEditPlace");
 const sourceEditStatus = document.querySelector("#sourceEditStatus");
 const sourceEditButton = document.querySelector("#editSourceEntry");
 const panelDivider = document.querySelector("#panelDivider");
-const duplicateModal = document.querySelector("#duplicateModal");
-const duplicateComparison = document.querySelector("#duplicateComparison");
-const duplicateStatus = document.querySelector("#duplicateStatus");
-const duplicateDecisionActions = document.querySelector("#duplicateDecisionActions");
-const duplicateUndoActions = document.querySelector("#duplicateUndoActions");
-let duplicateReview = null;
 const searchFilterInputs = {
   head: document.querySelector("#filterHouseholdHead"),
   member: document.querySelector("#filterFamilyMember"),
@@ -235,9 +232,6 @@ function applyLanguage() {
 }
 
 const view = {
-  x: 500,
-  y: 325,
-  scale: 1,
   selectedId: null,
   // Who the Adjacent Evidence report is about: null for the selected unit's household head, or a
   // CatastoRelations subject ({ householdId, position } or { name, candidateIds }).
@@ -1422,7 +1416,7 @@ function backfillMemberSourceLines(data) {
 }
 
 // Rebuilds the links between households from each record's stored neighbors. Residences are never
-// reread from source text here, so curated and merged neighbors survive.
+// reread from source text here, so curated neighbors survive.
 function recalculateStoredIdentityGraph(data) {
   if (!Array.isArray(data?.households)) return false;
   // Records keep their permanent ids; only the links between them are recalculated.
@@ -1449,6 +1443,7 @@ function recalculateStoredIdentityGraph(data) {
 
 // Applies the changes that lose nothing as a project opens: permanent ids when every link can be kept,
 // and member lines erased by an earlier defect. A conversion that would drop links waits for review.
+// Returns the project to show and, if its update could not be saved, the error.
 async function prepareProject(project) {
   let changed = backfillMemberSourceLines(project.data);
   const conversion = CatastoRecords.planPermanentIds(project.data);
@@ -1456,23 +1451,64 @@ async function prepareProject(project) {
     project.data = conversion.data;
     changed = true;
   }
-  if (!changed) return project;
+  if (!changed) return { project };
   try {
-    return await CatastoStorage.saveProject(project);
+    return { project: await CatastoStorage.saveProject(project) };
   } catch (error) {
     console.warn(`Project “${project.name}” was not updated.`, error);
-    return project;
+    return { project, error };
+  }
+}
+
+function showStorageProblem(message) {
+  storageNoticeText.textContent = message;
+  storageNotice.hidden = false;
+}
+
+function clearStorageProblem() {
+  storageNoticeText.textContent = "";
+  storageNotice.hidden = true;
+}
+
+// Only the latest project chosen is opened: a slower earlier request that finishes later is ignored.
+let activationGeneration = 0;
+// Saves still waiting for storage; while any is, an Admin announcement does not replace the project.
+let savesInFlight = 0;
+
+async function saveEdit(project, options) {
+  savesInFlight += 1;
+  try {
+    return await CatastoStorage.saveProject(project, options);
+  } finally {
+    savesInFlight -= 1;
   }
 }
 
 async function activateProject(id) {
-  const loaded = id ? await CatastoStorage.getProject(id) : null;
-  if (!loaded) return;
-  let project = loaded;
+  const generation = ++activationGeneration;
+  const superseded = () => generation !== activationGeneration;
+  let loaded;
   try {
-    project = await prepareProject(loaded);
+    loaded = id ? await CatastoStorage.getProject(id) : null;
+  } catch (error) {
+    if (superseded()) return;
+    // The selector goes back to the project still shown.
+    projectSelect.value = activeProject?.id || "";
+    throw error;
+  }
+  if (superseded() || !loaded) return;
+  let project = loaded;
+  let preparationError = null;
+  try {
+    ({ project, error: preparationError } = await prepareProject(loaded));
   } catch (error) {
     console.warn(`Project “${loaded.name}” could not be prepared.`, error);
+  }
+  if (superseded()) return;
+  if (preparationError) {
+    showStorageProblem(`“${project.name}” is shown with an automatic update that could not be saved (${preparationError.message}). Nothing was lost; the update is tried again the next time the project opens.`);
+  } else {
+    clearStorageProblem();
   }
   view.layer = "household";
   view.search = "";
@@ -1577,7 +1613,7 @@ function reparsePlan(project) {
     it ? `Famiglie con residenza: ${before.residences} → ${after.residences}` : `Households with a residence: ${before.residences} → ${after.residences}`,
     it ? `Collegamenti tra vicini: ${before.links} → ${after.links}` : `Resolved neighbor links: ${before.links} → ${after.links}`,
     it ? `Voci abbinate a quelle salvate: ${plan.summary.matched}` : `Records matched to saved records: ${plan.summary.matched}`,
-    it ? `Voci con modifiche o unioni, mantenute invariate: ${kept}` : `Records with your edits or merges, kept unchanged: ${kept}`,
+    it ? `Voci modificate (o unite in una versione precedente), mantenute invariate: ${kept}` : `Records you edited (or merged in an earlier version), kept unchanged: ${kept}`,
     it ? `Residenze salvate mantenute dove il nuovo parser legge diversamente: ${plan.summary.keptPlaces}` : `Saved residences kept where the new parse reads them differently: ${plan.summary.keptPlaces}`,
     it ? `Voci con vicini diversi: ${plan.summary.neighborChanges}` : `Records whose neighbors change: ${plan.summary.neighborChanges}`,
     it ? `Nuove voci: ${plan.summary.added}` : `New records: ${plan.summary.added}`,
@@ -1588,8 +1624,8 @@ function reparsePlan(project) {
   }
   const blocked = plan.uncertainMerges.length
     ? (it
-      ? `Aggiornamento bloccato: le voci unite di ${plan.uncertainMerges.join(", ")} non corrispondono con certezza al nuovo testo. Annulla l’unione o correggi la voce, poi riprova.`
-      : `Update blocked: the merged entries of ${plan.uncertainMerges.join(", ")} do not match the new parse with certainty. Undo the merge or correct the entry, then try again.`)
+      ? `Aggiornamento bloccato: le voci unite di ${plan.uncertainMerges.join(", ")} non corrispondono con certezza al nuovo testo. Le unioni non sono più disponibili: correggi la trascrizione e importala di nuovo in Admin.`
+      : `Update blocked: the merged entries of ${plan.uncertainMerges.join(", ")} do not match the new parse with certainty. Merging is no longer available: correct the source transcript and import it again in Admin.`)
     : "";
   return {
     data: plan.data,
@@ -1640,9 +1676,11 @@ async function applyReparse() {
   delete editedProject.entryBoundaryMigrationBackup;
   delete editedProject.migrationSnapshot;
   editedProject.data = pendingReparse.data;
+  const startedOn = activeProject;
   reparseApply.disabled = true;
   try {
-    await CatastoStorage.saveProject(editedProject, { snapshot: pendingReparse.reason });
+    await saveEdit(editedProject, { snapshot: pendingReparse.reason });
+    if (activeProject !== startedOn) return;
     closeReparseReview();
     activeProject = editedProject;
     useData(projectScopedData(activeProject));
@@ -1722,7 +1760,7 @@ async function refreshProjects(preferredId = null) {
 }
 
 function isEditingProject() {
-  return sourceEditModal.classList.contains("open") || duplicateModal.classList.contains("open");
+  return sourceEditModal.classList.contains("open") || reparseModal.classList.contains("open") || savesInFlight > 0;
 }
 
 // Applies a project-library change announced by Admin in another tab. A newly imported or created
@@ -1752,7 +1790,7 @@ async function applyLibraryChange(change) {
 let libraryChanges = Promise.resolve();
 function queueLibraryChange(change) {
   libraryChanges = libraryChanges.then(() => applyLibraryChange(change)).catch(error => {
-    filenameLine.textContent = error.message;
+    showStorageProblem(`The project list could not be updated (${error.message}). Reload the page to see the current projects.`);
   });
   return libraryChanges;
 }
@@ -1784,39 +1822,6 @@ function closeSourceEditor() {
   sourceEditButton.focus();
 }
 
-function duplicateDecisionKey(first, second) {
-  return [first.id, second.id].sort().join("|");
-}
-
-function findStrongDuplicate(record) {
-  const key = personKey(record.household_head);
-  if (!key) return null;
-  return activeProject.data.households.find(candidate => {
-    if (candidate === record || personKey(candidate.household_head) !== key) return false;
-    const decisionKey = duplicateDecisionKey(record, candidate);
-    return !(activeProject.data.duplicate_decisions || []).some(decision => decision.key === decisionKey && decision.status === "separate");
-  }) || null;
-}
-
-function recordPageSummary(record) {
-  const pages = [...new Set(record.source_pages || [])].sort((a, b) => a - b);
-  if (!pages.length) return "Page not recorded";
-  return `${pages.length === 1 ? "Page" : "Pages"} ${pages.join(", ")}${record.source_pages_inferred ? ` (${t("inferred")})` : ""}`;
-}
-
-function duplicateRecordCard(record, label) {
-  const members = memberLines(record).slice(1).join("; ") || "No additional household members listed";
-  const references = (record.residence?.adjacent_to || []).join(", ") || "No residence references listed";
-  return `<section class="duplicate-record" aria-label="${escapeHtml(label)}">
-    <h3>${escapeHtml(record.household_head)}</h3>
-    <p><strong>${escapeHtml(label)}</strong> · ${escapeHtml(recordPageSummary(record))}</p>
-    <p><strong>Residence:</strong> ${escapeHtml(record.residence?.place || "Not listed")}</p>
-    <p><strong>Household:</strong> ${escapeHtml(members)}</p>
-    <p><strong>References:</strong> ${escapeHtml(references)}</p>
-    <p class="duplicate-source">${escapeHtml(record.source_entry || "")}</p>
-  </section>`;
-}
-
 function focusableElements(modal) {
   return [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')]
     .filter(element => !element.closest("[hidden]"));
@@ -1837,132 +1842,10 @@ function trapModalFocus(event, modal) {
   }
 }
 
-function openDuplicateReview(editedRecord, candidateRecord) {
-  duplicateReview = { editedId: editedRecord.id, candidateId: candidateRecord.id, mergeId: null };
-  duplicateComparison.innerHTML = duplicateRecordCard(editedRecord, "Corrected record") + duplicateRecordCard(candidateRecord, "Existing record");
-  duplicateStatus.textContent = `Both records normalize to “${candidateRecord.household_head}”. No merge will occur without your confirmation.`;
-  duplicateDecisionActions.hidden = false;
-  duplicateUndoActions.hidden = true;
-  duplicateModal.classList.add("open");
-  duplicateModal.setAttribute("aria-hidden", "false");
-  document.querySelector("#duplicateLater").focus();
-}
-
-function closeDuplicateReview() {
-  duplicateModal.classList.remove("open");
-  duplicateModal.setAttribute("aria-hidden", "true");
-  duplicateReview = null;
-  sourceEditButton.focus();
-}
-
-function uniqueLines(...values) {
-  const seen = new Set();
-  return values.flatMap(value => String(value || "").split("\n"))
-    .map(line => line.trim()).filter(line => {
-      const key = line.toLowerCase();
-      if (!line || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
 // Selects a stored record by position so same-name household heads cannot be confused.
 function storedRecordSelection(project, record) {
   const recordIndex = project.data.households.indexOf(record);
   return { recordIndex: recordIndex >= 0 ? recordIndex : null, name: record.household_head };
-}
-
-function sourceEvidence(record) {
-  return record.source_entries?.length ? record.source_entries : [{
-    text: record.source_entry || "",
-    pages: record.source_pages || []
-  }];
-}
-
-async function mergeDuplicateRecords() {
-  if (!duplicateReview) return;
-  const editedProject = structuredClone(activeProject);
-  const records = editedProject.data.households;
-  const editedIndex = records.findIndex(record => record.id === duplicateReview.editedId);
-  const candidateIndex = records.findIndex(record => record.id === duplicateReview.candidateId);
-  if (editedIndex < 0 || candidateIndex < 0 || editedIndex === candidateIndex) return;
-  const edited = records[editedIndex];
-  const canonical = records[candidateIndex];
-  const mergeId = `merge-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const history = {
-    id: mergeId,
-    mergedAt: new Date().toISOString(),
-    canonicalIndex: candidateIndex,
-    duplicateIndex: editedIndex,
-    canonicalBefore: JSON.parse(JSON.stringify(canonical)),
-    duplicateBefore: JSON.parse(JSON.stringify(edited))
-  };
-  const evidence = [...sourceEvidence(canonical), ...sourceEvidence(edited)];
-  canonical.source_entries = evidence;
-  canonical.source_pages = [...new Set(evidence.flatMap(item => item.pages || []))].sort((a, b) => a - b);
-  canonical.source_entry = evidence.map(item => {
-    const pages = item.pages?.length ? `${item.pages.length === 1 ? "Page" : "Pages"} ${item.pages.join(", ")}` : "Additional source entry";
-    return `${pages}\n${item.text}`;
-  }).join("\n\n");
-  canonical.members_text = uniqueLines(canonical.members_text, edited.members_text).join("\n");
-  canonical.aliases = [...new Set([...(canonical.aliases || []), ...(edited.aliases || []), edited.household_head])]
-    .filter(name => personKey(name) !== personKey(canonical.household_head));
-  canonical.residence = canonical.residence || {};
-  canonical.residence.adjacent_to = [...new Set([...(canonical.residence.adjacent_to || []), ...(edited.residence?.adjacent_to || [])])];
-  if (!canonical.residence.place && edited.residence?.place) canonical.residence.place = edited.residence.place;
-  canonical.family_relationships = [...(canonical.family_relationships || []), ...(edited.family_relationships || [])];
-  editedProject.data.merge_history = [...(editedProject.data.merge_history || []), history];
-  records.splice(editedIndex, 1);
-  editedProject.data.requested_household_count = records.length;
-  editedProject.data.extracted_household_count = records.length;
-  await CatastoStorage.saveProject(editedProject);
-  activeProject = editedProject;
-  duplicateReview.mergeId = mergeId;
-  useData(projectScopedData(activeProject), storedRecordSelection(activeProject, canonical));
-  setFilenameLabel(`${activeProject.name} · ${records.length} households`);
-  duplicateStatus.textContent = `Merged into “${canonical.household_head}”. Both source entries, page citations, and former names were preserved.`;
-  duplicateDecisionActions.hidden = true;
-  duplicateUndoActions.hidden = false;
-  document.querySelector("#duplicateUndo").focus();
-}
-
-async function undoDuplicateMerge() {
-  const mergeId = duplicateReview?.mergeId;
-  const editedProject = structuredClone(activeProject);
-  const historyIndex = (editedProject.data.merge_history || []).findIndex(item => item.id === mergeId);
-  if (historyIndex < 0) return;
-  const history = editedProject.data.merge_history[historyIndex];
-  const records = editedProject.data.households;
-  const canonicalIndex = records.findIndex(record => record.id === history.canonicalBefore.id);
-  if (canonicalIndex >= 0) records.splice(canonicalIndex, 1);
-  const restored = [
-    { index: history.canonicalIndex, record: history.canonicalBefore },
-    { index: history.duplicateIndex, record: history.duplicateBefore }
-  ].sort((a, b) => a.index - b.index);
-  restored.forEach(item => records.splice(Math.min(item.index, records.length), 0, item.record));
-  editedProject.data.merge_history.splice(historyIndex, 1);
-  editedProject.data.requested_household_count = records.length;
-  editedProject.data.extracted_household_count = records.length;
-  await CatastoStorage.saveProject(editedProject);
-  activeProject = editedProject;
-  closeDuplicateReview();
-  useData(projectScopedData(activeProject), storedRecordSelection(activeProject, history.duplicateBefore));
-  setFilenameLabel(`${activeProject.name} · ${records.length} households`);
-}
-
-async function keepDuplicateSeparate() {
-  if (!duplicateReview) return;
-  const first = activeProject.data.households.find(record => record.id === duplicateReview.editedId);
-  const second = activeProject.data.households.find(record => record.id === duplicateReview.candidateId);
-  if (first && second) {
-    const editedProject = structuredClone(activeProject);
-    editedProject.data.duplicate_decisions = [...(editedProject.data.duplicate_decisions || []), {
-      key: duplicateDecisionKey(first, second), status: "separate", decidedAt: new Date().toISOString()
-    }];
-    await CatastoStorage.saveProject(editedProject);
-    activeProject = editedProject;
-  }
-  closeDuplicateReview();
 }
 
 async function saveSourceEntry() {
@@ -1977,6 +1860,7 @@ async function saveSourceEntry() {
 
   const recordIndex = activeProject.data.households.indexOf(selectedRecord);
   if (recordIndex < 0) return;
+  const startedOn = activeProject;
   const editedProject = structuredClone(activeProject);
   const record = editedProject.data.households[recordIndex];
   const previousHead = record.household_head;
@@ -2006,13 +1890,13 @@ async function saveSourceEntry() {
   document.querySelector("#sourceEditSave").disabled = true;
   try {
     recalculateStoredIdentityGraph(editedProject.data);
-    await CatastoStorage.saveProject(editedProject);
+    await saveEdit(editedProject);
+    // Saved; if another project was opened meanwhile, it stays open and this result is not shown.
+    if (activeProject !== startedOn) return;
     activeProject = editedProject;
-    const duplicate = findStrongDuplicate(record);
     closeSourceEditor();
     useData(projectScopedData(activeProject), storedRecordSelection(activeProject, record));
     setFilenameLabel(`${activeProject.name} · ${activeProject.data.households.length} households`);
-    if (duplicate) openDuplicateReview(record, duplicate);
   } catch (error) {
     sourceEditStatus.textContent = error.message;
   } finally {
@@ -2025,17 +1909,6 @@ document.querySelector("#sourceEditCancel").addEventListener("click", closeSourc
 document.querySelector("#sourceEditSave").addEventListener("click", () => {
   saveSourceEntry();
 });
-document.querySelector("#duplicateLater").addEventListener("click", closeDuplicateReview);
-document.querySelector("#duplicateDone").addEventListener("click", closeDuplicateReview);
-document.querySelector("#duplicateSeparate").addEventListener("click", () => {
-  keepDuplicateSeparate().catch(error => { duplicateStatus.textContent = error.message; });
-});
-document.querySelector("#duplicateMerge").addEventListener("click", () => {
-  mergeDuplicateRecords().catch(error => { duplicateStatus.textContent = error.message; });
-});
-document.querySelector("#duplicateUndo").addEventListener("click", () => {
-  undoDuplicateMerge().catch(error => { duplicateStatus.textContent = error.message; });
-});
 sourceEditModal.addEventListener("click", event => {
   if (event.target === sourceEditModal) closeSourceEditor();
 });
@@ -2043,18 +1916,12 @@ sourceEditModal.addEventListener("keydown", event => {
   if (event.key === "Escape") closeSourceEditor();
   trapModalFocus(event, sourceEditModal);
 });
-duplicateModal.addEventListener("click", event => {
-  if (event.target === duplicateModal) closeDuplicateReview();
-});
-duplicateModal.addEventListener("keydown", event => {
-  if (event.key === "Escape") closeDuplicateReview();
-  trapModalFocus(event, duplicateModal);
-});
 projectSelect.addEventListener("change", event => {
   activateProject(event.target.value).catch(error => {
-    filenameLine.textContent = error.message;
+    showStorageProblem(`The project could not be opened (${error.message}). Try again, or reload the page.`);
   });
 });
+document.querySelector("#storageNoticeDismiss").addEventListener("click", clearStorageProblem);
 document.querySelector("#evidenceBack").addEventListener("click", goBackInReport);
 document.querySelector("#languageEnglish").addEventListener("click", () => {
   if (language === "en") return;

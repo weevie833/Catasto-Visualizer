@@ -53,6 +53,13 @@
         </div>
       </div>
 
+      <div class="reparse-notice" id="storageNotice" role="alert" hidden>
+        <p id="storageNoticeText"></p>
+        <div class="reparse-actions">
+          <button class="modal-button secondary" id="storageNoticeDismiss" type="button">Dismiss</button>
+        </div>
+      </div>
+
       <div class="reparse-notice" id="reparseNotice" role="status" hidden>
         <p id="reparseNoticeText">This project was read by an older version of the parser. An update can fill in more residences and neighbor links; your edits are kept.</p>
         <div class="reparse-actions">
@@ -141,24 +148,6 @@
       <div class="modal-actions">
         <button class="modal-button secondary" id="reparseCancel" type="button">Cancel</button>
         <button class="modal-button" id="reparseApply" type="button">Update project</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="duplicateModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="duplicateTitle" aria-describedby="duplicateDescription">
-      <h2 id="duplicateTitle">Possible duplicate household</h2>
-      <p id="duplicateDescription" class="ingest-status">The corrected name matches another household. Compare the source evidence before deciding whether they represent the same person.</p>
-      <div class="duplicate-comparison" id="duplicateComparison"></div>
-      <p class="ingest-status" id="duplicateStatus" role="status"></p>
-      <div class="modal-actions" id="duplicateDecisionActions">
-        <button class="modal-button secondary" id="duplicateLater" type="button">Review later</button>
-        <button class="modal-button secondary" id="duplicateSeparate" type="button">Keep separate</button>
-        <button class="modal-button" id="duplicateMerge" type="button">Merge records</button>
-      </div>
-      <div class="modal-actions" id="duplicateUndoActions" hidden>
-        <button class="modal-button secondary" id="duplicateDone" type="button">Done</button>
-        <button class="modal-button" id="duplicateUndo" type="button">Undo merge</button>
       </div>
     </div>
   </div>

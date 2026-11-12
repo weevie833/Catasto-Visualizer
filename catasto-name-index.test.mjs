@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
+import { validationSource } from "./validation-source.mjs";
 
 const sources = await Promise.all(["./catasto-parser.js", "./catasto-relations.js", "./catasto-name-index.js"]
   .map(path => readFile(new URL(path, import.meta.url), "utf8")));
@@ -199,19 +200,20 @@ test("CSV opens in Excel: byte-order mark, header, quoted fields, no formulas", 
   assert.equal(W.CatastoNameIndex.toCsv(built).slice(1).trimEnd().split("\r\n").length, built.people.length + 1);
 });
 
-test("the corrected Marano transcription, when CATASTO_VALIDATION_MD points to it", async t => {
-  const path = process.env.CATASTO_VALIDATION_MD;
-  if (!path) {
+test("the current Marano source, when CATASTO_VALIDATION_MD names it", async t => {
+  const source = await validationSource();
+  if (!source) {
     t.skip("CATASTO_VALIDATION_MD is not set");
     return;
   }
-  const marano = index(await readFile(path, "utf8"));
+  const marano = index(source);
   const people = (given, surname) => marano.people.filter(person => person.given_name === given && person.surname === surname);
   assert.equal(marano.village, "Marano Marchesato");
   assert.deepEqual(people("Gennaro", "Belmonte").map(person => person.qualifier), ["son of Santo"]);
   assert.equal(people("Achille", "Covello").length, 1);
   assert.equal(people("Tomaso", "Spizzirri")[0]?.surname_derived, "Stepchild: head's surname");
-  assert.equal(people("Carlo", "Guido")[0]?.surname_derived, "Relation of preceding man not stated");
+  // "Carlo, grandson", after Nicolò Guido, son-in-law: a stated relation takes the in-law's surname without a note.
+  assert.equal(people("Carlo", "Guido")[0]?.surname_derived, "");
   assert.ok(people("Francesco", "di Bartolo").length >= 1);
   assert.equal(people("Giulio", "Storino").length, 1);
   assert.equal(people("Rafaele", "di Bartolo")[0]?.residential_location, "Castelfranco");
@@ -221,4 +223,54 @@ test("the corrected Marano transcription, when CATASTO_VALIDATION_MD points to i
   assert.equal(new Set(plain).size, plain.length);
   const qualified = new Set(marano.people.filter(person => person.qualifier).map(person => `${person.given_name}|${person.surname}`));
   assert.ok(plain.every(name => !qualified.has(name)));
+});
+
+test("an edited page opening widens a reference's pages to the entry's, never to the wrong page", () => {
+  const data = W.CatastoParser.parsePlainText(`### **Marano Marchesato 1754: Page 5**
+
+English Translation:
+
+Andrea Orrico, day laborer, age 50
+
+He lives in his own house in San Nicola, bordering Pietro Tenuta.
+
+### **Marano Marchesato 1754: Page 6**
+
+English Translation:
+
+He possesses a portion of land bordering Carlo Aijello and the public road.
+`, "en");
+  const pagesOf = (surname) => JSON.parse(JSON.stringify(
+    W.CatastoNameIndex.collectMentions(data).found.find(mention => mention.surname === surname).pages));
+  assert.deepEqual(pagesOf("Aijello"), [6]);
+  assert.deepEqual(pagesOf("Tenuta"), [5]);
+  data.households[0].source_entry = data.households[0].source_entry.replace("He possesses a portion", "He owns a portion");
+  assert.deepEqual(pagesOf("Aijello"), [5, 6]);
+  assert.deepEqual(pagesOf("Tenuta"), [5, 6]);
+});
+
+test("a page opening that repeats, or openings out of order, widen a reference's pages to the entry's", () => {
+  const page = (number, body) => `### **Marano Marchesato 1754: Page ${number}**\n\nEnglish Translation:\n\n${body}\n`;
+  const data = W.CatastoParser.parsePlainText([
+    page(1, "Andrea Orrico, day laborer, age 50\n\nHe lives in his own house in San Nicola, bordering Pietro Tenuta."),
+    page(2, "He owns a garden bordering Matteo Ferrandina.\nHe owns a vineyard bordering Carlo Rossi."),
+    page(3, "He owns a garden bordering Matteo Ferrandina.\nHe owns a field bordering Luca Bruni.")
+  ].join("\n"), "en");
+  const pagesOf = surname => JSON.parse(JSON.stringify(
+    W.CatastoNameIndex.collectMentions(data).found.find(mention => mention.surname === surname).pages));
+  assert.deepEqual(JSON.parse(JSON.stringify(data.households[0].source_page_breaks.map(item => item.page))), [1, 2, 3]);
+  // The same opening starts pages 2 and 3, so Carlo Rossi cannot be placed on one of them for certain.
+  assert.deepEqual(pagesOf("Rossi"), [1, 2, 3]);
+  assert.deepEqual(pagesOf("Bruni"), [1, 2, 3]);
+  // Openings that are found once each, but no longer in page order, are not trusted either.
+  const ordered = W.CatastoParser.parsePlainText([
+    page(1, "Andrea Orrico, day laborer, age 50\n\nHe lives in his own house in San Nicola, bordering Pietro Tenuta."),
+    page(2, "He owns a vineyard bordering Carlo Rossi.")
+  ].join("\n"), "en");
+  const [record] = ordered.households;
+  const single = surname => JSON.parse(JSON.stringify(
+    W.CatastoNameIndex.collectMentions(ordered).found.find(mention => mention.surname === surname).pages));
+  assert.deepEqual(single("Rossi"), [2]);
+  record.source_page_breaks = [...record.source_page_breaks, { page: 3, starts_with: "He lives in his own house" }];
+  assert.deepEqual(single("Rossi"), [1, 2]);
 });

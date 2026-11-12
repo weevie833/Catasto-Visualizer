@@ -100,9 +100,11 @@ Then visit:
 http://127.0.0.1:8000/index.html
 ```
 
-Stop the server with Ctrl+C. Keep port 8000 and the same address: projects are
-stored separately for each address, so `http://localhost:8000` and
-`http://127.0.0.1:8000` do not share a library.
+Stop the server with Ctrl+C. Projects are saved by the server in a folder on
+this computer, so `http://localhost:8000` and `http://127.0.0.1:8000` show the
+same library; only display preferences, such as the language, are kept
+separately for each address. Only one server can use the project folder at a
+time: a second launch, on any port, stops and leaves the running one alone.
 
 ### Windows (manual start)
 

@@ -21,6 +21,7 @@
   const PLACE = String.raw`${NAME}(?:\s+(?:${NAME}|di|de|del|della))*?`;
 
   // Clauses whose following words name people. Each match starts a list ended by the stop pattern.
+  // The Italian verbs also begin sentences ("Paga al Magnifico…"), so they match capitalized too.
   const TRIGGERS = [
     String.raw`\bbordering(?:\s+on)?`, String.raw`\bborders`, String.raw`\bbordered\s+by`, String.raw`\badjacent\s+to`,
     String.raw`\bnext\s+to`, String.raw`\bcontiguous\s+(?:to|with)`, String.raw`\bconfining\s+with`,
@@ -28,10 +29,10 @@
     String.raw`\bdue\s+to`, String.raw`\bcorresponds\s+to`, String.raw`\b(?:debt|liability|weight)\s+(?:\[[^\]]*\]\s+)?to`,
     String.raw`\bcollects?\s+from`, String.raw`\breceives?\s+from`, String.raw`(?:^|[.:]\s+)(?:To|From)`,
     String.raw`\bhouses?\s+of`, String.raw`\bbelonging\s+to`, String.raw`\brented\s+from`,
-    String.raw`\bgiusta\s+(?:li\s+)?beni\s+di`, String.raw`\bconfin[ae]\w*(?:\s+(?:con|a(?:lli?|i|gli)?\s+beni\s+di))?`,
+    String.raw`\b[Gg]iusta\s+(?:li\s+)?beni\s+di`, String.raw`\b[Cc]onfin[ae]\w*(?:\s+(?:con|a(?:lli?|i|gli)?\s+beni\s+di))?`,
     // "for the Magnificent Maurizio and Don Gaetano Cusinelli": a titled beneficiary.
     String.raw`\b(?:for|per)(?:\s+(?:the|li|il))?(?=\s+(?:Magnificent|Magnifici|Magnifico|Reverend|Don|Donna|Noble|Master|Mastro)\b)`,
-    String.raw`\bcontigu[oa]\s+(?:alli\s+beni\s+di)?`, String.raw`\bpaga\s+(?:a|al|alla|alli|ai)`, String.raw`\besige\s+da`
+    String.raw`\b[Cc]ontigu[oa]\s+(?:alli\s+beni\s+di)?`, String.raw`\b[Pp]aga\s+(?:a|al|alla|alli|ai)`, String.raw`\b[Ee]sige\s+da`
   ];
   const TRIGGER = new RegExp(`(?:${TRIGGERS.join("|")})\\s+`, "g");
   const LIST_STOP = /[;.:—–=]|\s+(?:for|with|as|at|in|who|which|whose|from|per|con|sopra|stimat\w*|the\s+annual|an\s+annual|annual|of\s+(?:a|an|one|the\s+capacity)|capital|principal|carlini|ducats?|ducati|oncie|ounces?|grana|which|that)\b|\s+\d|,\s+(?:the|an?|with|which|for|per|stimata)\b/i;
@@ -189,14 +190,25 @@
   }
 
   // The entry's text page by page, from the page breaks the parser records. Projects created before
-  // those were recorded give the whole entry with all its pages.
+  // those were recorded give the whole entry with all its pages. So does an entry whose page openings
+  // cannot be placed for certain: an opening changed in the source editor and no longer found, one
+  // that occurs more than once in the entry, or openings out of order. Guessing would cite the wrong
+  // page, so the citation widens to every page of the entry instead.
   function pageParts(record) {
     const entry = String(record.source_entry || "");
     const pages = Array.isArray(record.source_pages) ? record.source_pages : [];
-    const breaks = (Array.isArray(record.source_page_breaks) ? record.source_page_breaks : [])
-      .map(item => ({ page: item.page, at: entry.indexOf(item.starts_with) }))
-      .filter(item => Number.isFinite(item.page) && item.at >= 0).sort((a, b) => a.at - b.at);
-    if (!breaks.length) return [{ text: entry, pages }];
+    const whole = [{ text: entry, pages }];
+    const recorded = (Array.isArray(record.source_page_breaks) ? record.source_page_breaks : [])
+      .filter(item => Number.isFinite(item?.page));
+    if (!recorded.length) return whole;
+    const breaks = [];
+    for (const item of recorded) {
+      const opening = typeof item.starts_with === "string" ? item.starts_with : "";
+      const at = opening ? entry.indexOf(opening) : -1;
+      if (at < 0 || entry.indexOf(opening, at + 1) >= 0) return whole;
+      if (breaks.length && at <= breaks[breaks.length - 1].at) return whole;
+      breaks.push({ page: item.page, at });
+    }
     if (breaks[0].at > 0) breaks.unshift({ page: breaks[0].page, at: 0 });
     return breaks.map((item, index) => ({ text: entry.slice(item.at, breaks[index + 1]?.at ?? entry.length), pages: [item.page] }));
   }
@@ -364,9 +376,27 @@
 
   const personKey = person => `${key(person.surname)}|${key(person.given_name)}`;
 
+  // Households merged by an earlier version, which combined several source entries in one record. The
+  // index reads members only from a record's first entry, so it would leave out the others' people;
+  // it is refused instead. The remedy is the usual one: correct the transcript and import it again.
+  function mergedHouseholds(data) {
+    return (data?.households || []).filter(record => Array.isArray(record.source_entries) && record.source_entries.length > 1)
+      .map(record => record.household_head);
+  }
+
+  function refusalFor(data) {
+    const merged = mergedHouseholds(data);
+    if (!merged.length) return "";
+    const named = merged.slice(0, 5).join("; ") + (merged.length > 5 ? `; and ${merged.length - 5} more` : "");
+    return `This project has ${merged.length} merged household${merged.length === 1 ? "" : "s"} from an earlier version (${named}). ` +
+      "An index would leave out people from the merged entries, so none is made. Correct the transcript and create the project again from it; the project's own export is unaffected.";
+  }
+
   // Every mention of a person, with its residential location settled. Each mention keeps the person as read
   // (person), its household record, and its pages, for the XLSX index.
   function collectMentions(data, options = {}) {
+    const refusal = refusalFor(data);
+    if (refusal) throw new Error(refusal);
     const village = clean(options.village) || suggestedVillage(data) || "Not stated";
     const context = makeContext(data, village);
     const found = [];
@@ -507,5 +537,5 @@
     return `\ufeff${rows.join("\r\n")}\r\n`;
   }
 
-  window.CatastoNameIndex = { buildNameIndex, toJson, toMarkdown, toCsv, suggestedVillage, collectMentions, key, clean };
+  window.CatastoNameIndex = { buildNameIndex, toJson, toMarkdown, toCsv, suggestedVillage, collectMentions, refusalFor, key, clean };
 }());

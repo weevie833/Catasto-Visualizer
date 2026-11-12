@@ -289,7 +289,7 @@ are still missing, import your most recent `.catasto.json` backup in Admin.
 **A notice says the project was read by an older version of the parser.**
 Newer versions read residences and neighbors more completely. Click **Review
 update** to see what would change, then **Update project** to apply it, or
-**Not now** to keep the project as it is. Records you edited or merged are kept
+**Not now** to keep the project as it is. Records you edited are kept
 unchanged, and a copy of the previous data is saved inside the project.
 
 **I want to undo an update.**

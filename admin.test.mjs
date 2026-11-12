@@ -241,3 +241,34 @@ test("Name Index opens with the suggested village and exports JSON, CSV, Markdow
   assert.equal(JSON.stringify(data), before);
   assert.deepEqual(admin.messages, []);
 });
+
+test("a project with households merged by an earlier version gets no index, and says why", async () => {
+  const admin = await loadAdmin();
+  const first = "Bruno Ventrella, day laborer, age 44\nLucia Serra, wife, age 40\nHe lives in his own house in Borgo Alto.";
+  const second = "Bruno Ventrella, day laborer, age 44\nCarlo, son, age 12\nHe lives in his own house in Borgo Alto.";
+  const data = { source_title: "Casale Esempio 1760", households: [{
+    id: "h-1", household_head: "Bruno Ventrella", aliases: [], source_entry: `${first}\n\n${second}`,
+    members_text: "Bruno Ventrella, day laborer, age 44\nLucia Serra, wife, age 40\nCarlo Ventrella, son, age 12",
+    source_entries: [{ text: first, pages: [1] }, { text: second, pages: [2] }]
+  }] };
+  admin.stored.set("legacy", { id: "legacy", name: "Legacy", data });
+  await click(admin, "legacy", ".name-index");
+  assert.match(admin.element("#nameIndexStatus").textContent, /1 merged household from an earlier version \(Bruno Ventrella\)/);
+  for (const id of ["#nameIndexJson", "#nameIndexCsv", "#nameIndexMarkdown", "#nameIndexXlsx"]) {
+    assert.equal(admin.element(id).disabled, true, id);
+    admin.element(id).listeners.click();
+  }
+  assert.equal(admin.downloads.length, 0);
+  assert.match(admin.element("#nameIndexStatus").textContent, /Correct the transcript/);
+  // A project without merged households is offered the exports again.
+  await click(admin, "existing", ".name-index");
+  assert.equal(admin.element("#nameIndexXlsx").disabled, false);
+});
+
+test("a project that cannot be read for an action is reported, not ignored", async () => {
+  const admin = await loadAdmin();
+  admin.storage.getProject = async () => { throw new Error("The project folder could not be read."); };
+  await click(admin, "existing", ".export");
+  assert.match(admin.element("#libraryStatus").textContent, /could not be completed: The project folder could not be read/);
+  assert.equal(admin.downloads.length, 0);
+});

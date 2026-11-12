@@ -310,7 +310,8 @@
     let text = roleText(line)
       .replace(/\[[^\]]+\]/g, " ")
       .replace(/\b(?:di\s+)?(?:anni|age|aged)\s+\d+\b.*$/i, "")
-      .replace(/\b(?:infante|infant)\b/gi, "");
+      // "an infant" is an age, not a description; the article goes with it.
+      .replace(/\b(?:an?\s+)?(?:infante|infant)\b/gi, "");
     if (role !== "member") {
       const pattern = ROLE_PATTERNS.find(([key]) => key === role)?.[1];
       if (pattern) text = text.replace(pattern, "");
@@ -721,8 +722,12 @@
     ];
   }
 
+  // A missing age is unknown, not zero, so it never counts as a clue. An infant is age 0, as in the exports.
   function ageNumber(member) {
-    const age = Number(member?.age);
+    const value = member?.age;
+    if (typeof value === "string" && /^\s*(?:infant|infante)\s*$/i.test(value)) return 0;
+    if (value === null || value === undefined || String(value).trim() === "") return null;
+    const age = Number(value);
     return Number.isFinite(age) ? age : null;
   }
 
@@ -975,5 +980,5 @@
     return lines.join("\n");
   }
 
-  window.CatastoRelations = { buildPersonReport, reportToText, roleOf, sourceEntryLinks, descriptionOf };
+  window.CatastoRelations = { buildPersonReport, reportToText, roleOf, sourceEntryLinks, descriptionOf, landNeighborNames };
 }());

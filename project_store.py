@@ -11,9 +11,11 @@ never touches it, and clearing browser data cannot delete it either:
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
 import re
+import sys
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -35,6 +37,9 @@ SNAPSHOT_FOLDER = "snapshots"
 # transaction file; at startup an interrupted transaction is completed, so neither file is lost.
 PENDING_FOLDER = ".pending"
 TRANSACTION_PREFIX = "transaction-"
+# Held by the running server for as long as it runs, so a second server (a second double-click, or
+# one on another port) cannot recover, or write over, the first one's changes.
+LOCK_FILE = "server.lock"
 # Only the account that runs the app may read or change its projects (no effect on Windows,
 # where the folder under %APPDATA% is already private to the user).
 PRIVATE_DIR_MODE = 0o700
@@ -60,6 +65,63 @@ class ProjectError(Exception):
         self.status = status
 
 
+# A stored file that is not readable JSON. It is also a ValueError, so code that already set aside
+# unreadable files keeps doing so. The file itself is left as it is.
+class DamagedFile(ProjectError, ValueError):
+    def __init__(self, path: Path):
+        super().__init__(500, f"The saved file {path.name} is damaged and cannot be opened. It was left unchanged in the project folder.")
+
+
+class DataDirInUse(Exception):
+    """Another running server holds the project folder."""
+
+
+# An exclusive lock on the project folder, held by one server process at a time and released when
+# that process stops (including when it is killed). Taken before anything in the folder is recovered.
+class DataDirLock:
+    def __init__(self, data_dir: Path):
+        make_private_dir(Path(data_dir))
+        path = Path(data_dir) / LOCK_FILE
+        descriptor = os.open(path, os.O_RDWR | os.O_CREAT, PRIVATE_FILE_MODE)
+        self.handle = open(descriptor, "r+b")  # noqa: SIM115 - held open for the life of the server
+        try:
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            self.handle.close()
+            raise DataDirInUse(f"Another Catasto Visualizer is already using {data_dir}.") from None
+
+    def release(self) -> None:
+        if self.handle is not None:
+            self.handle.close()
+            self.handle = None
+
+
+def reject_constant(name: str) -> None:
+    raise ValueError(f"{name} is not a JSON number")
+
+
+def finite_float(text: str) -> float:
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(f"{text} is too large to be a JSON number")
+    return value
+
+
+# Standard JSON only: NaN and Infinity, written as names or as an overflowing number such as 1e999,
+# are accepted by Python but cannot be read by a browser.
+def loads(text: str) -> object:
+    return json.loads(text, parse_constant=reject_constant, parse_float=finite_float)
+
+
+def dumps(value: object, **options) -> str:
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, **options)
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -75,7 +137,10 @@ def parse_iso(value: object) -> datetime | None:
 # updatedAt is the token that detects stale saves, so every save must change it, even two saves
 # within one millisecond or after the clock was set back.
 def next_updated_at(previous: object) -> str:
+    # Compared at the precision that is stored: a later reading within the same millisecond would
+    # otherwise compare greater and still be written as the same token.
     now = datetime.now(timezone.utc)
+    now = now.replace(microsecond=now.microsecond // 1000 * 1000)
     earlier = parse_iso(previous)
     if earlier and now <= earlier:
         now = earlier + timedelta(milliseconds=1)
@@ -90,26 +155,74 @@ def remove_file(path: Path) -> None:
         pass
 
 
+# A save is reported only once it is on the disk, so it survives a power loss or system crash, not
+# only the app stopping (decision D11). The operating system otherwise keeps recent writes in memory.
+# On macOS, fsync leaves them in the drive's cache; F_FULLFSYNC writes them through.
+def sync_descriptor(descriptor: int) -> None:
+    if sys.platform == "darwin":
+        import fcntl
+        try:
+            fcntl.fcntl(descriptor, fcntl.F_FULLFSYNC)
+            return
+        except OSError:
+            pass  # A file system without F_FULLFSYNC (some network drives); fsync is the best available.
+    os.fsync(descriptor)
+
+
+# Makes a file's creation, rename or removal in this folder permanent. Windows cannot open a folder to
+# flush it; there NTFS records the change in its own journal, and file contents are still flushed.
+def sync_dir(path: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        sync_descriptor(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def remove_durably(path: Path) -> None:
+    remove_file(path)
+    if path.parent.is_dir():
+        sync_dir(path.parent)
+
+
 def make_private_dir(path: Path) -> None:
+    created = not path.is_dir()
     path.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
     os.chmod(path, PRIVATE_DIR_MODE)
+    if created:
+        sync_dir(path.parent)
 
 
 def atomic_write_text(path: Path, text: str) -> None:
-    # Writes a sibling temp file and swaps it in, so a crash never leaves a half-written project.
+    # Writes a sibling temp file, puts it on the disk, and swaps it in, so neither a crash nor a power
+    # loss leaves a half-written project.
     make_private_dir(path.parent)
     tmp_path = path.with_name(f".{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex[:8]}")
     try:
         descriptor = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, PRIVATE_FILE_MODE)
         with open(descriptor, "w", encoding="utf-8") as handle:
             handle.write(text)
+            handle.flush()
+            sync_descriptor(handle.fileno())
         tmp_path.replace(path)
+        sync_dir(path.parent)
     finally:
         remove_file(tmp_path)
 
 
+# A browser holds integers exactly only up to 2**53; larger ones are refused rather than converted to
+# a float (which fails above about 10**308).
+MAX_EXACT_INTEGER = 2 ** 53
+
+
 def is_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return abs(value) <= MAX_EXACT_INTEGER
+    return isinstance(value, float) and math.isfinite(value)
 
 
 def is_text_or_none(value: object) -> bool:
@@ -161,7 +274,11 @@ def validate_data(data: object, name: str = "The project") -> dict:
 
 
 def check_size(value: object, name: str) -> None:
-    if len(json.dumps(value, ensure_ascii=False).encode("utf-8")) > MAX_PROJECT_BYTES:
+    try:
+        text = dumps(value)
+    except ValueError:
+        raise ProjectError(400, f"“{name}” contains a number that is not a valid JSON number.") from None
+    if len(text.encode("utf-8")) > MAX_PROJECT_BYTES:
         raise ProjectError(413, f"“{name}” is larger than 50 MB and cannot be saved.")
 
 
@@ -177,13 +294,14 @@ def validate_project(project: object) -> dict:
 
 def project_summary(project: dict, snapshot: dict | None) -> dict:
     data = project.get("data") or {}
+    households = data.get("households")
     return {
         "id": project.get("id"),
         "name": project.get("name", ""),
         "sourceFile": project.get("sourceFile", ""),
         "createdAt": project.get("createdAt"),
         "updatedAt": project.get("updatedAt"),
-        "householdCount": len(data.get("households") or []),
+        "householdCount": len(households) if isinstance(households, list) else 0,
         "sourceLanguage": data.get("source_language"),
         "snapshotCreatedAt": (snapshot or {}).get("createdAt"),
     }
@@ -215,6 +333,48 @@ class ProjectStore:
             if path.is_file():
                 os.chmod(path, PRIVATE_FILE_MODE)
 
+    # The ids a failed import still has to remove; empty when no import is waiting to be undone.
+    def import_ids(self) -> list[str]:
+        try:
+            record = self.read(self.data_dir / IMPORT_JOURNAL)
+        except (OSError, ValueError):
+            return []
+        ids = record.get("ids") if isinstance(record, dict) else None
+        return [item for item in ids if isinstance(item, str)] if isinstance(ids, list) else []
+
+    # Makes renames and removals in the project and snapshot folders permanent.
+    def sync_project_dirs(self) -> None:
+        for directory in (self.projects_dir, self.projects_dir / SNAPSHOT_FOLDER):
+            if directory.is_dir():
+                sync_dir(directory)
+
+    # Removes every listed project; True only when all of them are gone (and that is on the disk).
+    def undo_import(self, ids: list[str]) -> bool:
+        undone = True
+        for project_id in ids:
+            for path in (self.path_for(project_id), self.snapshot_path(project_id)):
+                try:
+                    remove_file(path)
+                except OSError as error:
+                    undone = False
+                    print(f"Could not remove {path.name} while undoing an import: {error}")
+        if undone:
+            self.sync_project_dirs()
+        return undone
+
+    # An import whose undo failed keeps its journal; its projects are refused until the undo finishes,
+    # so no change is saved to a project the next start would remove.
+    def settle_import(self, project_id: str | None = None) -> None:
+        with self.lock:
+            journal = self.data_dir / IMPORT_JOURNAL
+            if not journal.exists():
+                return
+            ids = self.import_ids()
+            if ids and self.undo_import(ids):
+                remove_durably(journal)
+            elif project_id is not None and project_id in ids:
+                raise ProjectError(503, "This project belongs to an import that failed and is still being undone. Try again in a moment; if this remains, restart the app.")
+
     def recover_interrupted_import(self) -> None:
         journal = self.data_dir / IMPORT_JOURNAL
         try:
@@ -230,11 +390,12 @@ class ProjectStore:
             journal.replace(aside)
             print(f"An import journal could not be read and was moved to {aside.name}; no project was changed.")
             return
-        # Each listed project was new when the import began, so removing it restores the library.
-        for project_id in ids:
-            remove_file(self.path_for(project_id))
-            remove_file(self.snapshot_path(project_id))
-        remove_file(journal)
+        # Each listed project was new when the import began, so removing it restores the library. The
+        # journal stays until every one is gone, so a later start tries again.
+        if not self.undo_import(ids):
+            print("An interrupted import could not be fully undone; its projects are unavailable until it is.")
+            return
+        remove_durably(journal)
         print("An interrupted import was undone; none of its projects were kept.")
 
     def pending_paths(self, project_id: str) -> tuple[Path, Path]:
@@ -251,8 +412,8 @@ class ProjectStore:
     def commit_pair(self, project: dict, snapshot: dict) -> None:
         staged_project, staged_snapshot = self.pending_paths(project["id"])
         try:
-            atomic_write_text(staged_snapshot, json.dumps(snapshot, ensure_ascii=False))
-            atomic_write_text(staged_project, json.dumps(project, ensure_ascii=False))
+            atomic_write_text(staged_snapshot, dumps(snapshot))
+            atomic_write_text(staged_project, dumps(project))
         except BaseException:
             remove_file(staged_project)
             remove_file(staged_snapshot)
@@ -274,12 +435,15 @@ class ProjectStore:
             self.replace_file(staged_snapshot, self.snapshot_path(project_id))
         if staged_project.exists():
             self.replace_file(staged_project, self.path_for(project_id))
-        remove_file(self.transaction_path(project_id))
+        # Both replacements are made permanent before the record that would redo them is removed.
+        self.sync_project_dirs()
+        remove_durably(self.transaction_path(project_id))
 
     # Finishes a recorded update of the project before anything else reads or changes it, so a later
     # save or delete can never be overtaken by the earlier update at restart.
     def settle(self, project_id: str) -> None:
         with self.lock:
+            self.settle_import(project_id)
             if not self.transaction_path(project_id).exists():
                 return
             try:
@@ -321,12 +485,17 @@ class ProjectStore:
 
     def read(self, path: Path) -> dict | None:
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            value = loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
+        except (ValueError, UnicodeDecodeError):
+            raise DamagedFile(path) from None
+        if not isinstance(value, dict):
+            raise DamagedFile(path)
+        return value
 
     def write(self, project: dict) -> None:
-        atomic_write_text(self.path_for(project["id"]), json.dumps(project, ensure_ascii=False))
+        atomic_write_text(self.path_for(project["id"]), dumps(project))
 
     # Names and counts only; a page fetches one project's full data when it opens it. A project or
     # snapshot file is parsed only when it changed since the last listing.
@@ -337,6 +506,10 @@ class ProjectStore:
         seen = set()
         # A project whose interrupted update cannot be finished is listed as unavailable, not as healthy.
         unavailable = {}
+        self.settle_import()
+        for project_id in self.import_ids():
+            if PROJECT_ID.match(project_id):
+                unavailable[f"{project_id}.json"] = "This project belongs to an import that failed and is still being undone."
         for record in self.data_dir.glob(f"{TRANSACTION_PREFIX}*.json"):
             project_id = record.stem[len(TRANSACTION_PREFIX):]
             if PROJECT_ID.match(project_id):
@@ -355,13 +528,13 @@ class ProjectStore:
                 if cached and cached[0] == key:
                     summary = dict(cached[1])
                 else:
-                    summary = project_summary(json.loads(path.read_text(encoding="utf-8")), None)
+                    summary = project_summary(self.read(path) or {}, None)
                     self.summary_cache[path.name] = (key, summary)
                     summary = dict(summary)
                 seen.add(path.name)
                 summary["snapshotCreatedAt"] = self.snapshot_date(path.name)
                 summaries.append(summary)
-            except (OSError, ValueError, AttributeError) as error:
+            except (OSError, ValueError, AttributeError, TypeError) as error:
                 # One damaged file must not hide the rest of the library.
                 print(f"Skipped unreadable project file {path.name}: {error}")
         for name in set(self.summary_cache) - seen:
@@ -385,7 +558,7 @@ class ProjectStore:
         if cached and cached[0] == key:
             return cached[1]
         try:
-            created = json.loads(path.read_text(encoding="utf-8")).get("createdAt")
+            created = (self.read(path) or {}).get("createdAt")
         except (OSError, ValueError, AttributeError):
             created = None
         self.snapshot_date_cache[file_name] = (key, created)
@@ -474,25 +647,31 @@ class ProjectStore:
         if len({project["id"] for project in projects}) != len(projects):
             raise ProjectError(409, "The import contains the same project twice.")
         with self.lock:
+            # A failed import whose undo is unfinished keeps the only journal; a new import must not
+            # replace it, or the earlier import's leftover projects would survive the next start.
+            self.settle_import()
+            if (self.data_dir / IMPORT_JOURNAL).exists():
+                raise ProjectError(503, "An earlier import failed and is still being undone. Try again in a moment; if this remains, restart the app.")
             for project in projects:
                 self.settle(project["id"])
             if any(self.path_for(project["id"]).exists() or self.snapshot_path(project["id"]).exists() for project in projects):
                 raise ProjectError(409, "A project with the same id is already saved.")
             journal = self.data_dir / IMPORT_JOURNAL
-            atomic_write_text(journal, json.dumps({"ids": [project["id"] for project in projects]}))
+            ids = [project["id"] for project in projects]
+            atomic_write_text(journal, json.dumps({"ids": ids}))
             try:
                 for project in projects:
                     self.write(project)
                     if project["id"] in previous_versions:
                         record = previous_versions[project["id"]]
-                        atomic_write_text(self.snapshot_path(project["id"]), json.dumps(record, ensure_ascii=False))
+                        atomic_write_text(self.snapshot_path(project["id"]), dumps(record))
             except BaseException:
-                for project in projects:
-                    remove_file(self.path_for(project["id"]))
-                    remove_file(self.snapshot_path(project["id"]))
+                # The journal is removed only once the undo is complete; otherwise it stays, and the
+                # undo is finished on the next access or start (see settle_import).
+                if self.undo_import(ids):
+                    remove_durably(journal)
                 raise
-            finally:
-                remove_file(journal)
+            remove_durably(journal)
 
     # Refuses to delete a project another tab saved after this copy was loaded, so a newer save is
     # never discarded by a deletion confirmed against an older view.
@@ -501,8 +680,8 @@ class ProjectStore:
             stored = self.get(project_id)
             if stored and stored.get("updatedAt") != loaded_updated_at:
                 raise ProjectError(409, "This project was changed in another tab or window after you opened it. Review it and delete it again if you still want to.")
-            remove_file(self.path_for(project_id))
-            remove_file(self.snapshot_path(project_id))
+            remove_durably(self.path_for(project_id))
+            remove_durably(self.snapshot_path(project_id))
 
     # Copies projects from a browser's old storage, once each. Projects already saved here, and
     # projects copied before and deleted since, are left alone; invalid records are skipped.

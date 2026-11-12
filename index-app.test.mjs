@@ -166,19 +166,17 @@ test("saving a source entry keeps the same-name record selected", async () => {
   assert.match(app.run("activeProject.data.households[3].source_entry"), /age 41/);
 });
 
-test("merge and undo select the merged and restored records, not the first namesake", async () => {
+test("correcting a head to a namesake's name keeps both households; nothing is merged", async () => {
   const app = await loadApp([sameNameProject()]);
-  app.run('duplicateReview = { editedId: "giacomo-covello-2", candidateId: "giacomo-covello", mergeId: null }');
-  await app.run("mergeDuplicateRecords()");
-  assert.equal(app.run("activeProject.data.households.length"), 3);
-  assert.equal(selectedRecordIndex(app), 1);
-
-  await app.run("undoDuplicateMerge()");
-  assert.equal(app.run("activeProject.data.households.length"), 4);
-  assert.equal(selectedRecordIndex(app), 3);
+  selectRecord(app, 2);
+  app.document.querySelector("#sourceEditText").value = "Giacomo Covello, day laborer, age 40\nHe lives in his own house in the Pasolani district.";
+  await app.run("saveSourceEntry()");
+  assert.equal(app.storage.projects.get("project-a").data.households.length, 4);
+  assert.equal(app.run("typeof mergeDuplicateRecords"), "undefined");
+  assert.equal(selectedRecordIndex(app), 2);
 });
 
-test("a failed save leaves the in-memory project unchanged for edits, merges, and decisions", async () => {
+test("a failed save leaves the in-memory project unchanged", async () => {
   const app = await loadApp([sameNameProject()]);
   const before = app.run("JSON.stringify(activeProject)");
   app.storage.failSaves = true;
@@ -187,11 +185,6 @@ test("a failed save leaves the in-memory project unchanged for edits, merges, an
   app.document.querySelector("#sourceEditText").value = "Giacomo Covello, day laborer, age 41";
   await app.run("saveSourceEntry()");
   assert.equal(app.document.querySelector("#sourceEditStatus").textContent, "Simulated storage failure.");
-
-  app.run('duplicateReview = { editedId: "giacomo-covello-2", candidateId: "giacomo-covello", mergeId: null }');
-  await assert.rejects(app.run("mergeDuplicateRecords()"), /Simulated storage failure/);
-  await assert.rejects(app.run("keepDuplicateSeparate()"), /Simulated storage failure/);
-
   assert.equal(app.run("JSON.stringify(activeProject)"), before);
 });
 
@@ -375,7 +368,7 @@ test("an older project is offered a reparse, which keeps a snapshot and the user
   assert.equal(app.document.querySelector("#reparseNotice").hidden, false);
 
   app.run("openReparseReview()");
-  assert.match(app.document.querySelector("#reparseSummary").innerHTML, /Records with your edits or merges, kept unchanged: 1/);
+  assert.match(app.document.querySelector("#reparseSummary").innerHTML, /Records you edited \(or merged in an earlier version\), kept unchanged: 1/);
   assert.match(app.document.querySelector("#reparseSummary").innerHTML, /Saved residences kept where the new parse reads them differently: 1/);
   await app.run("applyReparse()");
   const stored = app.storage.projects.get("project-a");
@@ -486,4 +479,118 @@ test("names in the source entry are matched in place, each member only in their 
     { householdId: "h-1", position: 0 }
   ).map(range => [range.start, range.end, range.target.position ?? range.target.name]))`);
   assert.deepEqual(JSON.parse(ranges), [[40, 45, 2], [62, 75, "Pietro Bruno"], [80, 92, "Pietro Bruno"]], "the current person is left unlinked");
+});
+
+// Storage calls that finish only when the test says so, in any order.
+function deferStorage(app, method) {
+  const original = app.storage[method].bind(app.storage);
+  const waiting = [];
+  app.storage[method] = (...args) => new Promise((resolve, reject) => {
+    waiting.push({ args, finish: () => original(...args).then(resolve, reject), fail: error => reject(error) });
+  });
+  return { waiting, restore: () => { app.storage[method] = original; } };
+}
+const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+test("choosing two projects quickly opens the one chosen last, whichever loads first", async () => {
+  const app = await loadApp([sameNameProject(), secondProject()], { rememberedId: "project-a" });
+  const deferred = deferStorage(app, "getProject");
+  const first = app.run('activateProject("project-a")');
+  const second = app.run('activateProject("project-b")');
+  await settle();
+  deferred.waiting[1].finish();
+  await second;
+  deferred.waiting[0].finish();
+  await first;
+  assert.equal(app.run("activeProject.id"), "project-b");
+});
+
+test("a failed project read is shown and the selector returns to the open project", async () => {
+  const app = await loadApp([sameNameProject(), secondProject()], { rememberedId: "project-a" });
+  const deferred = deferStorage(app, "getProject");
+  app.document.querySelector("#projectSelect").value = "project-b";
+  const opening = app.run('activateProject("project-b")');
+  await settle();
+  deferred.waiting[0].fail(new Error("Simulated read failure."));
+  await assert.rejects(opening, /Simulated read failure/);
+  assert.equal(app.run("activeProject.id"), "project-a");
+  assert.equal(app.document.querySelector("#projectSelect").value, "project-a");
+});
+
+test("a save that finishes after another project was opened does not reopen the edited one", async () => {
+  const app = await loadApp([sameNameProject(), secondProject()], { rememberedId: "project-a" });
+  selectRecord(app, 3);
+  app.document.querySelector("#sourceEditText").value = "Giacomo Covello, day laborer, age 41\nHe lives in his own house in the Pasolani district.";
+  const deferred = deferStorage(app, "saveProject");
+  const saving = app.run("saveSourceEntry()");
+  await settle();
+  deferred.restore();
+  await app.run('activateProject("project-b")');
+  deferred.waiting[0].finish();
+  await saving;
+  assert.equal(app.run("activeProject.id"), "project-b");
+  assert.match(app.storage.projects.get("project-a").data.households[3].source_entry, /age 41/);
+});
+
+test("an import announced while a reparse review or a save is open does not replace the project", async () => {
+  const app = await loadApp([sameNameProject()]);
+  app.storage.projects.set("project-b", secondProject());
+  app.document.querySelector("#reparseModal").classList.add("open");
+  await app.broadcast({ type: "projects-changed", reason: "imported", projectId: "project-b" });
+  assert.equal(app.run("activeProject.id"), "project-a");
+  app.document.querySelector("#reparseModal").classList.remove("open");
+
+  selectRecord(app, 3);
+  app.document.querySelector("#sourceEditText").value = "Giacomo Covello, day laborer, age 41";
+  const deferred = deferStorage(app, "saveProject");
+  const saving = app.run("saveSourceEntry()");
+  await settle();
+  await app.broadcast({ type: "projects-changed", reason: "imported", projectId: "project-b" });
+  assert.equal(app.run("activeProject.id"), "project-a");
+  deferred.waiting[0].finish();
+  await saving;
+  assert.deepEqual(projectOptions(app).sort(), ["project-a", "project-b"]);
+});
+
+test("an automatic update that could not be saved is reported visibly", async () => {
+  const legacy = sameNameProject();
+  legacy.data.households.forEach(item => { item.member_identities[0].source_line = undefined; });
+  const app = await loadApp([legacy, secondProject()], { rememberedId: "project-b" });
+  app.storage.failSaves = true;
+  await app.run('activateProject("project-a")');
+  const notice = app.document.querySelector("#storageNotice");
+  assert.equal(notice.hidden, false);
+  assert.match(app.document.querySelector("#storageNoticeText").textContent, /could not be saved/);
+  assert.equal(app.storage.projects.get("project-a").data.households[0].member_identities[0].source_line, undefined);
+
+  app.storage.failSaves = false;
+  await app.run('activateProject("project-a")');
+  assert.equal(notice.hidden, true);
+  assert.equal(app.storage.projects.get("project-a").data.households[0].member_identities[0].source_line, "Angelo Chiappetta, day laborer, age 40");
+});
+
+// Decision D13: the Landholdings view and the Adjacent Evidence report read English land clauses by
+// different rules, on purpose. These cases record where they differ, so a change to either is deliberate.
+test("the Landholdings view and relation evidence keep their own land-clause rules", async () => {
+  const app = await loadApp([sameNameProject()]);
+  const entry = [
+    "Andrea Orrico, day laborer, age 50",
+    "He lives in his own house with a garden bordering Pietro Tenuta.",
+    "He owns a vineyard in Cozzo bordering Carlo Rossi, Andrea Orrico, and the public road.",
+    "He owns a mill bordering Luca Bruni."
+  ].join("\n");
+  const subject = JSON.stringify({ id: "h-test", household_head: "Andrea Orrico", source_entry: entry });
+  const parcels = JSON.parse(JSON.stringify(app.run(`parseLandholdings(${subject}).map(item => [item.type, item.adjacent_to])`)));
+  const evidence = JSON.parse(JSON.stringify(app.run(`[...window.CatastoRelations.landNeighborNames(${subject}).values()]`)));
+  // A garden named in the residence sentence is drawn as a parcel, but its border is not land evidence:
+  // the report counts residence neighbors separately.
+  assert.deepEqual(parcels[0], ["garden", ["Pietro Tenuta"]]);
+  assert.equal(evidence.includes("Pietro Tenuta"), false);
+  // A land parcel: the view keeps the road (drawn as a boundary) and the owner's own name as written;
+  // the evidence keeps only other people.
+  assert.equal(parcels[1][0], "vineyard");
+  assert.deepEqual(parcels[1][1], ["Carlo Rossi", "Andrea Orrico", "public road"]);
+  // Something owned that is not land is not drawn, but its bordering owner is still evidence.
+  assert.equal(parcels.length, 2);
+  assert.deepEqual(evidence, ["Carlo Rossi", "Luca Bruni"]);
 });

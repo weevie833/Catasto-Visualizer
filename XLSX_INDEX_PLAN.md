@@ -72,5 +72,5 @@ transcription.
 
 `catasto-xlsx-index.test.mjs` covers the layout, ages and infants, parents (household, widow, uncertain cases), a
 patronymic father joining his household row, ambiguous mentions, pages and districts, titles and occupations, and the
-package itself (unzipped, CRCs checked). With `CATASTO_VALIDATION_MD` set it also checks the corrected Marano
-transcription. `catasto-parser.test.mjs` covers the start page and page breaks; `admin.test.mjs` the button.
+package itself (unzipped, CRCs checked). With `CATASTO_VALIDATION_MD` set it also checks the current Marano
+source (the saved project's stored source text, an export, or a transcription). `catasto-parser.test.mjs` covers the start page and page breaks; `admin.test.mjs` the button.

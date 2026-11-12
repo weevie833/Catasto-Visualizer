@@ -1,6 +1,6 @@
 # Adjacent Evidence Report: Plan
 
-**Status:** Planning only, as of 2026-11-03. Development waits for the updated Marano Marchesato 1754 database, which adds third- and fourth-degree information.
+**Status:** Historical design record. The report was implemented in V 0.07 (see `HANDOFF.md` and `catasto-relations.js`, which are the current specification). Institution links (fourth degree) still wait for the updated Marano Marchesato 1754 database. The planning text below is kept as written on 2026-11-03.
 
 ## Goal
 

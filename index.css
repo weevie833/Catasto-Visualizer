@@ -520,45 +520,6 @@ button {
   margin-top: 12px;
 }
 
-.duplicate-comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.duplicate-record {
-  min-width: 0;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
-  padding: 12px;
-}
-
-.duplicate-record h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-}
-
-.duplicate-record p {
-  margin: 5px 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.duplicate-record .duplicate-source {
-  max-height: 150px;
-  overflow: auto;
-  white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-}
-
-@media (max-width: 640px) {
-  .duplicate-comparison { grid-template-columns: 1fr; }
-}
-
 .ingest-status {
   margin: 8px 0 0;
   color: var(--muted);

@@ -290,3 +290,17 @@ test("a source entry's names link to the head, each member by their line, and ne
   assert.deepEqual(anna.at(-1), { label: "Achille Covello", target: { householdId: "h-achille", position: 0 } }, "named once, though both a residence and a land neighbor");
   assert.deepEqual(Array.from(R.sourceEntryLinks(project(), "h-missing")), []);
 });
+
+test("an unknown age is not evidence for or against a lead", () => {
+  const data = {
+    source_title: "Test Catasto",
+    households: [
+      household("h-subject", "Marco Ferrari", ["Marco Ferrari pecoraro"], { page: 1, place: "Pajoli" }),
+      household("h-older", "Luca Ferrari", ["Luca Ferrari bracciale anni 30"], { page: 2, place: "Pajoli" }),
+      household("h-unknown", "Pietro Ferrari", ["Pietro Ferrari bracciale"], { page: 3, place: "Pajoli" })
+    ]
+  };
+  const clues = report => section(report, "leads").items.flatMap(item => Array.from(item.clues || []));
+  assert.equal(clues(build(data, { householdId: "h-subject", position: 0 })).some(clue => /\bage\b/.test(clue)), false);
+  assert.equal(clues(build(data, { householdId: "h-older", position: 0 })).some(clue => /\bage\b/.test(clue)), false);
+});

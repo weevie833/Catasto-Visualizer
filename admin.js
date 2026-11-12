@@ -153,12 +153,15 @@
   const nameIndexVillage = document.querySelector("#nameIndexVillage");
   const nameIndexStatus = document.querySelector("#nameIndexStatus");
   let nameIndexProject = null;
+  const nameIndexExports = ["#nameIndexJson", "#nameIndexCsv", "#nameIndexMarkdown", "#nameIndexXlsx"].map(id => document.querySelector(id));
 
   function openNameIndex(project) {
     nameIndexProject = project;
     document.querySelector("#nameIndexProject").textContent = project.name;
     nameIndexVillage.value = CatastoNameIndex.suggestedVillage(project.data);
-    nameIndexStatus.textContent = "";
+    const refusal = CatastoNameIndex.refusalFor(project.data);
+    nameIndexStatus.textContent = refusal;
+    nameIndexExports.forEach(button => { button.disabled = Boolean(refusal); });
     nameIndexDialog.showModal();
   }
 
@@ -183,10 +186,18 @@
     nameIndexStatus.textContent = `Exported ${index.rows.length} rows${review ? `, ${review} marked to check against the source` : ""}.`;
   }
 
-  document.querySelector("#nameIndexJson").addEventListener("click", () => exportNameIndex("json"));
-  document.querySelector("#nameIndexCsv").addEventListener("click", () => exportNameIndex("csv"));
-  document.querySelector("#nameIndexMarkdown").addEventListener("click", () => exportNameIndex("md"));
-  document.querySelector("#nameIndexXlsx").addEventListener("click", exportXlsxIndex);
+  // An index that cannot be made (see CatastoNameIndex.refusalFor) is reported, and nothing is downloaded.
+  const reportingFailure = action => () => {
+    try {
+      action();
+    } catch (error) {
+      nameIndexStatus.textContent = error.message;
+    }
+  };
+  document.querySelector("#nameIndexJson").addEventListener("click", reportingFailure(() => exportNameIndex("json")));
+  document.querySelector("#nameIndexCsv").addEventListener("click", reportingFailure(() => exportNameIndex("csv")));
+  document.querySelector("#nameIndexMarkdown").addEventListener("click", reportingFailure(() => exportNameIndex("md")));
+  document.querySelector("#nameIndexXlsx").addEventListener("click", reportingFailure(exportXlsxIndex));
 
   function formatDate(value) {
     const date = new Date(value);
@@ -227,11 +238,20 @@
     }).join("") : '<div class="empty">No Catasto projects are saved yet.</div>';
   }
 
-  projectList.addEventListener("click", async event => {
+  // Every action reports a failure in the library status rather than ending silently.
+  projectList.addEventListener("click", event => handleProjectAction(event).catch(error => {
+    libraryStatus.textContent = `The action could not be completed: ${error.message} Reload the page and try again.`;
+  }));
+
+  async function handleProjectAction(event) {
     const projectElement = event.target.closest("[data-project-id]");
     if (!projectElement) return;
     const project = await CatastoStorage.getProject(projectElement.dataset.projectId);
-    if (!project) return;
+    if (!project) {
+      libraryStatus.textContent = "This project is no longer saved. The list has been updated.";
+      await renderProjects();
+      return;
+    }
     if (event.target.closest(".export")) {
       await downloadProject(project);
     } else if (event.target.closest(".name-index")) {
@@ -261,7 +281,7 @@
       await renderProjects();
       if (message) libraryStatus.textContent = message;
     }
-  });
+  }
 
   textFile.addEventListener("change", async event => {
     const file = event.target.files?.[0];

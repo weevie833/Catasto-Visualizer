@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
+import { validationSource } from "./validation-source.mjs";
 
 const sources = await Promise.all(["./catasto-parser.js", "./catasto-relations.js", "./catasto-name-index.js", "./catasto-xlsx.js", "./catasto-xlsx-index.js"]
   .map(path => readFile(new URL(path, import.meta.url), "utf8")));
@@ -190,13 +191,13 @@ test("the XLSX is a valid package with the sheet, frozen header, and escaped tex
   assert.match(files.get("xl/styles.xml"), /<fgColor rgb="FFF9CB9C"\/>/);
 });
 
-test("the corrected Marano transcription, when CATASTO_VALIDATION_MD points to it", async t => {
-  const path = process.env.CATASTO_VALIDATION_MD;
-  if (!path) {
+test("the current Marano source, when CATASTO_VALIDATION_MD names it", async t => {
+  const source = await validationSource();
+  if (!source) {
     t.skip("CATASTO_VALIDATION_MD is not set");
     return;
   }
-  const marano = W.CatastoXlsxIndex.buildXlsxIndex(W.CatastoParser.parsePlainText(await readFile(path, "utf8"), "en"), {});
+  const marano = W.CatastoXlsxIndex.buildXlsxIndex(W.CatastoParser.parsePlainText(source, "en"), {});
   const found = JSON.parse(JSON.stringify(marano.rows)).map(row => Object.fromEntries(columns.map((name, i) => [name, row[i]])));
   const named = (given, surname) => found.filter(row => row.given === given && row.surname === surname);
   assert.ok(found.length > 2000);

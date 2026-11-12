@@ -7,7 +7,7 @@ Read `HANDOFF.md` for the project's state and `ARCHITECTURE.md` for its rules.
 ## Commands
 
 - Run: `python3 serve.py`, then open `http://127.0.0.1:8000/index.html`.
-- Test: `node --test *.test.mjs` and `python3 -m unittest test_serve.py`.
+- Test: `node --test *.test.mjs` and `python3 -m unittest test_serve.py`. Browser check: `npm run test:browser` (Playwright's Chromium; runs the server on a temporary project folder).
 - Lint: `npx eslint .` and `.venv/bin/ruff check .`.
 
 ## Rules

@@ -26,10 +26,17 @@ node --test *.test.mjs
 python3 -m unittest test_serve.py
 npx eslint .
 .venv/bin/ruff check .
+npm run test:browser
 ```
 
-The Node suite contains 130 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin, and
-visualizer-workflow tests (two run only when `CATASTO_VALIDATION_MD` names the corrected Marano transcription); `test_serve.py` contains 41 server and project-storage tests. Lint tools install with
+The Node suite contains 153 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
+visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 55 server and project-storage tests.
+`npm run test:browser` (`smoke.browser.mjs`, about 10 seconds) starts the real server on a free port with a temporary
+project folder, creates a project in Admin from `test-fixtures/synthetic-catasto.md`, and checks in Chromium that the
+Visualizer loads with no console or security-policy errors, draws the 3D view, and keeps a source edit across a
+reload. It needs Playwright's browser once per machine: `npx playwright install chromium`. It is not part of `npm test`.
+`test-fixtures/synthetic-catasto.md` is invented (names, places, figures) and safe to commit; never replace it with
+or derive it from a private transcription. Lint tools install with
 `npm install` and `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. Projects
 live in the per-user data folder (`~/Library/Application Support/Catasto
 Visualizer/projects/` on this Mac), not in browser storage, so the port no
@@ -72,7 +79,9 @@ browser's IndexedDB at that address are migrated.
 - The parser now reads infants listed without an age as household members, records the page an entry starts on when it starts mid-page, and records where each later page begins (`source_page_breaks`). Projects created earlier keep their old pages until created again.
 - The Visualizer is a reading tool: relationship conclusions are made in other
   systems (Ancestry, FamilySearch, a spreadsheet). Correcting a Catasto entry is
-  the only edit it offers.
+  the only edit it offers. Merging duplicate households was removed on
+  2026-11-12: to audit entries, export an index, correct the source transcript,
+  and import it again. The app is not an authoring or correction platform.
 
 ## Source and parsing
 
@@ -154,7 +163,7 @@ The current parse produces 362 household entries.
 
 - `index.html` / `index.css` — Visualizer page and styles.
 - `app.js` — Visualizer code: search, project activation, the reparse offer,
-  source editing, merging, and visualization data preparation.
+  source editing, and visualization data preparation.
 - `catasto-records.js` / `catasto-records.test.mjs` — permanent ids, import repair, reparse planning.
 - `catasto-relations.js` / `catasto-relations.test.mjs` — the Adjacent Evidence report and source-entry links.
 - `catasto-name-index.js` / `catasto-name-index.test.mjs` — the Name Index / Indice Onomastico export; see `NAME_INDEX_PLAN.md`.
@@ -163,7 +172,9 @@ The current parse produces 362 household entries.
 - `scene3d.js` / `scene3d.css` — Three.js household and landholding scenes.
 - `catasto-parser.js` — the single parser, used by Admin and by reparsing.
 - `catasto-parser.test.mjs` — parser regression tests.
-- `index-app.test.mjs` — visualizer workflows (editing, merging, selection, malformed
+- `synthetic-fixture.test.mjs` / `test-fixtures/synthetic-catasto.md` — parser and both exports on an invented bilingual transcription.
+- `smoke.browser.mjs` — real-browser check (`npm run test:browser`).
+- `index-app.test.mjs` — visualizer workflows (editing, selection, malformed
   records, id conversion, reparsing) run from `app.js` with a stub DOM.
 - `catasto-storage.test.mjs` — exchange format, storage requests, no-server message, and IndexedDB migration.
 - `admin.test.mjs` — Admin announces imports, creations, and deletions to open Visualizer tabs.
@@ -187,59 +198,23 @@ The current parse produces 362 household entries.
    import maps, so this one line is the only local change.
 4. Run the tests, then check the 3D view, both layers, and navigation in a browser.
 
-## Requested next feature: dedicated record editor
+## Withdrawn features
 
-Create a separate editor page for direct Catasto editing instead of expanding
-the visualization's small entry modal. Suggested files are `editor.html` and
-`editor.js`, opened from Admin or from the selected entry.
+Withdrawn 2026-11-12, when merging was removed. The Visualizer is not an authoring or
+correction platform: corrections are made in the source transcript, which is then
+imported again. Two features previously requested here are therefore not planned:
 
-Required capabilities:
-
-- Select a stored project and edit either its full source text or one parsed
-  household entry.
-- Find next/previous, match count, case-sensitive search, whole-word search,
-  and optional regular expressions.
-- Replace current, replace selected matches, and replace all.
-- Preview replacements and show the affected entries before applying changes.
-- Provide undo/redo during the editing session.
-- Save a recoverable project snapshot before bulk replacement.
-- Reparse the project after saving, rerun household IDs, member IDs,
-  triangulation, adjacency, and search indexing, and report entries whose IDs or
-  boundaries changed.
-- Preserve the current project ID and selected project while updating its data.
-- Never perform silent replacement across the source; require an explicit
-  Apply/Save action.
-
-Add regression coverage for replacements spanning one entry, multiple entries,
-page boundaries, names, and narrative text.
-
-## Requested next feature: likely spelling variants
-
-Add a review system that locates likely variant spellings of the same person,
-for example `Ritacchia` and `Rittachia`.
-
-Recommended calculation:
-
-1. Normalize case, accents, punctuation, repeated whitespace, and honorifics
-   while retaining the original spelling for display.
-2. Generate candidates using surname edit distance, doubled-letter changes,
-   phonetic similarity, and matching given names.
-3. Increase confidence when candidates share district, neighbors, relatives,
-   occupation, patronymic, spouse, age, or reciprocal references.
-4. Reduce confidence when both spellings occur as separate household heads with
-   incompatible ages, families, patronymics, or simultaneous property links.
-5. Present suggestions for review; do not automatically merge people.
-6. Allow the user to mark `same person`, `different people`, or `undecided`.
-7. Store accepted spellings as aliases of one canonical household identity and
-   preserve rejected decisions so they are not repeatedly suggested.
-8. Recalculate affected search and adjacency links after a decision.
-
-The review UI should show both source excerpts, pages, household IDs, ages,
-family members, districts, and graph evidence. Alias decisions must remain
-separate from true duplicate-household merges.
+- A dedicated record editor (find/replace across the source, bulk replacement).
+- A spelling-variant review that stores same-person/different-person decisions as
+  aliases. Suggesting likely variants in a report, without saving decisions, would
+  still fit the reading-tool scope if it is asked for again.
 
 ## Known cautions
 
+- `npm audit` reports 4 moderate entries from one minimatch advisory under ESLint 10. This is
+  accepted (decision D12 in `HUMAN_DECISIONS.md`). When an ESLint release depends on minimatch
+  11.0.1 or later, update `eslint` and `@eslint/js`, then rerun `npm audit`, lint and the tests.
+  Do not downgrade ESLint or force minimatch with an override.
 - Residence and landholding graphs are different relationship types and must
   not be combined during triangulation.
 - A shared neighbor can identify an explicitly named ambiguous person; it must
