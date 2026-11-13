@@ -38,7 +38,8 @@
     let index = 0;
     for (; index < tokens.length; index += 1) {
       const token = tokens[index].replace(/[,;.]+$/, "");
-      if (nameTokens.length && (italianOccupation.test(token) || italianRelation.test(token))) break;
+      // Capitalized "Padre" after a name is a surname ("Carlo Padre pecoraro"); the father is written "padre".
+      if (nameTokens.length && (italianOccupation.test(token) || (italianRelation.test(token) && token !== "Padre"))) break;
       const isParticle = nameTokens.length && italianParticle.test(token) && /^[A-ZÀ-Ý]/.test(tokens[index + 1] || "");
       const isOrigin = isParticle && /^(?:Terra|Città|Casale)$/i.test(tokens[index + 1].replace(/[,;.]+$/, ""));
       // After a first name and surname, "di Giuseppe" names the father rather than continuing the surname.
@@ -54,7 +55,7 @@
       }
     }
     let name = nameTokens.join(" ");
-    const origin = name.match(/\s+(?:della|dalla|di)\s+(?:Terra|Città|Casale)\s+(?:di|de)\s+(.+)$/i);
+    const origin = name.match(/\s+(?:della|dalla|del|dal|di)\s+(?:Terra|Città|Casale)\s+(?:di|de)\s+(.+)$/i);
     if (origin) name = name.slice(0, origin.index);
     const rest = tokens.slice(index).join(" ").replace(/\s*,\s*/g, ", ").replace(/^[,;\s]+|[,;.\s]+$/g, "");
     const patronymic = rest.match(/^(?:figli[oa]\s+)?(?:del\s+fu|di|del|fu(?:\s+di)?|quondam|q\.?\s?m\.?)\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’]*/)?.[0] || "";
@@ -71,7 +72,9 @@
   function memberPersonName(line) {
     const text = String(line || "").trim();
     if (isItalianMemberLine(text)) return splitItalianMemberLine(text).name;
-    if (text.includes(",")) return text.split(",")[0].trim();
+    // "Giovanni di Rangho son of Paulo, day laborer" names the same person as "Giovanni di Rangho, son of Antonio":
+    // the father is a qualifier whether or not a comma sets it apart.
+    if (text.includes(",")) return text.split(",")[0].replace(/\s+(?:son|daughter)\s+of\b.*$/i, "").trim();
     return text
       .replace(/\b(?:age|aged)\s+\d+.*$/i, "")
       .replace(/[—–-]+\s*$/, "")
@@ -79,9 +82,35 @@
       .trim();
   }
 
+  // A head exempt by privilege is entered without ages, in one sentence: "Andrea Belmonte, a shepherd, is not
+  // taxed any oncie ... because he holds the Privilege of a Padre Onusto"; "Andrea Belmonte pecoraro non si tassano".
+  const exemptionPhrase = /\b(?:non\s+si\s+tass\w*|(?:is|are)\s+not\s+taxed)\b/i;
+
+  function exemptHeadPrefix(line) {
+    const text = String(line || "").trim();
+    const match = text.match(exemptionPhrase);
+    if (!match || !/^[A-ZÀ-Ý]/.test(text) || isMemberLine(text)) return "";
+    const prefix = text.slice(0, match.index).replace(/[,\s]+$/, "");
+    const words = prefix.split(/\s+/);
+    return words.length >= 2 && words.length <= 8 && /^[A-ZÀ-Ý]/.test(words[1]) ? prefix : "";
+  }
+
+  function isExemptHeadLine(line) {
+    return Boolean(exemptHeadPrefix(line));
+  }
+
+  // The head's name and occupation, written as a member line: "Andrea Belmonte, a shepherd"; "Andrea Belmonte, pecoraro".
+  function exemptHeadMemberLine(line) {
+    const prefix = exemptHeadPrefix(line);
+    if (prefix.includes(",")) return prefix;
+    const member = splitItalianMemberLine(prefix);
+    return member.rest ? `${member.name}, ${member.rest}` : member.name;
+  }
+
   function isDependentHouseholdMember(line) {
     const parts = String(line || "").split(",");
-    const nameField = parts[0] || "";
+    // Capitalized "Padre" after a name is a surname, as in "Carlo Padre, shepherd"; the father is written "padre".
+    const nameField = (parts[0] || "").replace(/(\S\s+)Padre\b/g, "$1");
     const roleText = parts.slice(1).join(",");
     const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|marito|figli[oa](?!\s+(?:di|del|della|d['’]|fu)\b)|figliastr[oa]|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora|s(?:u)?oc+er[oa])\b/i;
     const untitledNameField = nameField.replace(/^(?:Sister|Brother|Father)\s+/i, "");
@@ -173,6 +202,8 @@
     const parts = cleaned.split(/\s*[,;]\s*/)
       .map(part => part
         .replace(/^(?:(?:e|ed|di|de|del|della|dello|delli|degli|dei|il|lo|la|al|alla|con)\s+|d['’]\s*)+/i, "")
+        // "e sorella Anna di Bartolo" names Anna di Bartolo; the relation is written in lowercase.
+        .replace(/^(?:su[oa]\s+)?(?:sorella|fratello|madre|padre|figli[oa]|moglie|marito|nipote|cognat[oa]|suocer[oa]|genero|nuora|zi[oa])\s+(?=[A-ZÀ-Ý])/, "")
         .replace(/[.:]+$/, "")
         .trim())
       .map(cleanPersonName)
@@ -262,17 +293,49 @@
     it: /^(?:Italian\s+Transcription|Italian|Trascrizione(?:\s+italiana)?|Testo\s+italiano)\s*:?\s*(.*)$/i
   };
 
+  // The sections a Catasto onciario's instructions prescribe, recognized by the kind of people they list,
+  // never by one village's wording. "resident": people living in the village (citizens, absent citizens,
+  // clergy, widows, foreigners living there). "excluded": people and bodies living elsewhere, and the
+  // village's own churches and chapels. "summary": the closing tax tables. Anything else is not a heading.
+  function sectionHeadingKind(line) {
+    const text = String(line || "").replace(/^#+\s*/, "").replace(/\*\*|__/g, "").replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+    if (!text || text.split(" ").length > 12 || /\d/.test(text)) return null;
+    // A sentence about one chapel or house ("A chapel under the Right of Patronage of his family.") is not a heading.
+    if (/^(?:a|an|un|una|uno)\b/i.test(text)) return null;
+    if (/\b(?:possess\w*|possied\w*|pays?|paid|paga\w*|lives?|living|abita|habita|border\w*|confin\w*|esig\w*|collects?|owns?|estimated|stimat\w*|posta|posto|sit[ao]|situated|located)\b/i.test(text)) return null;
+    if (/\b(?:collettoria|tass[ae]|esentat[io]|laus\s+deo|tax\s+(?:collection|of|for)|exempt\w*|praise\s+be\s+to\s+god)\b/i.test(text)) return "summary";
+    if (/\b(?:non\s+abitant\w*|bonatenent\w*|risedent\w*\s+fuori|residing\s+elsewhere|landowners?|property\s+owners?)\b/i.test(text)) return "excluded";
+    // "Forastieri abitanti" live in the village, even where a translation calls them "Non-Resident Inhabitants"
+    // or "Lay Residents from Outside the Area".
+    if (/\b(?:abitant\w*|inhabitants?)\b/i.test(text) || /(?<!non[-\s])\bresidents?\b/i.test(text)) return "resident";
+    if (/\b(?:forastier\w*|forestier\w*|foreign\w*|non[-\s]?residents?)\b/i.test(text)) return "excluded";
+    if (/\b(?:chies[ae]|cappell[ae]|convent[oi]|monaster[oi]|congregazion[ei]|church(?:es)?|chapels?|convents?|monaster(?:y|ies)|congregations?)\b/i.test(text)) return "excluded";
+    if (/\b(?:cittadin[oi]|vedove|vergini|sacerdoti|chieric[oi]|cheric[oi]|diaconi|citizens?|widows|maidens|virgins|priests|clerics|clerical|deacons)\b/i.test(text)) return "resident";
+    return null;
+  }
+
+  // A heading stands alone: a blank line (or the start of a page or section) before it and after it, or another
+  // heading, as in "Collettoria generale" over "— Cittadini —". Member lines run on without blank lines between
+  // them, so a household's lines are never headings.
+  function headingLineKinds(lines, isBoundary) {
+    const kinds = lines.map((line, index) => isBoundary(index) ? null : sectionHeadingKind(line));
+    const open = index => index < 0 || index >= lines.length || !lines[index].trim() || isBoundary(index) || Boolean(kinds[index]);
+    return kinds.map((kind, index) => kind && open(index - 1) && open(index + 1) ? kind : null);
+  }
+
   // Keeps only the sections of a bilingual transcription that are in the requested language ("en" or "it").
-  // Text without section headings is used whole.
+  // Text without section headings is used whole. A Catasto section heading is preceded by a marker line,
+  // "[[SECTION:resident]]", "[[SECTION:excluded]]" or "[[SECTION:summary]]". With both languages present, an
+  // English heading takes its kind from the Italian heading in the same position on that page, since
+  // translations of these headings are unreliable.
   function extractTranscriptionSections(text, language = "en") {
     const target = language === "it" ? "it" : "en";
     const lines = String(text || "").replace(/\r/g, "").split("\n");
-    const kept = [];
     const found = { en: false, it: false };
     let mode = "unknown";
     let currentPage = null;
     let sourceTitle = "";
-    lines.forEach(line => {
+    const info = lines.map(line => {
       const trimmed = line.trim();
       const heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/__/g, "").trim();
       const pageMatch = heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
@@ -286,18 +349,61 @@
       if (sectionLanguage) {
         found[sectionLanguage] = true;
         mode = sectionLanguage;
-        if (sectionLanguage !== target) return;
-        if (currentPage) kept.push(`[[SOURCE_PAGE:${currentPage}]]`);
-        const inline = label.match(sectionHeadings[sectionLanguage])[1];
-        if (inline) kept.push(inline);
-      } else if (pageMatch) {
-        mode = "unknown";
-      } else if (mode === target) {
-        kept.push(line);
+        return { boundary: true, sectionLanguage, label, page: currentPage, mode };
       }
+      if (pageMatch) {
+        mode = "unknown";
+        return { boundary: true, page: currentPage, mode };
+      }
+      return { boundary: false, page: currentPage, mode };
+    });
+    const sectioned = found[target];
+    const lineKinds = headingLineKinds(lines, index => info[index].boundary || /^\[\[SOURCE_PAGE:\d+\]\]$/.test(lines[index].trim()));
+    const headings = new Map();
+    lines.forEach((line, index) => {
+      const kind = lineKinds[index];
+      if (!kind) return;
+      info[index].kind = kind;
+      const pageKey = `${info[index].page}|${sectioned ? info[index].mode : "all"}`;
+      if (!headings.has(pageKey)) headings.set(pageKey, []);
+      info[index].position = headings.get(pageKey).push(kind) - 1;
+    });
+    const kindAt = index => {
+      const own = info[index].kind;
+      if (!sectioned || target !== "en") return own;
+      const english = headings.get(`${info[index].page}|en`) || [];
+      const italian = headings.get(`${info[index].page}|it`) || [];
+      return italian.length === english.length ? italian[info[index].position] : own;
+    };
+    // The closing tax summary may be headed in one language only ("Collettoria generale" over a table):
+    // it then starts at the next text kept in the other.
+    let pendingSummary = false;
+    const kept = [];
+    lines.forEach((line, index) => {
+      const item = info[index];
+      if (sectioned && item.mode !== target && item.kind === "summary" && !item.boundary) {
+        const own = headings.get(`${item.page}|${target}`) || [];
+        if (!own.includes("summary")) pendingSummary = true;
+      }
+      if (sectioned) {
+        if (item.sectionLanguage) {
+          if (item.sectionLanguage !== target) return;
+          if (item.page) kept.push(`[[SOURCE_PAGE:${item.page}]]`);
+          const inline = item.label.match(sectionHeadings[item.sectionLanguage])[1];
+          if (inline) kept.push(inline);
+          return;
+        }
+        if (item.boundary || item.mode !== target) return;
+      }
+      if (pendingSummary && line.trim()) {
+        kept.push("[[SECTION:summary]]");
+        pendingSummary = false;
+      }
+      if (item.kind) kept.push(`[[SECTION:${kindAt(index)}]]`);
+      kept.push(line);
     });
     return {
-      text: found[target] ? kept.join("\n").trim() : String(text || ""),
+      text: sectioned ? kept.join("\n").trim() : kept.join("\n"),
       usedSectionsOnly: found[target],
       sectionsFound: found,
       language: target,
@@ -342,11 +448,11 @@
 
   // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
   // and neighbor links are normalized the same way for both languages.
-  const PARSER_VERSION = 7;
+  const PARSER_VERSION = 8;
 
   function stripNamePrefixes(name) {
     return String(name || "")
-      .replace(/\b(Most\s+Illustrious|Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|C(?:h)?ierico|Cherico|Sacerdote)\b\.?/gi, " ")
+      .replace(/\b(Most\s+Illustrious|Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|Cleric|C(?:h)?ierico|Cherico|Sacerdote)\b\.?/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -473,11 +579,14 @@
       .replace(/\bthe property of\b/gi, "")
       .replace(/\bproperties of\b/gi, "")
       .replace(/\bthe public road\b/gi, "public road")
+      // "Gennaro Passarello and his sister Anna di Bartolo" names Anna di Bartolo.
+      .replace(/\b(?:his|her|their)\s+(?:sister|brother|mother|father|son|daughter|wife|husband|nephew|niece|uncle|aunt)(?:-in-law)?\s+(?=[A-ZÀ-Ý])/g, "")
       .replace(/\[[^\]]+\]/g, "")
       .replace(/\b(?:with|for|and pays|paying|who pays)\b[\s\S]*$/i, "")
       .replace(/\s+/g, " ")
       .trim();
-    const parts = cleaned.split(/\s*(?:,|;|\band\b)\s*/i).map(normalizeName).filter(name =>
+    // Translations sometimes keep the Italian "e"/"ed": "bordering Giacomo e Rafaele di Bartolo".
+    const parts = cleaned.split(/\s*(?:,|;|\b[Aa]nd\b|\s(?:e|ed)\s)\s*/).map(normalizeName).filter(name =>
       name && !/\b(?:annual|income|estimated|equals?|oncie|ounces?|grana|carlini|ducats?|capacity|moggi)\b/i.test(name)
     );
     const expanded = [];
@@ -487,7 +596,9 @@
         return;
       }
       const hasSurname = part.split(/\s+/).length > 1;
-      const nextSurname = parts.slice(index + 1).map(name => name.split(/\s+/)).find(words => words.length > 1)?.slice(-1)[0];
+      // A first name alone shares the next person's surname with its particle: "Giacomo and Rafaele di Bartolo".
+      const nextSurname = parts.slice(index + 1).filter(name => name.toLowerCase() !== "public road")
+        .map(surnameFromPerson).find(Boolean);
       expanded.push(hasSurname || !nextSurname ? part : `${part} ${nextSurname}`);
     });
     return [...new Set(expanded)];
@@ -546,6 +657,9 @@
     let pendingPageMarker = "";
     // The page in progress, so an entry that starts mid-page records the page it starts on.
     let lastPageMarker = "";
+    // Text before any heading is resident, so a source without headings parses as before.
+    let sectionKind = "resident";
+    let skipHeading = false;
     lines.forEach(line => {
       const trimmed = line.trim();
       if (/^\[\[SOURCE_PAGE:\d+\]\]$/.test(trimmed)) {
@@ -554,8 +668,28 @@
         return;
       }
       if (pendingPageMarker && !trimmed) return;
+      // A section heading ends the entry before it. Only resident sections hold entries; the closing
+      // summary runs to the end of the text, so headings inside its tables never reopen entries.
+      const section = trimmed.match(/^\[\[SECTION:(\w+)\]\]$/)?.[1];
+      if (section) {
+        if (current.join("").trim()) entries.push(current.join("\n").trim());
+        current = pendingPageMarker || !lastPageMarker ? [] : [lastPageMarker];
+        sawMember = false;
+        narrativeStarted = false;
+        if (sectionKind !== "summary") sectionKind = section;
+        skipHeading = true;
+        return;
+      }
+      // The heading names the section, not the entry that follows it.
+      if (skipHeading && trimmed) {
+        skipHeading = false;
+        return;
+      }
+      if (sectionKind !== "resident") return;
       const memberLine = isMemberLine(trimmed);
-      const startsNext = memberLine && current.length && sawMember && narrativeStarted && !isDependentHouseholdMember(trimmed);
+      const exemptHead = !memberLine && isExemptHeadLine(trimmed);
+      const startsNext = (exemptHead || (memberLine && !isDependentHouseholdMember(trimmed))) &&
+        current.length && sawMember && narrativeStarted;
       if (startsNext) {
         entries.push(current.join("\n").trim());
         current = pendingPageMarker || !lastPageMarker ? [] : [lastPageMarker];
@@ -568,10 +702,12 @@
       }
       current.push(line);
       if (memberLine) sawMember = true;
+      // The exemption sentence is the whole entry: the next member line begins another household.
+      else if (exemptHead) sawMember = narrativeStarted = true;
       else if (sawMember && isHouseholdNarrativeLine(trimmed)) narrativeStarted = true;
     });
     if (current.join("").trim()) entries.push(current.join("\n").trim());
-    return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line)));
+    return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line) || isExemptHeadLine(line.trim())));
   }
 
   function segmentHouseholds(text) {
@@ -585,17 +721,26 @@
         return opening ? [{ page: Number(page), starts_with: opening.slice(0, 80) }] : [];
       });
       const cleanEntry = entry.replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim();
+      // A sentence cut by a page break reads as one sentence: "the house where she lives located [continued on
+      // next page]" + "...of the place called li Pasolani, bordering ...". The continuation starts in lowercase.
+      const joinedEntry = entry
+        .replace(/[ \t]*\[continued on next page\][ \t]*$/gim, "")
+        .replace(/([^\s.;:!?])[ \t]*\n\s*\[\[SOURCE_PAGE:\d+\]\]\s*(?:\.\.\.|…)?[ \t]*(?=[a-zà-ÿ])/g, "$1 ")
+        .replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim();
       const memberBlock = cleanEntry.split("\n").map(line => line.trim()).filter(Boolean);
-      const members = memberBlock.filter(isMemberLine);
+      const members = memberBlock.flatMap(line => isMemberLine(line) ? [line] : isExemptHeadLine(line) ? [exemptHeadMemberLine(line)] : []);
       const headLine = members[0] || memberBlock[0] || `Household ${index + 1}, age ?`;
       const rawHead = memberPersonName(headLine) || headLine.split(",")[0].trim();
-      const landResidence = rawHead.match(/\s+of\s+(?:the\s+)?land\s+of\s+(.+)$/i);
+      // A head's place of origin is not part of his name: "of the Land of Rende", "of the City of Scigliano".
+      const origin = /\s+of\s+(?:the\s+)?(?:land|city|town|casale|village)\s+of\s+/i;
+      const landResidence = rawHead.match(new RegExp(`${origin.source}(.+)$`, "i"));
       const italianOrigin = isItalianMemberLine(headLine) ? splitItalianMemberLine(headLine).origin : null;
       const head = landResidence ? rawHead.slice(0, landResidence.index).trim() : rawHead;
-      const cleanedMembers = members.map(line => line.replace(/\s+of\s+(?:the\s+)?land\s+of\s+[^,]+/i, ""));
+      const cleanedMembers = members.map(line => line.replace(new RegExp(`${origin.source}[^,]+`, "i"), ""));
       return {
         index,
         entry: cleanEntry,
+        joinedEntry,
         sourcePages: [...new Set(sourcePages)],
         pageBreaks,
         memberBlock,
@@ -609,7 +754,7 @@
 
   function extractResidenceFacts(segments) {
     return segments.map(segment => {
-      const residence = parseResidence(segment.entry);
+      const residence = parseResidence(segment.joinedEntry);
       return {
         ...segment,
         residence: {
@@ -770,13 +915,15 @@
   }
 
   function parsePlainText(text, sourceLanguage = "en") {
-    const unescapedText = String(text || "").replace(/\\/g, "");
+    // "age — 48" and "di anni — 48" give the age as "age 48" does; every reader of member lines expects the latter.
+    const unescapedText = String(text || "").replace(/\\/g, "")
+      .replace(/\b(age|aged|anni)[ \t]*[—–-]+[ \t]*(?=\d)/gi, "$1 ");
     const prepared = extractTranscriptionSections(unescapedText, sourceLanguage);
     const records = cleanedGraphRecordsFromText(prepared.text);
     return {
       parser_version: PARSER_VERSION,
       pipeline_version: "semantic-cleaning-v2-identity-triangulation",
-      entry_boundary_version: 5,
+      entry_boundary_version: 6,
       source_title: prepared.sourceTitle,
       cleaning_pipeline: [
         "segment_households",
@@ -806,7 +953,7 @@
     canonicalPlace, isPublicAnchor, normalizeName, normalizeResidencePlace, personKey, sentenceList, stripNamePrefixes,
     surnameFromName, surnamePhrase, titleCasePlace, expandNeighborNames, parseResidence,
     extractTranscriptionSections, detectLanguage, languageMismatch,
-    isMemberLine, memberPersonName, isDependentHouseholdMember, isHouseholdNarrativeLine,
+    isMemberLine, isExemptHeadLine, memberPersonName, isDependentHouseholdMember, isHouseholdNarrativeLine,
     isItalianMemberLine, splitItalianMemberLine, parseItalianResidence, expandItalianNeighborNames,
     isItalianLandholdingSentence, parseItalianLandholding
   };

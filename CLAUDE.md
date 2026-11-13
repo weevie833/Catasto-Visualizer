@@ -21,4 +21,7 @@ Read `HANDOFF.md` for the project's state and `ARCHITECTURE.md` for its rules.
   Transcriber's "Catasto Onciario Index - Template.xlsx" (kept outside this repo). Update it and its test when the template changes.
 - The Visualizer informs decisions made elsewhere. Do not add tools to save or manage relationships;
   correcting a Catasto entry is the limit.
+- Bump `PARSER_VERSION` in `catasto-parser.js` when the parse of an existing source changes; saved projects
+  are then offered the reviewed reparse. Before a parser change, compare the old and new parse of the current
+  Marano transcription (kept outside the repo) and report every household, residence, or neighbor that changes.
 - Commit or push only when asked.

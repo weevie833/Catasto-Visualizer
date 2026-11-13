@@ -594,3 +594,13 @@ test("the Landholdings view and relation evidence keep their own land-clause rul
   assert.equal(parcels.length, 2);
   assert.deepEqual(evidence, ["Carlo Rossi", "Luca Bruni"]);
 });
+
+test("search classes a person paid as a financial reference, even in a clause that lists borders", async () => {
+  const app = await loadApp([sameNameProject()]);
+  const type = (context, query) => app.run(`sourceReferenceType(${JSON.stringify(context)}, ${JSON.stringify(query)})`);
+  const land = "A chestnut grove, bordering Vincenzo Chiappetta and the running river; upon these assets there is a deduction of ten ducats paid to the Magnificent Cassandra Conte.";
+  assert.equal(type(land, "Cassandra Conte"), "financialReferenceMatch");
+  assert.equal(type(land, "Vincenzo Chiappetta"), "residenceReferenceMatch");
+  assert.equal(type("To the Most Illustrious Lady Marchesa della Valle for a perpetual rent of five carlini.", "Marchesa della Valle"), "financialReferenceMatch");
+  assert.equal(type("He lives in the house of Domenico Ponzo and pays thirty carlini in rent.", "Domenico Ponzo"), "financialReferenceMatch");
+});

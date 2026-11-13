@@ -262,7 +262,7 @@ function splitHonorificName(name) {
     const two = tokens.slice(0, 2).join(" ");
     if (/^(Most Illustrious)$/i.test(two)) {
       honorifics.push(tokens.splice(0, 2).join(" "));
-    } else if (/^(Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|C(?:h)?ierico|Cherico)$/i.test(one)) {
+    } else if (/^(Illustrious|Illustrius|Magnificent|Reverend|Venerable|Nobleman|Noblewoman|Noble|Master|Mastro|Maestro|Donna|Dona|Don|D\.|Dr\.|Doctor|Priest|Father|Padre|Marchese|Marchesa|Magnific[oa]|Reverend[oa]|Signor[ae]?|Venerabile|Suor[ae]?|Cleric|C(?:h)?ierico|Cherico)$/i.test(one)) {
       honorifics.push(tokens.shift());
     } else {
       break;
@@ -858,7 +858,12 @@ function sourceMatchDetail(context, query) {
   return `${start ? "…" : ""}${excerpt}${start + excerpt.length < line.length ? "…" : ""}`;
 }
 
-function sourceReferenceType(context) {
+// A name is classed by the clause that names it, and money comes first: a person paid in a clause that also
+// lists borders ("bordering A and B; … a debt paid to C") is a financial reference, never a neighbor.
+function sourceReferenceType(context, query = "") {
+  const needle = searchKey(query);
+  const clause = String(context || "").split(/;|(?<=[.!?])\s+/).find(part => needle && searchKey(part).includes(needle));
+  if (clause && /\b(?:pays?|paid|paying|payment|owes?|owed|rent|principal|interest|debt|deductions?|liabilit(?:y|ies)|burden(?:ed)?|creditor|debtor|collects?|receives?|paga|pagano|capitale|affitto|censo|debito|esige)\b|^\s*(?:to|al|alla|allo|alli|ai|agli|alle)\s/i.test(clause)) return "financialReferenceMatch";
   if (/\b(?:bordering|adjacent|neighbor|property of|giusta|confin\w*|contigu\w*)\b/i.test(context)) return view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch";
   if (/\b(?:pays? to|collects? from|receives? from|creditor|debtor|principal|interest|rent|paga|capitale|affitto|esige)\b/i.test(context)) return "financialReferenceMatch";
   return "sourceReferenceMatch";
@@ -976,7 +981,7 @@ function householdSearchMatches(household, query) {
   if (!matches.length && searchKey(household.sourceEntry).includes(needle)) {
     const context = sourceMatchContext(household.sourceEntry, query);
     const referenceName = sourceReferenceName(context, query);
-    matches.push({ primary: referenceName, detail: sourceMatchDetail(context, query) || `Mentioned in ${household.head}'s entry`, type: sourceReferenceType(context), category: "reference", highlight: referenceName, subject: referenceSubject(household, referenceName) });
+    matches.push({ primary: referenceName, detail: sourceMatchDetail(context, query) || `Mentioned in ${household.head}'s entry`, type: sourceReferenceType(context, query), category: "reference", highlight: referenceName, subject: referenceSubject(household, referenceName) });
   }
   return matches;
 }

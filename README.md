@@ -30,6 +30,10 @@ person a project names as JSON, CSV, or Markdown (a name lexicon for the Customi
 an **XLSX Index**: one row per person in the layout of the Transcriber's Catasto Onciario Index template,
 with honorific, age, estimated birth year, occupation, parents, village, district, and the pages that mention
 them. Both are built when exported and never saved.
+The parser follows the Catasto's own section headings: residents (citizens, clergy, widows,
+foreigners living in the village) become household entries, while non-resident landholders,
+churches and monasteries, and the closing tax tables do not. When the parser changes, opening a
+saved project offers a reviewed reparse that keeps a snapshot and your edits.
 Admin's Transcription Language setting chooses ENG (English Translation) or IT
 (Italian Transcription); ENG is used unless IT is saved as the default. A
 bilingual file is parsed from the sections in the chosen language, and an

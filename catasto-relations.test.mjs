@@ -168,10 +168,10 @@ test("a reference without stored candidates is matched to same-name household he
   assert.deepEqual(texts(build(project(), { name: "Donato Ponzo", candidateIds: [] }).summary).slice(0, 2), ["Donato Ponzo", "No household entry of their own."]);
 });
 
-test("every degree section is present, with leads after the family and a note while institutions are pending", () => {
+test("every degree section is present, with leads after the family and no institutions section", () => {
   const report = build(project(), { householdId: "h-anna", position: 0 });
-  assert.deepEqual(Array.from(report.sections, part => part.key), ["first", "second", "leads", "third", "fourth"]);
-  assert.equal(section(report, "fourth").emptyText, "Institution links are not extracted yet.");
+  assert.deepEqual(Array.from(report.sections, part => part.key), ["first", "second", "leads", "third"]);
+  assert.deepEqual(Array.from(build(project(), { name: "Donato Ponzo", candidateIds: [] }).sections, part => part.key), ["first", "second", "third"]);
 });
 
 test("land neighbors are read from landholding clauses", () => {
@@ -303,4 +303,22 @@ test("an unknown age is not evidence for or against a lead", () => {
   const clues = report => section(report, "leads").items.flatMap(item => Array.from(item.clues || []));
   assert.equal(clues(build(data, { householdId: "h-subject", position: 0 })).some(clue => /\bage\b/.test(clue)), false);
   assert.equal(clues(build(data, { householdId: "h-older", position: 0 })).some(clue => /\bage\b/.test(clue)), false);
+});
+
+test("a person paid is never mentioned in the payer's entry; other mentions still count", () => {
+  const entry = (head, ...lines) => ({ fields: { source_entry: [`${head}, laborer, age 40`, "", ...lines].join("\n") } });
+  const data = {
+    source_title: "Test Catasto",
+    households: [
+      household("h-payer", "Vincenzo Venturo", ["Vincenzo Venturo"], { page: 3, ...entry("Vincenzo Venturo",
+        "He possesses a vineyard, bordering Paolo Neri; upon which there is a debt paid to Cassandra Conte.",
+        "Deductions",
+        "He pays to the Magnificent Cassandra Conte, for a principal of ten ducats, ten annual carlini.",
+        "To the Magnificent Cassandra Conte for a perpetual rent of five carlini.",
+        "He lives in the house of Domenico Ponzo and pays thirty carlini in rent.") }),
+      household("h-witness", "Anna Galli", ["Anna Galli"], { page: 5, ...entry("Anna Galli", "Her late husband sold a field to Cassandra Conte.") })
+    ]
+  };
+  assert.deepEqual(texts(build(data, { name: "Cassandra Conte" }).summary), ["Cassandra Conte", "No household entry of their own.", "Mentioned in Anna Galli's entry (p. 5)"]);
+  assert.deepEqual(texts(build(data, { name: "Domenico Ponzo" }).summary), ["Domenico Ponzo", "No household entry of their own."]);
 });

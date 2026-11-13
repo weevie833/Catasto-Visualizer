@@ -131,6 +131,64 @@ She lives in her own house situated in San Nicola, bordering Marzio Tenuta and G
   assert.deepEqual([...record.residence.adjacent_to], ["Marzio Tenuta", "Giacomo Covello"]);
 });
 
+test("a head exempt by privilege is a household of his own, though entered without ages", () => {
+  const english = parsePlainText(`Andrea Morello, a shepherd, aged 55.
+He lives in his own house in the Pasolani.
+The grand total is 53 oncie.
+
+Andrea Belmonte, a shepherd, is not taxed any oncie, neither for himself nor for his family, because he holds the Privilege of a "Padre Onusto".
+
+Andrea Conforto, a day laborer, aged 28.
+Carmine, his brother and also a day laborer, aged 20.
+He lives in his own house in the Pasolani, bordering Andrea Belmonte and the public road.`).households;
+  assert.deepEqual(Array.from(english, record => record.household_head), ["Andrea Morello", "Andrea Belmonte", "Andrea Conforto"]);
+  assert.equal(english[1].members_text, "Andrea Belmonte, a shepherd");
+  assert.match(english[1].source_entry, /Padre Onusto/);
+  assert.equal(english[2].residence_links[0].household_id, english[1].id);
+
+  const italian = parsePlainText(`Andrea Morello pecoraro anni 55
+Abita in casa propria sita li Pasolani.
+
+Andrea Belmonte pecoraro non si tassano oncie, né di lui né di sua famiglia, atteso tiene il Privilegio di Padre Onusto.
+
+Andrea Conforto bracciale anni 28
+Abita in casa propria sita li Pasolani.`, "it").households;
+  assert.deepEqual(Array.from(italian, record => record.household_head), ["Andrea Morello", "Andrea Belmonte", "Andrea Conforto"]);
+  assert.equal(italian[1].members_text, "Andrea Belmonte, pecoraro");
+});
+
+test("an age set off by a dash still begins a household", () => {
+  const english = parsePlainText(`Antonio Mirabello, from the Land of Rende, age — 48
+Teresa Volpentesta, wife, age — 44
+He possesses no assets of any kind, living by his own labors.
+
+Andrea Conte, from the Land of Castelfranco, age — 48
+Elisabetta Costabile, wife, age — 22
+He possesses a landholding in the Pasolani district.`).households;
+  assert.deepEqual(Array.from(english, record => record.household_head), ["Antonio Mirabello", "Andrea Conte"]);
+  assert.equal(english[1].members_text, "Andrea Conte, from the Land of Castelfranco, age 48\nElisabetta Costabile, wife, age 22");
+
+  const italian = parsePlainText(`Antonio Mirabello, della Terra di Rende di anni — 48
+Teresa Volpentesta moglie di anni — 44
+Non possiede beni di sorte alcuna vivendo colle proprie fatiche.
+
+Andrea Conte della Terra di Castelfranco di anni — 48
+Elisabetta Costabile moglie di anni — 22
+Possiede una possessione nelli Pasolani.`, "it").households;
+  assert.deepEqual(Array.from(italian, record => record.household_head), ["Antonio Mirabello", "Andrea Conte"]);
+});
+
+test("first names joined by 'and' or a kept Italian 'e' share the surname that follows, particle included", () => {
+  const { expandNeighborNames } = context.window.CatastoParser;
+  assert.deepEqual(Array.from(expandNeighborNames("Giacomo e Rafaele di Bartolo")), ["Giacomo di Bartolo", "Rafaele di Bartolo"]);
+  assert.deepEqual(Array.from(expandNeighborNames("Giacomo, and Domenico di Bartolo")), ["Giacomo di Bartolo", "Domenico di Bartolo"]);
+  assert.deepEqual(Array.from(expandNeighborNames("Antonio Bartella ed Andrea Ritaccha")), ["Antonio Bartella", "Andrea Ritaccha"]);
+  assert.deepEqual(Array.from(expandNeighborNames("Giacomo and the public road")), ["Giacomo", "public road"]);
+  assert.deepEqual(Array.from(expandNeighborNames("Gennaro Passarello and his sister Anna di Bartolo")), ["Gennaro Passarello", "Anna di Bartolo"]);
+  const { expandItalianNeighborNames } = context.window.CatastoParser;
+  assert.deepEqual(Array.from(expandItalianNeighborNames("Gennaro Passarello e sorella Anna di Bartolo")), ["Gennaro Passarello", "Anna di Bartolo"]);
+});
+
 test("a new household starts after non-residence narrative text", () => {
   const data = parsePlainText(`Antonio Primo, laborer — age 40
 Lucia Russo, wife — age 35
@@ -167,6 +225,74 @@ He lives in San Nicola.`);
   assert.equal(data.households[1].household_head, "Marco Todaro");
 });
 
+test("a neighbor named without the title Cleric is the cleric's household", () => {
+  const records = parsePlainText(`Antonio di Bartolo, day laborer — age 40
+He lives in his own house in San Nicola, bordering the property of Lorenzo Aijello and the public road.
+
+Cleric Lorenzo Aijello — age 28
+He lives in his own house in San Nicola.`).households;
+  assert.equal(records[0].residence_links[0].household_id, records[1].id);
+});
+
+test("a residence sentence cut by a page break is read as one sentence", () => {
+  const english = parsePlainText(`Sigismonda Abate, virgin and head of household — age 20
+Giuseppe, brother — age 16
+She possesses the house where she lives located [continued on next page]
+[[SOURCE_PAGE:380]]
+...of the place called li Pasolani, bordering the properties of Antonia Ritaccha and the public road.
+Furthermore, she possesses a landholding in the said Pasolani.`).households[0];
+  assert.deepEqual(Array.from(english.residence.adjacent_to), ["Antonia Ritaccha", "public road"]);
+  assert.match(english.source_entry, /\[continued on next page\]/, "the source text is kept as written");
+
+  const italian = parsePlainText(`Sigismonda Abate vergine in capillis — anni 20
+Giuseppe fratello — anni 16
+Possiede la casa ove abita loco
+[[SOURCE_PAGE:380]]
+detto li Pasolani, giusta li beni d’ Antonia Ritaccha, e via publica.`, "it").households[0];
+  assert.equal(italian.residence.place, "li Pasolani");
+  assert.deepEqual(Array.from(italian.residence.adjacent_to), ["Antonia Ritaccha", "via publica"]);
+});
+
+test("a head's city or casale of origin is not part of his name", () => {
+  const english = parsePlainText(`Gennaro Principe of the City of Marano Principato, age 40
+Lalla Cajra, wife, age 32
+He lives in a rented house.
+
+Paulo Cosentino of the Casale of Aprigliano, day laborer — age 40
+He lives in a rented house.`).households;
+  assert.deepEqual(Array.from(english, record => record.household_head), ["Gennaro Principe", "Paulo Cosentino"]);
+  assert.equal(english[0].members_text, "Gennaro Principe, age 40\nLalla Cajra, wife, age 32");
+
+  const italian = parsePlainText(`Paulo Cosentino del Casale di Aprigliano bracciale — anni 40
+Abita in casa d'affitto.`, "it").households;
+  assert.equal(italian[0].household_head, "Paulo Cosentino");
+});
+
+test("a capitalized Padre after a name is a surname, not the head's father", () => {
+  const english = parsePlainText(`Cesare Tenuta, day laborer — age 50
+They are in total — 24 ounces.
+
+Carlo Padre, shepherd — age 50
+Francesca Micieli, wife — age 45
+Andrea Ingiungi, nephew, day laborer — age 20
+He lives in a group of houses in the Pasolani district.`).households;
+  assert.deepEqual(Array.from(english, record => record.household_head), ["Cesare Tenuta", "Carlo Padre"]);
+
+  const italian = parsePlainText(`Cesare Tenuta bracciale — anni 50
+Sono in tutto — oncie — 24
+
+Carlo Padre pecoraro — anni 50
+Francesca Micieli moglie — anni 45
+Andrea Ingiungi bracciale — anni 20
+Abita in casaggio locale di Pasolani.
+
+Biasi Russo bracciale — anni 60
+Abita in casaggio locale di Pasolani.
+Lucia padre — anni 80`, "it").households;
+  assert.deepEqual(Array.from(italian, record => record.household_head), ["Cesare Tenuta", "Carlo Padre", "Biasi Russo"]);
+  assert.match(italian[2].members_text, /Lucia padre/, "a lowercase padre is still a dependent");
+});
+
 test("religious titles and daughter-of qualifiers can begin independent households", () => {
   const data = parsePlainText(`Marchesa Belmonte, widow — age 35
 Gaetano, son — age 9
@@ -182,6 +308,23 @@ She possesses a house in San Nicola.`);
     "Marchesa Belmonte",
     "Sister Maria Covello",
     "Matalena Orrico"
+  ]);
+});
+
+test("a father named without a comma is not part of the head's name", () => {
+  const data = parsePlainText(`Giovanni di Rangho, son of Antonio, day laborer — age 28
+He lives in a house in San Nicola.
+
+Giovanni di Rangho son of Paulo, day laborer — age 21
+He lives in a house in San Nicola.
+
+Gennaro Belmonte son of Santo, shepherd — age 59
+He lives in a house in San Nicola.`);
+
+  assert.deepEqual([...data.households.map(record => record.household_head)], [
+    "Giovanni di Rangho",
+    "Giovanni di Rangho",
+    "Gennaro Belmonte"
   ]);
 });
 
@@ -398,4 +541,86 @@ Not part of either section.`;
   assert.match(italian.households[0].source_entry, /Abita/);
   assert.doesNotMatch(italian.households[0].source_entry, /lives|Not part/);
   assert.doesNotMatch(parsePlainText(text, "en").households[0].source_entry, /Abita|Not part/);
+});
+
+const { extractTranscriptionSections } = context.window.CatastoParser;
+const sectionMarks = text => extractTranscriptionSections(text, "en").text.split("\n")
+  .flatMap((line, index, lines) => {
+    const kind = line.match(/^\[\[SECTION:(\w+)\]\]$/)?.[1];
+    return kind ? [`${kind}: ${lines[index + 1].replace(/\*\*/g, "").trim()}`] : [];
+  });
+
+test("section headings are classed by the kind of people they list, in either language", () => {
+  const plain = [
+    "**Cittadini**", "", "Marco Ferrari, laborer — age 40", "", "He lives in his own house.", "",
+    "**Forestieri abitanti — Laici**", "", "Luca Neri, of Valdorso — age 50", "",
+    "**Lay Residents from Outside the Area**", "", "Gaspare Bianchi, from the Land of Montebello, age 30", "",
+    "**Non-Resident Foreigners — Laymen**", "", "Pietro Neri of Montebello", "",
+    "**Foreign Lay Landowners (Non-residents)**", "", "Magnifico Paolo Rossi of the city of Montebello", "",
+    "He possesses a vineyard.", "", "**Chiese e Monasteri per forastieri bonatenenti**", "",
+    "**Collettoria generale**", "**— Cittadini —**", "", "| Marco Ferrari | 12 |"
+  ].join("\n");
+  assert.deepEqual(sectionMarks(plain), [
+    "resident: Cittadini",
+    "resident: Forestieri abitanti — Laici",
+    "resident: Lay Residents from Outside the Area",
+    "excluded: Non-Resident Foreigners — Laymen",
+    "excluded: Foreign Lay Landowners (Non-residents)",
+    "excluded: Chiese e Monasteri per forastieri bonatenenti",
+    "summary: Collettoria generale",
+    "resident: — Cittadini —"
+  ]);
+});
+
+test("lines inside an entry are never headings", () => {
+  const plain = [
+    "Don Antonio Ferrari, priest — age 50", "Maria, widow, sister — age 60", "",
+    "A chapel under the Right of Patronage of his family.", "",
+    "Venerable Chapel of the Rosary located in the Borgo", "",
+    "He pays to the Reverend Clergy of this Land ten carlini.", "",
+    "Citizens with debts — 12 ounces"
+  ].join("\n");
+  assert.deepEqual(sectionMarks(plain), []);
+});
+
+test("an English heading takes its kind from the Italian heading in the same place on the page", () => {
+  const text = [
+    "### **Valdorso 1754: Page 12** **Italian Transcription**", "", "**Forastieri abitanti — Laici**", "",
+    "Luca Neri di Montebello — anni 50", "",
+    "**English Translation**", "", "**Lay Non-Resident Inhabitants**", "", "Luca Neri of Montebello — age 50", "",
+    "### **Valdorso 1754: Page 13** **Italian Transcription**", "", "**Forastieri non abitanti — Laici**", "",
+    "Paolo Rossi della città di Montebello", "",
+    "**English Translation**", "", "**Lay Non-Resident Inhabitants**", "", "Paolo Rossi of the city of Montebello"
+  ].join("\n");
+  assert.deepEqual(sectionMarks(text), ["resident: Lay Non-Resident Inhabitants", "excluded: Lay Non-Resident Inhabitants"]);
+});
+
+test("a summary headed only in Italian starts at the next English text", () => {
+  const text = [
+    "### **Valdorso 1754: Page 40** **Italian Transcription**", "", "**Collettoria generale**", "",
+    "| Marco Ferrari | 12 |",
+    "### **Valdorso 1754: Page 41** **Italian Transcription**", "", "| Luca Neri | 8 |", "",
+    "**English Translation**", "", "| Luca Neri | 8 |"
+  ].join("\n");
+  assert.deepEqual(sectionMarks(text), ["summary: | Luca Neri | 8 |"]);
+});
+
+test("a heading ends the entry before it, and only resident sections hold entries", () => {
+  const text = [
+    "**Cittadini**", "", "Marco Ferrari, laborer — age 40", "", "He lives in his own house in the Borgo.", "",
+    "**Forastieri Bonatenenti Laici**", "", "Paolo Rossi of Montebello", "", "He possesses a vineyard, bordering Marco Ferrari.", "",
+    "Gaspare Bianchi of Montebello, a minor — age 12", "", "He possesses a garden.", "",
+    "[[SOURCE_PAGE:9]]", "", "**Forestieri abitanti Laici**", "", "Luca Neri, shoemaker — age 50", "", "He lives in a rented house.", "",
+    "**Collettoria**", "", "**Cittadini**", "", "Marco Ferrari — age 40 | 12 |", "", "Luca Neri — age 50 | 8 |"
+  ].join("\n");
+  const records = parsePlainText(text).households;
+  assert.deepEqual(Array.from(records, record => record.household_head), ["Marco Ferrari", "Luca Neri"], "no entry from the excluded section or the summary");
+  assert.equal(records[0].source_entry, "Marco Ferrari, laborer — age 40\n\nHe lives in his own house in the Borgo.");
+  assert.equal(records[1].source_entry, "Luca Neri, shoemaker — age 50\n\nHe lives in a rented house.", "neither heading nor summary is part of the entry");
+  assert.deepEqual(Array.from(records[1].source_pages), [9]);
+});
+
+test("a source without section headings parses as before", () => {
+  const text = "Marco Ferrari, laborer — age 40\n\nHe lives in his own house.\n\nLuca Neri, laborer — age 50\n\nHe lives in the Borgo.";
+  assert.deepEqual(Array.from(parsePlainText(text).households, record => record.household_head), ["Marco Ferrari", "Luca Neri"]);
 });

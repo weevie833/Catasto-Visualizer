@@ -25,9 +25,9 @@ for (const language of ["en", "it"]) {
     const data = parsed[language];
     assert.equal(data.source_title, "Casale Esempio 1760");
     assert.deepEqual(plain(data.households.map(record => record.household_head)),
-      ["Bruno Ventrella", "Rosa Galdieri", "Matteo Ferrandina", "Pietro Lombardo"]);
-    assert.deepEqual(plain(data.households.map(record => record.source_pages)), [[1], [1], [2], [3, 4]]);
-    assert.deepEqual(plain(data.households.map(record => record.residence.place)), ["Borgo Alto", "Borgo Alto", "Piano", "Piano"]);
+      ["Bruno Ventrella", "Rosa Galdieri", "Matteo Ferrandina", "Pietro Lombardo", "Lorenzo Pignataro"]);
+    assert.deepEqual(plain(data.households.map(record => record.source_pages)), [[1], [1], [2], [3, 4], [5]]);
+    assert.deepEqual(plain(data.households.map(record => record.residence.place)), ["Borgo Alto", "Borgo Alto", "Piano", "Piano", "Piano"]);
     // An entry that continues onto the next page records where that page begins.
     assert.deepEqual(plain(data.households[3].source_page_breaks.map(item => item.page)), [3, 4]);
   });
@@ -64,7 +64,7 @@ for (const language of ["en", "it"]) {
 test("the English and Italian sides give the same people", () => {
   const people = language => [...new Set(xlsxRows(language).map(row => `${row.given} ${row.surname}`))].sort();
   assert.deepEqual(people("it"), people("en"));
-  assert.equal(xlsxRows("en").length, 14);
+  assert.equal(xlsxRows("en").length, 16);
 });
 
 test("an Italian creditor clause that begins a sentence is indexed", () => {
@@ -72,3 +72,17 @@ test("an Italian creditor clause that begins a sentence is indexed", () => {
   assert.equal(saverio?.surname, "Cantisani");
   assert.equal(saverio.village, "Montefinto");
 });
+
+for (const language of ["en", "it"]) {
+  test(`${language}: a section heading ends the entry before it; only residents become entries`, () => {
+    const records = parsed[language].households;
+    const pietro = records.find(record => record.household_head === "Pietro Lombardo");
+    assert.doesNotMatch(pietro.source_entry, /Forastieri|Inhabitants|Pignataro/);
+    // The resident foreigner is an entry, though the English heading calls him "Non-Resident".
+    const lorenzo = records.find(record => record.household_head === "Lorenzo Pignataro");
+    assert.doesNotMatch(lorenzo.source_entry, /Inhabitants|Forastieri|Cantisani della|Montefinto|Collettoria|\|/);
+    // The non-resident landowner and the closing summary are not entries.
+    assert.equal(records.some(record => /Saverio Cantisani/.test(record.household_head)), false);
+    assert.equal(records.length, 5);
+  });
+}

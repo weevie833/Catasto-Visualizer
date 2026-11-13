@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.09 (the Codex review fixes: durable storage, merging removed, browser and fixture tests; V 0.08 added the Name Index and XLSX Index exports in Admin)
+- Branch: `main`, at V 0.10 (the fourth degree removed and payments kept out of the report; V 0.09 had the Codex review fixes: durable storage, merging removed, browser and fixture tests)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
@@ -29,7 +29,7 @@ npx eslint .
 npm run test:browser
 ```
 
-The Node suite contains 153 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
+The Node suite contains 171 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
 visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 55 server and project-storage tests.
 `npm run test:browser` (`smoke.browser.mjs`, about 10 seconds) starts the real server on a free port with a temporary
 project folder, creates a project in Admin from `test-fixtures/synthetic-catasto.md`, and checks in Chromium that the
@@ -65,9 +65,13 @@ browser's IndexedDB at that address are migrated.
   the right. The report is built by `catasto-relations.js` for the person
   selected (head, member, or a name known only from references) and is never
   saved. It lists stated and derived family, residence and land neighbors, and
-  ranked family leads (Strong, Moderate, Weak) with their clues. Institutions
-  and connections through a third party are not built yet; see
-  `ADJACENT_EVIDENCE_PLAN.md`.
+  ranked family leads (Strong, Moderate, Weak) with their clues. It has three
+  degrees: the fourth (institutions) was built and then removed in V 0.10 as
+  more noise than insight. A church or convent named in a border appears in the
+  third degree like any neighbor.
+- Money paid is not proximity. A person paid (rent, interest, a deduction) is
+  never listed as a neighbor or a mention of the payer, and search labels them
+  a financial reference even when the same clause lists borders.
 - Names in the report and in the source entry are links that select that person;
   Back retraces the trail for the session.
 - On wide windows a draggable divider sets the split between the 3D view and the
@@ -104,7 +108,7 @@ Castelfranco`), `Abita in casa propria sita in ...` residences, neighbors after
 `di capacità`, and `stimata la rendita`. Italian projects display the source's
 Italian terms.
 
-On the bilingual Marano transcription, the Italian side yields the same 362
+On the bilingual Marano transcription (measured with parser version 7), the Italian side yields the same 362
 households as the English side; 70 of 71 districts and 538 of 567 residence
 neighbors agree, and 622 Italian landholdings are found against 603 English.
 39 Italian landholdings have no district, mostly clauses with no place name.
@@ -121,12 +125,34 @@ The parser now uses a household-entry state machine:
 - After the narrative has begun, the next independent person-and-age line
   starts a new household.
 - Page boundaries do not end entries, and dependent-member lists may continue
-  across pages.
+  across pages. A sentence cut by a page break (no closing punctuation, the next
+  page starting in lowercase, often with `[continued on next page]`) is rejoined
+  before the residence is read; the stored source text is left as written.
+- Section headings (`[[SECTION:resident|excluded|summary]]` markers, see
+  `SECTION_HEADINGS_PLAN.md`) end entries. Only resident sections hold entries;
+  an English heading takes its kind from the Italian heading in the same place.
+  "Lay Residents from Outside the Area" and other plain "residents" headings are
+  resident; "non-resident" ones are excluded.
+- An age set off by a dash (`age — 48`, `di anni — 48`) is read as an age.
+- A head exempt by privilege, entered in one sentence without ages ("Andrea
+  Belmonte, a shepherd, is not taxed…"; "…non si tassano…"), is a household.
 - Religious titles such as `Sister` are not mistaken for family relationships.
+- A capitalized `Padre` after a name is a surname (Carlo Padre); a lowercase
+  `padre` is the relation. Other relation words (`Madre`, `Figlio`, `Nipote`)
+  occur capitalized in real member lines and stay relations.
 - Historical lines with missing commas or relationships placed before the
   comma are accommodated.
 
-The current parse produces 362 household entries.
+Parser version 8 (2026-11-13) added the section, dashed-age, exemption, page-break, `Padre`,
+origin, patronymic, and neighbor-splitting rules in this file. The current Marano transcription
+(Desktop, 2026-11-13) parses to 367 households. Saved projects made with version 7 are offered the
+reviewed reparse when opened.
+
+Residence neighbors that still match no household entry are listed by comparing each
+`residence_links` entry that has no `household_id` against the heads. On the current transcription
+8 names remain, among them Giacomo Loizzo (p. 340), whom the manuscript names but who has no
+entry. Most of the rest are named by a head with the same surname and are probably relatives
+with no entry of their own.
 
 ## Identity resolution
 
@@ -158,6 +184,18 @@ The current parse produces 362 household entries.
   kinship phrase does not become a second neighbor.
 - A person who already has a surname keeps it, as in `Giacomo Covello, son of
   the late Antonio`.
+- A father named without a comma is not part of the head's name: `Giovanni di
+  Rangho son of Paulo, day laborer` heads the household `Giovanni di Rangho`, and
+  same-name heads are labeled by their fathers.
+- A head's origin is not part of the name: `of the Land/City/Town/Casale of …`
+  and Italian `della/del/di Terra/Città/Casale di …` become the residential
+  location.
+- In border clauses, names joined by `and`, or by an Italian `e`/`ed` kept in the
+  translation, are separate people; a lone first name takes the next surname
+  with its particle (`Giacomo e Rafaele di Bartolo` → Giacomo di Bartolo and
+  Rafaele di Bartolo). A relation before a name (`his sister Anna di Bartolo`,
+  `e sorella Anna di Bartolo`) is dropped.
+- Titles are ignored when names are compared, including `Cleric`.
 
 ## Key files
 
@@ -225,5 +263,5 @@ imported again. Two features previously requested here are therefore not planned
   through a reviewed update that keeps the previous version as a snapshot.
 - Family leads are speculation. Keep them labeled with their clues, and do not
   match spelling variants (`Paolo`/`Paulo`) silently.
-- The updated Marano database, with more neighbor and institution detail, is
-  expected; re-measure the report's evidence on it before building institutions.
+- Do not bring back institution links or payment-based connections; the report
+  is about physical proximity and stated family.

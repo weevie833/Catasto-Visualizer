@@ -82,3 +82,56 @@ Paga al Magnifico Saverio Cantisani della Città di Montefinto per capitale di d
 
 He possesses a vineyard in Borgo Alto, bordering Rosa Galdieri; its income is estimated at twelve carlini, which are 4 ounces.
 He pays to the Magnificent Saverio Cantisani of the city of Montefinto, for a principal of fifty ducats, five annual ducats.
+
+### **Casale Esempio 1760: Page 5**
+
+**Italian Transcription:**
+
+**Forastieri abitanti — Laici**
+
+Lorenzo Pignataro della Terra di Roccafinta, calzolaro — anni 36
+Agnese Cantisani moglie — anni 30
+
+Abita in casa locata nel Piano, giusta li beni di Pietro Lombardo.
+
+**English Translation:**
+
+**Lay Non-Resident Inhabitants**
+
+Lorenzo Pignataro of the Land of Roccafinta, shoemaker — age 36
+Agnese Cantisani, wife — age 30
+
+He lives in a rented house in Piano, bordering Pietro Lombardo.
+
+### **Casale Esempio 1760: Page 6**
+
+**Italian Transcription:**
+
+**Forastieri Bonatenenti Laici**
+
+Magnifico Saverio Cantisani della Città di Montefinto
+
+Possiede una vigna nel Borgo Alto, confina Bruno Ventrella; stimata la rendita per carlini otto, sono oncie 2:20.
+
+**English Translation:**
+
+**Foreign Lay Landowners (Non-residents)**
+
+Magnificent Saverio Cantisani of the city of Montefinto
+
+He possesses a vineyard in Borgo Alto, bordering Bruno Ventrella; its income is estimated at eight carlini, which are 2 ounces and 20 grana.
+
+### **Casale Esempio 1760: Page 7**
+
+**Italian Transcription:**
+
+**Collettoria generale**
+**— Cittadini —**
+
+| Bruno Ventrella | 12 | 4 |
+| Lorenzo Pignataro, forastiero — anni 36 | 12 | — |
+
+**English Translation:**
+
+| Bruno Ventrella | 12 | 4 |
+| Lorenzo Pignataro, resident foreigner — age 36 | 12 | — |

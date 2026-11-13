@@ -11,7 +11,6 @@
       degree1: "First degree: immediate family",
       degree2: "Second degree: extended family",
       degree3: "Third degree: neighbors",
-      degree4: "Fourth degree: institutions",
       others: "Others in the household",
       noneStated: "None stated in this entry.",
       noFamilyListed: "No household entry, so no family is listed.",
@@ -51,7 +50,6 @@
       namesHeadLand: pages => `names this household's head as a land neighbor${pages}`,
       namesThemLand: pages => `names them as a land neighbor${pages}`,
       maybeSomeoneElse: count => `${count} household heads have this name, so it may be someone else`,
-      institutionsPending: "Institution links are not extracted yet.",
       age: age => `age ${age}`,
       infant: "infant",
       headOf: count => `Head of a household of ${count}.`,
@@ -123,7 +121,6 @@
       degree1: "Primo grado: famiglia stretta",
       degree2: "Secondo grado: parenti",
       degree3: "Terzo grado: vicini",
-      degree4: "Quarto grado: istituzioni",
       others: "Altri nella famiglia",
       noneStated: "Nessuno indicato in questa voce.",
       noFamilyListed: "Nessuna voce familiare propria, quindi nessun familiare è elencato.",
@@ -163,7 +160,6 @@
       namesHeadLand: pages => `cita il capofamiglia come vicino dei terreni${pages}`,
       namesThemLand: pages => `lo cita come vicino dei terreni${pages}`,
       maybeSomeoneElse: count => `${count} capifamiglia hanno questo nome, quindi potrebbe essere un’altra persona`,
-      institutionsPending: "I legami con le istituzioni non sono ancora estratti.",
       age: age => `anni ${age}`,
       infant: "infante",
       headOf: count => `Capofamiglia di una famiglia di ${count}.`,
@@ -875,14 +871,21 @@
       section("first", S.degree1, family.first, S.noneStated),
       section("second", S.degree2, family.second, S.noneStated),
       section("leads", S.leads, leads.length ? [line(S.leadsIntro, { kind: "note" }), ...leads] : [], S.noLeads),
-      section("third", S.degree3, neighbors, null),
-      section("fourth", S.degree4, [], S.institutionsPending)
+      section("third", S.degree3, neighbors, null)
     ];
     if (family.others.length) sections.splice(3, 0, section("others", S.others, family.others, null));
     return { subjectName: subject.name, householdId: record.id, position: subject.position, summary, sections };
   }
 
   // A person known only from other entries: where they are named, and which households might be theirs.
+  // Money paid is not proximity: a sentence that pays someone (rent, interest, a deduction) never counts as
+  // a mention of them. Deductions lists name the person paid at the start: "To the Most Illustrious…".
+  function isPaymentSentence(sentence) {
+    const text = String(sentence || "").trim();
+    return /\b(?:pays?|paid|paying|owes?|owed|rent|principal|interest|debt|deductions?|liabilit(?:y|ies)|burden(?:ed)?|creditor|paga|pagano|pagare|affitto|censo|capitale|debito|interesse|pesi)\b/i.test(text) ||
+      /^(?:to|al|alla|allo|alli|ai|agli|alle)\s/i.test(text);
+  }
+
   function referenceReport(S, index, subject) {
     const P = parser();
     const name = String(subject.name || "").trim();
@@ -904,7 +907,8 @@
       const named = neighborLinks(record, index.byHeadName).some(link => P.personKey(link.name) === key);
       if (named) {
         neighborOf.push(line(`${record.household_head} — ${S.namesThem(cite(pagesText(S, record)))}`, { household: record.id, links: [headLink(record)] }));
-      } else if (needle && normalized(record.source_entry).includes(needle) && !landOf.some(item => item.household === record.id)) {
+      } else if (needle && !landOf.some(item => item.household === record.id) &&
+        P.sentenceList(String(record.source_entry || "")).some(sentence => !isPaymentSentence(sentence) && normalized(sentence).includes(needle))) {
         mentions.push(line(S.mentionedIn(record.household_head, cite(pagesText(S, record))), { household: record.id, links: [headLink(record)] }));
       }
     });
@@ -917,8 +921,7 @@
       sections: [
         section("first", S.degree1, [], S.noFamilyListed),
         section("second", S.degree2, [], S.noFamilyListed),
-        section("third", S.degree3, thirdDegree(S, neighborOf, landOf, true), null),
-        section("fourth", S.degree4, [], S.institutionsPending)
+        section("third", S.degree3, thirdDegree(S, neighborOf, landOf, true), null)
       ]
     };
   }

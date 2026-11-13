@@ -1,6 +1,6 @@
 # Adjacent Evidence Report: Plan
 
-**Status:** Historical design record. The report was implemented in V 0.07 (see `HANDOFF.md` and `catasto-relations.js`, which are the current specification). Institution links (fourth degree) still wait for the updated Marano Marchesato 1754 database. The planning text below is kept as written on 2026-11-03.
+**Status:** Historical design record. The report was implemented in V 0.07 (see `HANDOFF.md` and `catasto-relations.js`, which are the current specification). The fourth degree (institutions) and connections through a third party were dropped in V 0.10: they gave more noise than insight. Payments are not evidence of proximity. The planning text below is kept as written on 2026-11-03.
 
 ## Goal
 

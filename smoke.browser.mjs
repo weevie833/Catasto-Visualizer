@@ -54,12 +54,12 @@ test("Admin creates a project and the Visualizer shows, edits, and keeps it", { 
   await page.fill("#plainText", fixture);
   await page.click("#createProject");
   await page.waitForSelector("#successNotice:not([hidden])");
-  assert.match(await page.textContent("#createStatus"), /with 4 households/);
+  assert.match(await page.textContent("#createStatus"), /with 5 households/);
 
   await page.goto(`${server.url}/index.html`);
   const buttons = page.locator("#householdList .household-button");
   await buttons.first().waitFor();
-  assert.equal(await buttons.count(), 4);
+  assert.equal(await buttons.count(), 5);
   assert.match(await page.textContent("#catastoTitle"), /Casale Esempio/);
   const canvas = await page.locator("#sceneCanvas canvas").boundingBox();
   assert.ok(canvas && canvas.width > 0 && canvas.height > 0, "the 3D view draws a canvas");
