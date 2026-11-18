@@ -175,6 +175,19 @@ residences, 9 residences, and 41 parcels ("A portion of ...", "A property in ...
 neighbors for 6, 4 infants and one parcel, corrects the place for Biasi Santanna (San Nicola) and Don Ignazio
 Carvello ("Not Listed"), and loses the "Terra di Rende" neighbor.
 
+Parser version 11 (2026-11-18) removes words before a neighbor's name that do not name the neighbor, in both
+languages: crafts ("mastro", "maestro"), "said"/"detto"/"sudetto", "on (all) sides", "late"/"quondam", "those",
+"assets", "lands", an empty "[]", a leading "a"/"l'"/"li", and titles of honor before a noble title ("Lady",
+"Lord", "Most Excellent", "Illustrissima Signora" before Marchesa, Principe, Conte). A title alone ("the
+Princess") takes no surname from the next name. An endowment clause ("assigned as his Sacred Patrimony",
+"assegnata ad titulum Patrimonij") and a "perché" clause end the neighbor list. On the saved Marano project, 29
+English and 41 Italian parcels change their neighbor names (all of them these words), 6 neighbors that were
+clause text are dropped (Don Lorenzo Santanna, Don Pietro Spizzirri, Diego di Bartolo parcel 7), and one
+residence neighbor becomes "public road" (Domenico Chiappetta). No household, member or residence place
+changes. Parcels whose neighbor names still differ between the languages are translated institutions and
+nobles ("Convent San Domenico City Cosenza" / "Convento di San Domenico della Città di Cosenza") and rivers,
+which the parser does not translate.
+
 Residence neighbors that still match no household entry are listed by comparing each
 `residence_links` entry that has no `household_id` against the heads. On the current transcription
 8 names remain, among them Giacomo Loizzo (p. 340), whom the manuscript names but who has no

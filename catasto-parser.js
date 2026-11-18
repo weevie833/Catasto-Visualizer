@@ -136,8 +136,24 @@
       .trim();
   }
 
-
-
+  // Words before a neighbor's name that do not name the neighbor, in either language: "mastro Carlo Conforti",
+  // "said Saverio Puglese", "on all sides late Pietro Ionati", "l'Illustrissima Signora Marchesa della Valle".
+  // Both sides of a bilingual entry then give the same name.
+  const NOBLE_TITLE = "(?:Marches[ae]|Princip[ei]|Princes?s?|Cont[ei]|Count|Duca|Duke|Baron[ei]?)";
+  function cleanNeighborLabel(name) {
+    const title = NOBLE_TITLE;
+    let label = String(name || "").replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+    let previous;
+    do {
+      previous = label;
+      label = label
+        .replace(/^(?:on\s+(?:all\s+)?sides?|those|assets|lands|said|aforementioned|su(?:d|dd)ett[oa]|dett[oa](?=\s+[A-ZÀ-Ý])|quondam|(?:the\s+)?late|(?:il\s+)?fu|mastro|maestro|master|an?(?=\s+[a-z]))\s+/i, "")
+        .replace(/^(?:l['’]\s*|dell['’]\s*|li\s+|il\s+)/i, "")
+        .replace(new RegExp(`^(?:(?:Illustrissim[oaie]|Illustr[ei]|Eccellentissim[oaie]|Most\\s+Excellent|Most\\s+Holy|Santissim[oa]|Lady|Lord|Signor[ae]?)\\s+)+(?=${title}\\b)`, "i"), "")
+        .trim();
+    } while (label !== previous);
+    return label;
+  }
 
   // Exact public places named as a neighbor in Italian border clauses.
   function isExactPublicAnchor(name) {
@@ -197,8 +213,8 @@
   // alli beni di", joined by "e"/"ed"; "via publica", "vico", and "fiume" are public anchors.
   function expandItalianNeighborNames(raw) {
     const cleaned = String(raw || "")
-      .replace(/\[[^\]]+\]/g, "")
-      .replace(/[,\s]*\b(?:(?:il|la|nella|nel)\s+)?(?:quale|per cui|dove|ove)\b[\s\S]*$/i, "")
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/[,\s]*\b(?:(?:il|la|nella|nel)\s+)?(?:quale|per cui|dove|ove|perch[eé]|assegnat[ao]|ad\s+titulum)(?![\wÀ-ÿ])[\s\S]*$/i, "")
       .replace(/\b(?:alli|alle|ai|agli|li|i)\s+beni\b/gi, ",")
       .replace(/\bbeni\b/gi, ",")
       .replace(/\bquell[ie]\b/gi, ",")
@@ -212,7 +228,7 @@
         .replace(/^(?:su[oa]\s+)?(?:sorella|fratello|madre|padre|figli[oa]|moglie|marito|nipote|cognat[oa]|suocer[oa]|genero|nuora|zi[oa])\s+(?=[A-ZÀ-Ý])/, "")
         .replace(/[.:]+$/, "")
         .trim())
-      .map(cleanPersonName)
+      .map(name => cleanPersonName(cleanNeighborLabel(name)))
       // "Terra di Rende" names a town, not a neighbor.
       .filter(name => name && (/[A-ZÀ-Ý]/.test(name) || isExactPublicAnchor(name)) && !/^(?:Terra|Città|Casale)\s+d/i.test(name) &&
         !/\b(?:oncie|once|carlini|ducati|docati|grana|rendita|stimat\w*|capacità|moggi\w*|annui|sono)\b/i.test(name));
@@ -220,6 +236,10 @@
     parts.forEach((part, index) => {
       if (isExactPublicAnchor(part)) {
         expanded.push(part.toLowerCase());
+        return;
+      }
+      if (new RegExp(`^${NOBLE_TITLE}$`, "i").test(part)) {
+        expanded.push(part);
         return;
       }
       const hasSurname = part.split(/\s+/).length > 1;
@@ -473,7 +493,7 @@
 
   // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
   // and neighbor links are normalized the same way for both languages.
-  const PARSER_VERSION = 10;
+  const PARSER_VERSION = 11;
 
   function stripNamePrefixes(name) {
     return String(name || "")
@@ -537,7 +557,7 @@
   }
 
   function isPublicAnchor(name) {
-    return /\b(?:public road|running river|river|road|via pub+lica|strada|vico|fiume|vallone)\b/i.test(name);
+    return /\b(?:public road|running river|river|riverbed|road|via pub+lica|via municipale|strada|vico|fiume|fiumicello|vallone)\b/i.test(name);
   }
 
   function sentenceList(text) {
@@ -554,7 +574,7 @@
 
   function normalizeName(name) {
     return name
-      .replace(/\[[^\]]+\]/g, "")
+      .replace(/\[[^\]]*\]/g, "")
       .replace(/\b(the|property|properties|of|and|bordering|borders|Magnificent|Most Illustrious|Illustrious|Master)\b/gi, " ")
       .replace(/[.;:—–-]/g, " ")
       .replace(/\s+/g, " ")
@@ -608,24 +628,25 @@
       .replace(/\b(?:the\s+)?([A-ZÀ-Ý][\wÀ-ÿ'’]*(?:\s+(?:di\s+)?[A-ZÀ-Ý][\wÀ-ÿ'’]*)+)\s+estate\b/g, "$1")
       // "Gennaro Passarello and his sister Anna di Bartolo" names Anna di Bartolo.
       .replace(/\b(?:his|her|their)\s+(?:sister|brother|mother|father|son|daughter|wife|husband|nephew|niece|uncle|aunt)(?:-in-law)?\s+(?=[A-ZÀ-Ý])/g, "")
-      .replace(/\[[^\]]+\]/g, "")
-      .replace(/\b(?:with|for|and pays|paying|who pays)\b[\s\S]*$/i, "")
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/\b(?:with|for|and pays|paying|who pays|assigned)\b[\s\S]*$/i, "")
       .replace(/\s+/g, " ")
       .trim();
     // Translations sometimes keep the Italian "e"/"ed": "bordering Giacomo e Rafaele di Bartolo".
-    const parts = cleaned.split(/\s*(?:,|;|\b[Aa]nd\b|\s(?:e|ed)\s)\s*/).map(normalizeName).filter(name =>
+    const parts = cleaned.split(/\s*(?:,|;|\b[Aa]nd\b|\s(?:e|ed)\s)\s*/).map(part => cleanNeighborLabel(normalizeName(part))).filter(name =>
       // "the Land of Rende" names a town, not a neighbor.
       name && !/^(?:the\s+)?(?:Land|City|Town|Casale)\s+(?:of\s+)?[A-ZÀ-Ý]/.test(name) && !/\b(?:annual|income|estimated|equals?|oncie|ounces?|grana|carlini|ducats?|capacity|moggi)\b/i.test(name)
     );
     const expanded = [];
     parts.forEach((part, index) => {
-      if (part.toLowerCase() === "public road") {
+      // A public place or a title alone ("the Princess") takes no surname.
+      if (isPublicAnchor(part) || new RegExp(`^${NOBLE_TITLE}$`, "i").test(part)) {
         expanded.push(part);
         return;
       }
       const hasSurname = part.split(/\s+/).length > 1;
       // A first name alone shares the next person's surname with its particle: "Giacomo and Rafaele di Bartolo".
-      const nextSurname = parts.slice(index + 1).filter(name => name.toLowerCase() !== "public road")
+      const nextSurname = parts.slice(index + 1).filter(name => !isPublicAnchor(name))
         .map(surnameFromPerson).find(Boolean);
       expanded.push(hasSurname || !nextSurname ? part : `${part} ${nextSurname}`);
     });

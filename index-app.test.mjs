@@ -610,7 +610,7 @@ test("the Landholdings view counts the same parcels in a translation as in the I
     "He owns a plot of land in the Pasolani area with a capacity of one-quarter of a moggio; it borders the property of Andrea Orrico and a public road."
   ]).map(([, adjacent]) => adjacent), [
     ["Antonio Ritaccha", "public road"], ["Domenico Lento", "Daniele Lento"], ["Jesuit Parsi", "public road"],
-    ["Giuseppe Scillaro", "running river"], ["Nunziato Cajra"], ["Andrea Orrico", "a public road"]
+    ["Giuseppe Scillaro", "running river"], ["Nunziato Cajra"], ["Andrea Orrico", "public road"]
   ]);
   // The house someone lives in is a residence, as "Possiede la casa ove abita" is in the Italian; the rest of a
   // clause cut by a page break, "[The property] borders ...", is not a second parcel.

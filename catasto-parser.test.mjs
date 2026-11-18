@@ -192,6 +192,27 @@ test("first names joined by 'and' or a kept Italian 'e' share the surname that f
   assert.deepEqual(Array.from(expandItalianNeighborNames("Gennaro Passarello e sorella Anna di Bartolo")), ["Gennaro Passarello", "Anna di Bartolo"]);
 });
 
+test("a neighbor's craft, title of honor, or 'said' is not part of the name, in either language (parser version 11)", () => {
+  const { expandNeighborNames, expandItalianNeighborNames } = context.window.CatastoParser;
+  const en = raw => Array.from(expandNeighborNames(raw)), it = raw => Array.from(expandItalianNeighborNames(raw));
+  assert.deepEqual(en("the said Saverio Puglese and the said Lorenzo Santanna"), ["Saverio Puglese", "Lorenzo Santanna"]);
+  assert.deepEqual(it("detto Saverio Puglese e detto Lorenzo Santanna"), ["Saverio Puglese", "Lorenzo Santanna"]);
+  assert.deepEqual(it("mastro Carlo Conforti e Domenico di Guido"), ["Carlo Conforti", "Domenico di Guido"]);
+  assert.deepEqual(en("on all sides the late Pietro Ionati"), ["Pietro Ionati"]);
+  assert.deepEqual(it("quondam Pietro Ionati"), ["Pietro Ionati"]);
+  assert.deepEqual(en("the Most Holy Lady Marchesa della Valle and the running river"), ["Marchesa della Valle", "running river"]);
+  assert.deepEqual(it("l'Illustrissima Signora Marchesa della Valle e via publica"), ["Marchesa della Valle", "via publica"]);
+  // A title alone takes no surname from the next name or a river.
+  assert.deepEqual(en("the Lady Princess and the running river"), ["Princess", "running river"]);
+  assert.deepEqual(en("[] Antonio Belmonte and a flowing river"), ["Antonio Belmonte", "flowing river"]);
+  // "the Land of Rende" is still a town, not a neighbor.
+  assert.deepEqual(en("the Land of Rende"), []);
+  // An endowment clause and a "perché" clause name no neighbors.
+  assert.deepEqual(en("Daniele Santanna and Gennaro Conforto, assigned as his Sacred Patrimony by Daniele Santanna, his father"), ["Daniele Santanna", "Gennaro Conforto"]);
+  assert.deepEqual(it("Daniele Santanna e Gennaro Conforto assegnata ad titulum Patrimonij da Daniele Santanna suo Padre"), ["Daniele Santanna", "Gennaro Conforto"]);
+  assert.deepEqual(it("li Corioni perché non si tira acqua"), ["Corioni"]);
+});
+
 test("a new household starts after non-residence narrative text", () => {
   const data = parsePlainText(`Antonio Primo, laborer — age 40
 Lucia Russo, wife — age 35
