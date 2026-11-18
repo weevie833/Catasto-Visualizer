@@ -1,6 +1,6 @@
 // XLSX Index: one row per person in a project, laid out as the Customizable Transcriber's
 // "Catasto Onciario Index" template (sheet "Nati"). Built from the Name Index's mentions when Admin
-// exports it; never saved. The rules are in XLSX_INDEX_PLAN.md.
+// exports it; never saved. The rules are in XLSX_INDEX_PLAN.md (kept locally).
 (function () {
   "use strict";
 

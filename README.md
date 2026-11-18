@@ -7,6 +7,10 @@ backup.
 
 **New users:** see [INSTALL.md](INSTALL.md) for step-by-step installation on Mac and Windows.
 
+On a Mac with Apple silicon, the easiest install is the signed, notarized
+**Catasto-Visualizer-Mac.dmg** from the
+[latest release](https://github.com/weevie833/Catasto-Visualizer/releases/latest).
+
 ## Current Prototype
 
 The default view is an interactive 3D environment. Choose a district, pan with a
@@ -146,20 +150,21 @@ browser then refuses to start the 3D view.
 - `catasto-parser.js` - the single plain-text parser, used by Admin and by reparsing
 - `catasto-records.js` - permanent household ids, import repair, and reparse planning
 - `catasto-relations.js` - household relations and the Adjacent Evidence report
-- `catasto-name-index.js` - the Name Index export (Admin only; rules in `NAME_INDEX_PLAN.md`)
-- `catasto-xlsx-index.js` / `catasto-xlsx.js` - the XLSX Index export and its file writer (Admin only; rules in `XLSX_INDEX_PLAN.md`)
+- `catasto-name-index.js` - the Name Index export (Admin only; rules in `NAME_INDEX_PLAN.md` (kept locally))
+- `catasto-xlsx-index.js` / `catasto-xlsx.js` - the XLSX Index export and its file writer (Admin only; rules in `XLSX_INDEX_PLAN.md` (kept locally))
 - `scene3d.js` / `scene3d.css` / `scene3d-boot.js` - interactive 3D environment and controls
 - `building-types.js` - source-cue rules for dwelling, manor, and parish styles
 - `serve.py` - local server with fixed file types and the project-storage API (`python3 serve.py`; `--open` also opens the browser)
 - `Start Catasto Visualizer (Mac).command` / `(Windows).bat` - double-click launchers for `serve.py --open`
 - `*.test.mjs` - parser, relations, name-index, XLSX-index, style-rule, storage, Admin, and visualizer-workflow regression checks (`node --test *.test.mjs`)
-- `test_serve.py` - local-server checks (`python3 -m unittest test_serve.py`)
+- `test_serve.py` - local-server checks; `test_update_check.py` and `test_mac_release.py` - update notice and Mac release (`python3 -m unittest test_serve.py test_update_check.py test_mac_release.py`)
+- `mac/`, `.github/workflows/mac-release.yml` - the signed Mac app and disk image (see ARCHITECTURE.md)
 - `eslint.config.mjs`, `package.json`, `ruff.toml`, `requirements-dev.txt` - development linting only (`npm install && npx eslint .`; `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/ruff check .`). The app itself needs no packages.
 - `vendor/` - pinned local Three.js renderer, controls, and license
 - `README.md` - project notes and visualization rules
 - `INSTALL.md` - step-by-step installation guide for Mac and Windows
 - `ARCHITECTURE.md` - storage boundaries, upgrade safety, and identity rules
-- `HANDOFF.md`, `HUMAN_DECISIONS.md`, `CODEX_REVIEW*.md`, `CLAUDE_RESPONSE.md`, `AGENTS.md` - development notes, review history, and agent instructions
+- `HANDOFF.md`, `AGENTS.md`, `CLAUDE.md` - development notes and agent instructions (code-review rounds are kept locally, not in the repository)
 - `.gitignore` - keeps transcriptions, source documents, and project backups out of the repository
 
 ## Project Data

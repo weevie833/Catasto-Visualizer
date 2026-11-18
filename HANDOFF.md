@@ -23,14 +23,14 @@ built-in server can label `.js` as `text/plain` on Windows, which stops the 3D m
 
 ```bash
 node --test *.test.mjs
-python3 -m unittest test_serve.py
+python3 -m unittest test_serve.py test_update_check.py test_mac_release.py
 npx eslint .
 .venv/bin/ruff check .
 npm run test:browser
 ```
 
 The Node suite contains 175 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
-visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 55 server and project-storage tests.
+visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 56 server and project-storage tests; `test_update_check.py` and `test_mac_release.py` contain 28 update-check and Mac-release tests.
 `npm run test:browser` (`smoke.browser.mjs`, about 10 seconds) starts the real server on a free port with a temporary
 project folder, creates a project in Admin from `test-fixtures/synthetic-catasto.md`, and checks in Chromium that the
 Visualizer loads with no console or security-policy errors, draws the 3D view, and keeps a source edit across a
@@ -42,6 +42,19 @@ live in the per-user data folder (`~/Library/Application Support/Catasto
 Visualizer/projects/` on this Mac), not in browser storage, so the port no
 longer selects the library. Keep port 8000 only so projects still in an old
 browser's IndexedDB at that address are migrated.
+
+## Mac release (prepared 2026-11-18, not yet run)
+
+Same process as the Customizable Transcriber: `mac/` (launcher app, `build.sh`, icon),
+`.github/workflows/mac-release.yml` (signs and notarizes on `v*` tags), `VERSION` (`0.12.0`),
+a pinned standalone Python in the Mac start file on Apple silicon, and an update notice
+(`update_check.py`, `update-banner.js`). Details are in ARCHITECTURE.md, "Release and update check".
+No one-line Terminal installer (the user chose not to add one).
+
+Before the first release: add the five secrets the workflow names (the same Developer ID
+certificate and App Store Connect key as the Transcriber) to this repository, run the workflow
+by hand (Actions > Mac release > Run workflow) to check signing, then tag `v0.12.0` and push the tag.
+`mac/build.sh build/mac` makes an ad-hoc-signed local build for testing.
 
 ## Current application
 
@@ -81,7 +94,7 @@ browser's IndexedDB at that address are migrated.
 - Admin's **Export Name Index** button exports every person named in a project (honorific, given name, surname, a note when the surname is uncertain, qualifier, residential location; one entry per given name and surname) as JSON, CSV, or Markdown,
   for use as a lexicon elsewhere, such as the Customizable Transcriber's name lexicon. It is built
   by `catasto-name-index.js` when exported and never saved.
-- The same dialog's **Export XLSX Index** writes one row per person in the Customizable Transcriber's Catasto Onciario Index layout (ages, birth years, occupations, parents, village and district, pages); see `XLSX_INDEX_PLAN.md`.
+- The same dialog's **Export XLSX Index** writes one row per person in the Customizable Transcriber's Catasto Onciario Index layout (ages, birth years, occupations, parents, village and district, pages); see `XLSX_INDEX_PLAN.md` (kept locally).
 - The parser now reads infants listed without an age as household members, records the page an entry starts on when it starts mid-page, and records where each later page begins (`source_page_breaks`). Projects created earlier keep their old pages until created again.
 - The Visualizer is a reading tool: relationship conclusions are made in other
   systems (Ancestry, FamilySearch, a spreadsheet). Correcting a Catasto entry is
@@ -131,7 +144,7 @@ The parser now uses a household-entry state machine:
   page starting in lowercase, often with `[continued on next page]`) is rejoined
   before the residence is read; the stored source text is left as written.
 - Section headings (`[[SECTION:resident|excluded|summary]]` markers, see
-  `SECTION_HEADINGS_PLAN.md`) end entries. Only resident sections hold entries;
+  `SECTION_HEADINGS_PLAN.md` (kept locally)) end entries. Only resident sections hold entries;
   an English heading takes its kind from the Italian heading in the same place.
   "Lay Residents from Outside the Area" and other plain "residents" headings are
   resident; "non-resident" ones are excluded.
@@ -244,9 +257,9 @@ with no entry of their own.
   source editing, and visualization data preparation.
 - `catasto-records.js` / `catasto-records.test.mjs` — permanent ids, import repair, reparse planning.
 - `catasto-relations.js` / `catasto-relations.test.mjs` — the Adjacent Evidence report and source-entry links.
-- `catasto-name-index.js` / `catasto-name-index.test.mjs` — the Name Index / Indice Onomastico export; see `NAME_INDEX_PLAN.md`.
-- `catasto-xlsx-index.js`, `catasto-xlsx.js` / `catasto-xlsx-index.test.mjs` — the XLSX Index export; see `XLSX_INDEX_PLAN.md`.
-- `ADJACENT_EVIDENCE_PLAN.md` — the report's plan and remaining build steps.
+- `catasto-name-index.js` / `catasto-name-index.test.mjs` — the Name Index / Indice Onomastico export; see `NAME_INDEX_PLAN.md` (kept locally).
+- `catasto-xlsx-index.js`, `catasto-xlsx.js` / `catasto-xlsx-index.test.mjs` — the XLSX Index export; see `XLSX_INDEX_PLAN.md` (kept locally).
+- `ADJACENT_EVIDENCE_PLAN.md` (kept locally) — the report's plan and remaining build steps.
 - `scene3d.js` / `scene3d.css` — Three.js household and landholding scenes.
 - `catasto-parser.js` — the single parser, used by Admin and by reparsing.
 - `catasto-parser.test.mjs` — parser regression tests.

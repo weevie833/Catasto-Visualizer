@@ -323,15 +323,19 @@ class ProjectStore:
         self.recover_interrupted_transactions()
 
     # Folders and files written by an earlier version may be readable by other accounts.
+    # Only the store's own files: the Mac app keeps its copy of the app (App/) and its Python
+    # (Runtime/) in the same folder, and those must stay executable.
     def make_existing_files_private(self) -> None:
         if os.name != "posix" or not self.data_dir.is_dir():
             return
         for directory in (self.data_dir, self.projects_dir):
             if directory.is_dir():
                 os.chmod(directory, PRIVATE_DIR_MODE)
-        for path in self.data_dir.rglob("*"):
-            if path.is_file():
-                os.chmod(path, PRIVATE_FILE_MODE)
+        own_files = [path for path in self.data_dir.iterdir() if path.is_file()]
+        if self.projects_dir.is_dir():
+            own_files += [path for path in self.projects_dir.rglob("*") if path.is_file()]
+        for path in own_files:
+            os.chmod(path, PRIVATE_FILE_MODE)
 
     # The ids a failed import still has to remove; empty when no import is waiting to be undone.
     def import_ids(self) -> list[str]:

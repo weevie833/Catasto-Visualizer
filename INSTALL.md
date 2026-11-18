@@ -5,21 +5,53 @@ Windows PC. No programming knowledge is needed. Plan on about 10 minutes the
 first time.
 
 The app runs entirely on your own computer. Nothing you load into it is sent to
-the internet.
+the internet. The only request it makes asks GitHub whether a newer version
+exists; see [Update notice](#update-notice).
+
+**On a Mac with Apple silicon (M1 or later), use the Mac app:** see
+[Mac: install the app](#mac-install-the-app). It needs no separate Python and
+opens without a security warning. The numbered steps after it are for Windows,
+for Intel Macs, and for anyone who prefers the ZIP download.
 
 ## What you need
 
 - A Mac or Windows computer
 - A current version of Chrome, Edge, Firefox, or Safari
-- Python 3, a free program that runs the app (step 1 shows how to install it)
+- Python 3, a free program that runs the app (step 1 shows how to install it;
+  the Mac app and the Mac launcher on Apple silicon set up their own)
 - Your Catasto transcription file (`.md` or `.txt`) or a project backup
   (`.catasto.json`). The app does not come with any data.
+
+---
+
+## Mac: install the app
+
+1. Download **Catasto-Visualizer-Mac.dmg** from
+   <https://github.com/weevie833/Catasto-Visualizer/releases/latest>.
+2. Open the downloaded file and drag **Catasto Visualizer** into the
+   **Applications** folder shown beside it.
+3. Eject the disk image (in Finder's sidebar), then open
+   **Catasto Visualizer** from your Applications folder.
+
+The first time, the app copies its files to
+`~/Library/Application Support/Catasto Visualizer/App` and downloads its own
+copy of Python into `~/Library/Application Support/Catasto Visualizer/Runtime`.
+This takes a minute or two; stay connected to the internet. A **Terminal**
+window then opens and runs the app, and the app opens in your web browser, as
+in [Step 3](#step-3-start-the-app). Continue with
+[Step 4](#step-4-add-your-first-project).
+
+Next time, open **Catasto Visualizer** from Applications (or the Dock). If the
+app is already running, it reopens it in your browser.
 
 ---
 
 ## Step 1: Install Python (one time only)
 
 ### Mac
+
+On a Mac with Apple silicon (M1 or later), skip this step: the launcher
+downloads its own copy of Python the first time it starts. On an Intel Mac:
 
 1. Go to <https://www.python.org/downloads/macos/>.
 2. Click the button for the latest **Python 3** release and download the
@@ -207,6 +239,17 @@ Updates replace the app folder only. Your projects are saved in a separate
 folder (see [Where your work is saved](#where-your-work-is-saved)), so they stay
 where they are.
 
+### Update notice
+
+When a newer version is published, a blue notice appears at the top of the
+Visualizer's left panel and of the Admin page, with a link to what is new. To
+know this, the app asks GitHub (github.com) for the name of its latest release,
+at most about twice a day while it is running. The request carries nothing
+about you, your files, or your projects; like any web request, it shows GitHub
+your computer's internet address. If the computer is offline, no notice is
+shown and nothing else changes. To turn the check off, start the app from
+Terminal with `CV_NO_UPDATE_CHECK=1 python3 serve.py`.
+
 ### Check which version you have
 
 The version number appears at the bottom of the Visualizer's left panel and at
@@ -215,7 +258,19 @@ version exists, visit the app's GitHub page
 (<https://github.com/weevie833/Catasto-Visualizer>) or ask the person who
 shared the app with you.
 
-### Update the app
+### Update the Mac app
+
+1. **Back up your projects** with **ADMIN** > **Export Project JSON**, as in
+   step 1 below.
+2. **Stop the app** by quitting Terminal (see [Stopping the app](#stopping-the-app)).
+3. Download the new **Catasto-Visualizer-Mac.dmg** (the notice links to it),
+   open it, and drag **Catasto Visualizer** into **Applications**, choosing
+   **Replace**.
+4. Open **Catasto Visualizer** from Applications. It installs the new version's
+   files; your projects stay where they are. Confirm the new version number at
+   the bottom of the page.
+
+### Update the app (ZIP download)
 
 1. **Back up your projects.** Open **ADMIN** and click **Export Project JSON** next to
    each project. Save the files in your own projects folder, not in the app

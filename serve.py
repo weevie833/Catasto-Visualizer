@@ -33,6 +33,7 @@ from project_store import (
     dumps,
     loads,
 )
+from update_check import app_version, update_status
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -68,6 +69,7 @@ APP_FILES = {
     "/scene3d-boot.js",
     "/scene3d.css",
     "/scene3d.js",
+    "/update-banner.js",
     "/vendor/OrbitControls.js",
     "/vendor/three.module.js",
 }
@@ -172,7 +174,11 @@ class CatastoRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         parts = self.request_path().strip("/").split("/")[1:]
         try:
-            if parts == ["projects"] and method == "GET":
+            if parts == ["update-check"] and method == "GET":
+                # Asks GitHub for the latest release (cached; see update_check.py). Done here
+                # because the pages may talk only to this server.
+                self.send_json(200, update_status(app_version()))
+            elif parts == ["projects"] and method == "GET":
                 self.send_json(200, self.store.list())
             elif parts == ["projects", "import"] and method == "POST":
                 self.store.add_all(self.read_json().get("projects"))
@@ -295,7 +301,7 @@ def main() -> None:
             webbrowser.open(url)
         return
     with server:
-        print(f"Catasto Visualizer: {url}")
+        print(f"Catasto Visualizer {app_version() or '(development copy)'}: {url}")
         print(f"Projects are saved in: {default_data_dir() / 'projects'}")
         print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
         if args.open:

@@ -1,5 +1,5 @@
 // Name Index / Indice Onomastico: every person named in a project, as a lexicon for other projects.
-// Built from the stored source entries when Admin exports it; never saved. The plan is in NAME_INDEX_PLAN.md.
+// Built from the stored source entries when Admin exports it; never saved. The plan is in NAME_INDEX_PLAN.md (kept locally).
 (function () {
   "use strict";
 

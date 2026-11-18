@@ -772,6 +772,19 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(old.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE((self.root / "projects").stat().st_mode), 0o700)
 
+    @unittest.skipUnless(os.name == "posix", "file modes apply on macOS and Linux")
+    def test_the_mac_apps_files_beside_the_projects_stay_executable(self):
+        # The signed Mac app installs the app in App/ and its Python in Runtime/ of this folder.
+        python = self.root / "Runtime" / "python" / "bin" / "python3"
+        start = self.root / "App" / "Start Catasto Visualizer (Mac).command"
+        for path in (python, start):
+            path.parent.mkdir(parents=True)
+            path.write_text("#!/bin/bash\n", encoding="utf-8")
+            os.chmod(path, 0o755)
+        project_store.ProjectStore(self.root)
+        self.assertEqual(stat.S_IMODE(python.stat().st_mode), 0o755)
+        self.assertEqual(stat.S_IMODE(start.stat().st_mode), 0o755)
+
     def test_a_project_over_the_size_limit_is_refused(self):
         store = project_store.ProjectStore(self.root)
         original = project_store.MAX_PROJECT_BYTES

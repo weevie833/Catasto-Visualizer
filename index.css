@@ -624,3 +624,19 @@ button {
 .reparse-changes[hidden] {
   display: none;
 }
+
+/* "A new version is available" notice (update-banner.js). Same look in admin.css. */
+.update-banner {
+  margin: 0 0 12px;
+  border: 1px solid #cddcee;
+  border-radius: 8px;
+  background: #eef4fb;
+  color: #1f2a36;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 10px 12px;
+}
+.update-banner[hidden] { display: none; }
+.update-banner p { margin: 0 0 6px; }
+.update-banner p:last-child { margin-bottom: 0; }
+.update-banner a { color: #255c99; }

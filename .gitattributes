@@ -1,0 +1,30 @@
+# Windows runs a .bat with bare LF endings unreliably, so its CRLFs are stored as they are
+# and reach a ZIP download unchanged. test_mac_release.py checks.
+*.bat -text
+# The macOS start file and the Mac build scripts are bash scripts: a CR at a line end breaks them.
+*.command text eol=lf
+*.sh text eol=lf
+
+# Left out of the ZIP that GitHub offers ("Download ZIP" / release archives) and of
+# `git archive`, which mac/build.sh copies into the Mac app: development files a user
+# doesn't need. A git clone still has them.
+.github/ export-ignore
+.github/** export-ignore
+mac/ export-ignore
+mac/** export-ignore
+test-fixtures/ export-ignore
+test-fixtures/** export-ignore
+*.test.mjs export-ignore
+*.browser.mjs export-ignore
+test_*.py export-ignore
+validation-source.mjs export-ignore
+eslint.config.mjs export-ignore
+ruff.toml export-ignore
+package.json export-ignore
+package-lock.json export-ignore
+requirements-dev.txt export-ignore
+AGENTS.md export-ignore
+CLAUDE.md export-ignore
+HANDOFF.md export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
