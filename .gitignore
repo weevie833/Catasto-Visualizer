@@ -15,3 +15,11 @@ __pycache__/
 .claude/
 node_modules/
 .venv/
+build/
+
+# Code-review rounds (Codex findings, Claude responses, decisions) stay on this computer.
+CODEX_REVIEW*.md
+CLAUDE_RESPONSE*.md
+HUMAN_DECISIONS.md
+# Feature plans stay on this computer too.
+*_PLAN.md
