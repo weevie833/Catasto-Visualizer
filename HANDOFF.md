@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.11 (Codex round 3 fixes: payee labels are not headings, the Name Index reads excluded sections, payments never count as mentions, ESLint 10.15.0; V 0.10 removed the fourth degree and kept payments out of the report)
+- Branch: `main`, at V 0.12 (parser versions 10 and 11: the English and Italian parses of the Marano document give the same figures; V 0.11, Codex round 3 fixes: payee labels are not headings, the Name Index reads excluded sections, payments never count as mentions, ESLint 10.15.0; V 0.10 removed the fourth degree and kept payments out of the report)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
