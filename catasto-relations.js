@@ -880,10 +880,14 @@
   // A person known only from other entries: where they are named, and which households might be theirs.
   // Money paid is not proximity: a sentence that pays someone (rent, interest, a deduction) never counts as
   // a mention of them. Deductions lists name the person paid at the start: "To the Most Illustrious…".
+  // Money words, shared with search (app.js), so a name the report leaves out as a payment is also classed
+  // as a financial reference there: paying, owing, collecting, receiving, and their Italian forms.
+  const FINANCIAL = /\b(?:pays?|paid|paying|payments?|owes?|owed|rent|principal|interest|debt|debtor|deductions?|liabilit(?:y|ies)|burden(?:ed)?|creditor|collect(?:s|ed|ing)?|receiv(?:es?|ed|ing)|paga|pagano|pagare|pagamento|affitto|censo|capitale|debito|debitore|creditore|interesse|pesi|esig\w*|riscuot\w*)\b/i;
+  const PAYEE = /^\s*(?:to|al|alla|allo|alli|ai|agli|alle)\s/i;
+
   function isPaymentSentence(sentence) {
     const text = String(sentence || "").trim();
-    return /\b(?:pays?|paid|paying|owes?|owed|rent|principal|interest|debt|deductions?|liabilit(?:y|ies)|burden(?:ed)?|creditor|paga|pagano|pagare|affitto|censo|capitale|debito|interesse|pesi)\b/i.test(text) ||
-      /^(?:to|al|alla|allo|alli|ai|agli|alle)\s/i.test(text);
+    return FINANCIAL.test(text) || PAYEE.test(text);
   }
 
   function referenceReport(S, index, subject) {
@@ -983,5 +987,5 @@
     return lines.join("\n");
   }
 
-  window.CatastoRelations = { buildPersonReport, reportToText, roleOf, sourceEntryLinks, descriptionOf, landNeighborNames };
+  window.CatastoRelations = { buildPersonReport, reportToText, roleOf, sourceEntryLinks, descriptionOf, landNeighborNames, isPaymentSentence };
 }());

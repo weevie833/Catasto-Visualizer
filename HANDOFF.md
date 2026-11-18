@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.10 (the fourth degree removed and payments kept out of the report; V 0.09 had the Codex review fixes: durable storage, merging removed, browser and fixture tests)
+- Branch: `main`, at V 0.11 (Codex round 3 fixes: payee labels are not headings, the Name Index reads excluded sections, payments never count as mentions, ESLint 10.15.0; V 0.10 removed the fourth degree and kept payments out of the report)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
@@ -29,7 +29,7 @@ npx eslint .
 npm run test:browser
 ```
 
-The Node suite contains 171 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
+The Node suite contains 175 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
 visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 55 server and project-storage tests.
 `npm run test:browser` (`smoke.browser.mjs`, about 10 seconds) starts the real server on a free port with a temporary
 project folder, creates a project in Admin from `test-fixtures/synthetic-catasto.md`, and checks in Chromium that the
@@ -69,9 +69,11 @@ browser's IndexedDB at that address are migrated.
   degrees: the fourth (institutions) was built and then removed in V 0.10 as
   more noise than insight. A church or convent named in a border appears in the
   third degree like any neighbor.
-- Money paid is not proximity. A person paid (rent, interest, a deduction) is
-  never listed as a neighbor or a mention of the payer, and search labels them
-  a financial reference even when the same clause lists borders.
+- Money is not proximity. A person paid, owed, collected from or received from
+  (rent, interest, a deduction; `esige`/`esigge`) is never listed as a neighbor or a
+  mention of the payer, and search labels them a financial reference even when the
+  same clause lists borders. The report and search share one word list
+  (`isPaymentSentence` in `catasto-relations.js`).
 - Names in the report and in the source entry are links that select that person;
   Back retraces the trail for the session.
 - On wide windows a draggable divider sets the split between the 3D view and the
@@ -108,10 +110,9 @@ Castelfranco`), `Abita in casa propria sita in ...` residences, neighbors after
 `di capacità`, and `stimata la rendita`. Italian projects display the source's
 Italian terms.
 
-On the bilingual Marano transcription (measured with parser version 7), the Italian side yields the same 362
-households as the English side; 70 of 71 districts and 538 of 567 residence
-neighbors agree, and 622 Italian landholdings are found against 603 English.
-39 Italian landholdings have no district, mostly clauses with no place name.
+On the current bilingual Marano source (the saved project's text, measured 2026-11-18 with parser version 9),
+both sides yield 367 households; 363 heads pair up, and 369 of 378 English residence neighbors are found on
+the Italian side.
 `catasto-parser.test.mjs` repeats the household and neighbor comparison when the
 transcription is present and skips it otherwise.
 
@@ -147,6 +148,11 @@ Parser version 8 (2026-11-13) added the section, dashed-age, exemption, page-bre
 origin, patronymic, and neighbor-splitting rules in this file. The current Marano transcription
 (Desktop, 2026-11-13) parses to 367 households. Saved projects made with version 7 are offered the
 reviewed reparse when opened.
+
+Parser version 9 (2026-11-18, Codex round 3): a standalone payee label ("To the Chapel of the Rosary") is no
+longer taken for a section heading, so residents after it are kept; and excluded sections are kept in
+`data.excluded_sections` for the Name Index. On the saved Marano project nothing else changes: the same 367
+households, residences, members and neighbors in both languages, and the same XLSX Index.
 
 Residence neighbors that still match no household entry are listed by comparing each
 `residence_links` entry that has no `household_id` against the heads. On the current transcription
@@ -249,10 +255,8 @@ imported again. Two features previously requested here are therefore not planned
 
 ## Known cautions
 
-- `npm audit` reports 4 moderate entries from one minimatch advisory under ESLint 10. This is
-  accepted (decision D12 in `HUMAN_DECISIONS.md`). When an ESLint release depends on minimatch
-  11.0.1 or later, update `eslint` and `@eslint/js`, then rerun `npm audit`, lint and the tests.
-  Do not downgrade ESLint or force minimatch with an override.
+- ESLint is 10.15.0, which uses minimatch 11.0.9; `npm audit` reports no vulnerabilities (2026-11-18).
+  D12's wait ended there. Do not downgrade ESLint or force a dependency with an override.
 - Residence and landholding graphs are different relationship types and must
   not be combined during triangulation.
 - A shared neighbor can identify an explicitly named ambiguous person; it must

@@ -583,6 +583,42 @@ test("lines inside an entry are never headings", () => {
   assert.deepEqual(sectionMarks(plain), []);
 });
 
+test("a payee label standing alone is not a heading, so the residents after it are kept", () => {
+  const english = [
+    "Bruno Ventrella, farmer — age 40", "He lives in his own house.", "",
+    "To the Chapel of the Rosary", "", "Five ducats annually.", "",
+    "Carlo Rossi, farmer — age 50", "He lives in his own house."
+  ].join("\n");
+  const italian = [
+    "Bruno Ventrella, bracciale — anni 40", "Abita in casa propria.", "",
+    "Alla Cappella del Rosario", "", "Annui carlini cinque.", "",
+    "Carlo Rossi, bracciale — anni 50", "Abita in casa propria."
+  ].join("\n");
+  assert.deepEqual(sectionMarks(english), []);
+  assert.deepEqual(sectionMarks(italian), []);
+  assert.deepEqual(Array.from(parsePlainText(english, "en").households, record => record.household_head), ["Bruno Ventrella", "Carlo Rossi"]);
+  assert.deepEqual(Array.from(parsePlainText(italian, "it").households, record => record.household_head), ["Bruno Ventrella", "Carlo Rossi"]);
+  // A real section heading is still one.
+  assert.deepEqual(sectionMarks(english.replace("To the Chapel of the Rosary", "Chapels of this Land")), ["excluded: Chapels of this Land"]);
+});
+
+test("excluded sections are kept with their heading and pages, apart from the entries; summaries are not", () => {
+  const page = (number, body) => `### **Valdorso 1754: Page ${number}**\n\nEnglish Translation:\n\n${body}\n`;
+  const data = parsePlainText([
+    page(1, "Bruno Ventrella, farmer — age 40\nHe lives in his own house.\n\n**Foreign Lay Landowners**\n\nAntonio La Piana of the city of Montefinto\nHe possesses a vineyard, bordering Paolo Serra."),
+    page(2, "Giacomo Giraldi, of the city of Cosenza\nHe possesses a garden, bordering Bruno Ventrella.\n\n**Tax Collection**\n\nAntonio La Piana — 6 ounces")
+  ].join("\n"), "en");
+  assert.deepEqual(Array.from(data.households, record => record.household_head), ["Bruno Ventrella"]);
+  const sections = JSON.parse(JSON.stringify(data.excluded_sections));
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0].heading, "Foreign Lay Landowners");
+  assert.deepEqual(sections[0].source_pages, [1, 2]);
+  assert.deepEqual(sections[0].source_page_breaks, [{ page: 1, starts_with: "Antonio La Piana of the city of Montefinto" }, { page: 2, starts_with: "Giacomo Giraldi, of the city of Cosenza" }]);
+  assert.match(sections[0].source_entry, /^Antonio La Piana[\s\S]*bordering Bruno Ventrella\.$/);
+  assert.equal(sections[0].source_entry.includes("Tax Collection"), false);
+  assert.deepEqual(Array.from(parsePlainText("Bruno Ventrella, farmer — age 40\nHe lives in his own house.", "en").excluded_sections), []);
+});
+
 test("an English heading takes its kind from the Italian heading in the same place on the page", () => {
   const text = [
     "### **Valdorso 1754: Page 12** **Italian Transcription**", "", "**Forastieri abitanti — Laici**", "",

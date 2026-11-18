@@ -217,6 +217,10 @@ test("the current Marano source, when CATASTO_VALIDATION_MD names it", async t =
   assert.ok(people("Francesco", "di Bartolo").length >= 1);
   assert.equal(people("Giulio", "Storino").length, 1);
   assert.equal(people("Rafaele", "di Bartolo")[0]?.residential_location, "Castelfranco");
+  // Non-resident owners, named only in the excluded sections, under the place they come from.
+  assert.equal(people("Giacomo", "Giraldi")[0]?.residential_location, "Cosenza");
+  assert.equal(people("Gennaro", "Bartuccio")[0]?.residential_location, "San Vincenzo");
+  assert.equal(people("Maurizio", "Cusinelli").length, 1);
   assert.ok(marano.people.every(person => !/Clergy|Chapel|Convent|Monastery/.test(Object.values(person).join(" "))));
   assert.ok(marano.people.every(person => person.given_name));
   const plain = marano.people.filter(person => !person.qualifier).map(person => `${person.given_name}|${person.surname}`);
@@ -247,6 +251,44 @@ He possesses a portion of land bordering Carlo Aijello and the public road.
   data.households[0].source_entry = data.households[0].source_entry.replace("He possesses a portion", "He owns a portion");
   assert.deepEqual(pagesOf("Aijello"), [5, 6]);
   assert.deepEqual(pagesOf("Tenuta"), [5, 6]);
+});
+
+test("the Name Index reads excluded sections: owners under their origin, once each; the XLSX rows do not", () => {
+  const english = W.CatastoParser.parsePlainText([
+    "Bruno Ventrella, farmer, age 40", "He lives in his own house in San Nicola, bordering Antonio La Piana.", "",
+    "**Foreign Lay Landowners**", "",
+    "Magnifico Antonio La Piana of the Casale delle Piane",
+    "He possesses a vineyard, bordering Paolo Serra.",
+    "Giacomo Giraldi, of the city of Cosenza",
+    "He possesses a garden, bordering Bruno Ventrella.",
+    "Bernardo di Vite of the Land of Rende collects the following annual interest:",
+    "From Pietro Santanna of this Land, five carlini.",
+    "Fund for the Poor of the Most Holy Rosary",
+    "Deductions"
+  ].join("\n"), "en");
+  const people = data => JSON.parse(JSON.stringify(W.CatastoNameIndex.buildNameIndex(data, { village: "Valdorso" }).people))
+    .map(person => `${person.given_name} ${person.surname} @ ${person.residential_location}`).sort();
+  assert.deepEqual(people(english), [
+    "Antonio La Piana @ Piane", "Bernardo di Vite @ Rende", "Bruno Ventrella @ Valdorso", "Giacomo Giraldi @ Cosenza",
+    "Paolo Serra @ Valdorso", "Pietro Santanna @ Valdorso"
+  ]);
+  // The XLSX Index follows the entries: collectMentions without the option reads the households only.
+  const xlsx = W.CatastoNameIndex.collectMentions(english, { village: "Valdorso" }).found.map(mention => mention.surname);
+  assert.deepEqual([...new Set(xlsx)].sort(), ["La Piana", "Ventrella"]);
+
+  const italian = W.CatastoParser.parsePlainText([
+    "Bruno Ventrella, bracciale, anni 40", "Abita in casa propria.", "",
+    "**Forastieri Bonatenenti Laici**", "",
+    "Gennaro Bartuccio della Terra di San Vincenzo",
+    "Possiede una vigna, giusta li beni di Paolo Serra.",
+    "Tomaso di Simone della Terra di Rende esigge il seguente annuo censo:",
+    "Esigge da Lorenzo Chiappetta di questa Terra per capitale di ducati dodici annui carlini dodici.",
+    "Montefamiliare de Micieli della Terra di Rende, esigge il seguente annuo censo:"
+  ].join("\n"), "it");
+  assert.deepEqual(people(italian), [
+    "Bruno Ventrella @ Valdorso", "Gennaro Bartuccio @ San Vincenzo", "Lorenzo Chiappetta @ Valdorso",
+    "Paolo Serra @ Valdorso", "Tomaso di Simone @ Rende"
+  ]);
 });
 
 test("a page opening that repeats, or openings out of order, widen a reference's pages to the entry's", () => {

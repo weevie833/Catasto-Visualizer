@@ -1,7 +1,7 @@
 # Section Headings in the Parser
 
-**Status:** Steps 1, 2 and 4 built; parser version 8 (2026-11-13). Step 3 (the Name Index reading excluded
-sections) is not built.
+**Status:** All steps built. Steps 1, 2 and 4 in parser version 8 (2026-11-13); step 3 (the Name Index reading
+excluded sections) in parser version 9 (2026-11-18), with payee labels no longer taken for headings.
 
 ## Goal
 
@@ -147,6 +147,9 @@ The Name Index keeps people named only in excluded sections (design §4). The XL
    One household is recovered: Agostino Chiappetta's (p. 396), which had been inside Cimino's entry. Its head
    line reads "age — 40", which is not read as an age, so the parser takes his wife, Angela Russo, as head.
    That is for the transcript to fix.
-3. Excluded sections kept in the data and read by the Name Index, with tests.
+3. Excluded sections kept in the data and read by the Name Index, with tests. **Built** (parser version 9). On the
+   Marano source: 11 sections (pp. 394–396, 416–461), about 42,000 characters in English. The Name Index grows from
+   1,744 to 1,771 people in English and 1,743 to 1,758 in Italian, with owners under their origin (Giacomo Giraldi,
+   Cosenza; Gennaro Bartuccio, San Vincenzo). The XLSX Index is unchanged.
 4. Validate on the Marano source; bump the parser version.
 5. Bump the app version; update `HANDOFF.md` and the footers.

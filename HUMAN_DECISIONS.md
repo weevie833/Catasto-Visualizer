@@ -40,7 +40,7 @@ No power-loss experiment was run. The decision concerns the documented contract 
 
 ESLint 10 depends on minimatch 10.x, which is affected by GHSA-g3hv-75wg-m249 (crafted glob patterns can use excessive CPU and memory; fixed in minimatch 11.0.1). As of 2026-11-12, no ESLint release depends on a fixed minimatch.
 
-**Status:** Decided 2026-11-12 by the user: **accept and wait.** ESLint is a development tool only, never shipped or run with the app, and its glob patterns are fixed in `eslint.config.mjs`, so a crafted pattern cannot reach it. No dependency is downgraded or overridden. When an ESLint release depends on minimatch 11.0.1 or later, update ESLint and `@eslint/js`, then rerun `npm audit`, lint and the tests. Revisit sooner if lint ever takes patterns from outside the repository.
+**Status:** Resolved 2026-11-18: ESLint 10.15.0 depends on minimatch ^11.0.5; updated, and `npm audit` reports no vulnerabilities (Codex round 3, M6). Earlier: decided 2026-11-12 by the user: **accept and wait.** ESLint is a development tool only, never shipped or run with the app, and its glob patterns are fixed in `eslint.config.mjs`, so a crafted pattern cannot reach it. No dependency is downgraded or overridden. When an ESLint release depends on minimatch 11.0.1 or later, update ESLint and `@eslint/js`, then rerun `npm audit`, lint and the tests. Revisit sooner if lint ever takes patterns from outside the repository.
 
 ### D13 — Land-clause rules in the Landholdings view and the Adjacent Evidence report
 

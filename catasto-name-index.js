@@ -10,12 +10,12 @@
   const PARTICLE = /^(?:di|de|del|della|dello|da|dal|dalla|lo|la|le|li|d'|d’)$/i;
   // Titles written before a name. "Marchese"/"Marchesa" are also given names, so they count as titles
   // only before a particle surname ("Marchesa della Valle") or another title.
-  const HONORIFIC = /^(?:Most|Excellent|Excellency|Illustrious|Illustrius|Magnificent|Magnific[oa]|Reverend[oa]?|Venerable|Venerabile|Noble(?:man|woman)?|Nobile|Master|Mastro|Maestro|Don|Donna|Dona|D\.|Dr\.?|Doctor|Dottor|Priest|Sacerdote|Father|Padre|Sister|Suor[ae]?|Fra|Frate|Lady|Lord|Holy|Signor[ae]?|Cleric|C(?:h)?ierico|Cherico|Illustre)$/i;
+  const HONORIFIC = /^(?:Most|Excellent|Excellency|Illustrious|Illustrius|Magnificent|Magnific[oaei]|Reverend[oa]?|Venerable|Venerabile|Noble(?:man|woman)?|Nobile|Master|Mastro|Maestro|Don|Donna|Dona|D\.|Dr\.?|Doctor|Dottor|Priest|Sacerdote|Father|Padre|Sister|Suor[ae]?|Fra|Frate|Lady|Lord|Holy|Signor[ae]?|Cleric|C(?:h)?ierico|Cherico|Illustre)$/i;
   const NOBLE_TITLE = /^(?:Marchese|Marchesa)$/i;
   const TITLE_ONLY = /^(?:Prince|Princess|Duke|Duchess|Count|Countess|Baron|Baroness|Lord|Lady|Holy|Most)$/i;
   // Words that name a body rather than a person. Conte, Principe, and Santo are also names here, so saints'
   // names count only after "of" ("Chapel of San Rocco").
-  const INSTITUTION = /\b(?:Clergy|Clero|Chapel|Cappella|Congregation|Congregazione|Monastery|Monastero|Convent|Convento|Confraternity|Confraternita|Chamber|Camera|Monte\s+(?:di|della|dei)|Fund|Church|Chiesa|Count|Duke|Duca|Princes|Princess|Baron|Barone|Court|Corte|Mensa|Abbey|Badia|Benefice|Beneficio|Chaplaincy|Cappellania|Chapter|Capitolo|Seminary|Seminario|Parish|Parrocchia|University|Università|Universit[aà]|Hospital|Ospedale|Brotherhood|Altar|Altare|Cathedral|Bishop|Vescovo|Archbishop|Curia|Family|Famiglia|Treasury|Royal|Regia|Purgatory|Purgatorio|Rosary|Rosario|Sacrament|Sacramento|Souls|Anime|Commune|Fisc|Mount|Fathers|Jesuits?|Friars|Nuns|Monks|Heirs?)\b|^Most\s+Holy\b(?!\s+Lady)|\b(?:of|di|del|della)\s+(?:San|Santa|Santo|Saint|Holy|Santissim[oa]|SS?\.)\b/;
+  const INSTITUTION = /\b(?:Clergy|Clero|Chapel|Cappella|Congregation|Congregazione|Monastery|Monastero|Convent|Convento|Confraternity|Confraternita|Chamber|Camera|Monte\s+(?:di|della|dei)|Monte\s*familiare|Fund|Church|Chiesa|Count|Duke|Duca|Princes|Princess|Baron|Barone|Court|Corte|Mensa|Abbey|Badia|Benefice|Beneficio|Chaplaincy|Cappellania|Chapter|Capitolo|Seminary|Seminario|Parish|Parrocchia|University|Università|Universit[aà]|Hospital|Ospedale|Brotherhood|Altar|Altare|Cathedral|Bishop|Vescovo|Archbishop|Curia|Family|Famiglia|Treasury|Royal|Regia|Purgatory|Purgatorio|Rosary|Rosario|Sacrament|Sacramento|Souls|Anime|Commune|Fisc|Mount|Fathers|Jesuits?|Friars|Nuns|Monks|Heirs?)\b|^Most\s+Holy\b(?!\s+Lady)|\b(?:of|di|del|della)\s+(?:San|Santa|Santo|Saint|Holy|Santissim[oa]|SS?\.)\b/;
   // Regular expressions that include NAME or PLACE are case-sensitive, so lowercase words never join a name.
   const LOCALITY = String.raw`(?:[Ll]and|[Cc]ity|[Cc]asale|[Pp]lace|[Tt]own|[Vv]illage|[Tt]erra|[Cc]ittà|[Cc]itta|[Ll]uogo)`;
   const PLACE = String.raw`${NAME}(?:\s+(?:${NAME}|di|de|del|della))*?`;
@@ -32,7 +32,7 @@
     String.raw`\b[Gg]iusta\s+(?:li\s+)?beni\s+di`, String.raw`\b[Cc]onfin[ae]\w*(?:\s+(?:con|a(?:lli?|i|gli)?\s+beni\s+di))?`,
     // "for the Magnificent Maurizio and Don Gaetano Cusinelli": a titled beneficiary.
     String.raw`\b(?:for|per)(?:\s+(?:the|li|il))?(?=\s+(?:Magnificent|Magnifici|Magnifico|Reverend|Don|Donna|Noble|Master|Mastro)\b)`,
-    String.raw`\b[Cc]ontigu[oa]\s+(?:alli\s+beni\s+di)?`, String.raw`\b[Pp]aga\s+(?:a|al|alla|alli|ai)`, String.raw`\b[Ee]sige\s+da`
+    String.raw`\b[Cc]ontigu[oa]\s+(?:alli\s+beni\s+di)?`, String.raw`\b[Pp]aga\s+(?:a|al|alla|alli|ai)`, String.raw`\b[Ee]sigg?e\s+da`
   ];
   const TRIGGER = new RegExp(`(?:${TRIGGERS.join("|")})\\s+`, "g");
   const LIST_STOP = /[;.:—–=]|\s+(?:for|with|as|at|in|who|which|whose|from|per|con|sopra|stimat\w*|the\s+annual|an\s+annual|annual|of\s+(?:a|an|one|the\s+capacity)|capital|principal|carlini|ducats?|ducati|oncie|ounces?|grana|which|that)\b|\s+\d|,\s+(?:the|an?|with|which|for|per|stimata)\b/i;
@@ -62,9 +62,9 @@
     return places;
   }
 
-  function makeContext(data, village) {
+  function makeContext(data, village, sections = []) {
     const households = Array.isArray(data?.households) ? data.households : [];
-    const places = knownPlaces(households);
+    const places = knownPlaces([...households, ...sections]);
     const villageKey = key(village);
     // A place written as the first word(s) of the village ("this City of Marano") is the village.
     const placeName = raw => {
@@ -74,7 +74,7 @@
       if (nameKey === villageKey || (villageKey.startsWith(`${nameKey} `) && !places.has(`${nameKey} principato`))) return village;
       return places.get(nameKey) || name;
     };
-    return { households, places, village, placeName, givenNames: givenNamesListedAlone(households) };
+    return { households, sections, places, village, placeName, givenNames: givenNamesListedAlone(households) };
   }
 
   // Given names written alone on member lines ("Pietro, son"), so "Francesco Antonio, son" reads as one
@@ -231,6 +231,29 @@
       if (person?.given && person.surname) people.push(person);
     }
     return people;
+  }
+
+  // "of the Casale delle Piane", "of the city of Montefinto", "della Città di Cosenza", "of this Land": where an
+  // owner in an excluded section lives. The place is the name after the locality word.
+  const OWNER_ORIGIN = new RegExp(String.raw`,?\s+(?:of|from|di|de|del|della|dalla)\s+(?:the\s+|(this\s+|questa\s+))?${LOCALITY}\b\s*(.*)$`);
+
+  // The owner who opens a block in an excluded section: a line that is only a name, with or without an origin,
+  // or one ending "possesses:" / "possiede:". "Magnifico Antonio La Piana of the Casale delle Piane".
+  function sectionOwners(record, context) {
+    return pageParts(record).flatMap(part => part.text.split("\n").flatMap(raw => {
+      const line = clean(raw).replace(/\s+(?:possesses|possiede)\s*:?\s*$/i, "").replace(/[,;:]+$/, "").trim();
+      if (!line || /\d/.test(line) || /[.!?]$/.test(line) || line.split(" ").length > 14 || P().isMemberLine(line)) return [];
+      // A line that opens with a verb or a preposition is a clause of the entry, not its owner: "Esigge da …".
+      if (/^(?:esig\w*|paga\w*|possied\w*|collects?|receives?|pays?|possesses|from|da|to|per|for|he|she|it|they)\b/i.test(line)) return [];
+      const origin = line.match(OWNER_ORIGIN);
+      const named = readPerson(origin ? line.slice(0, origin.index) : line, context);
+      if (!named?.given || !named.surname) return [];
+      if (!origin) return [{ ...named, pages: part.pages }];
+      // The place's own name only: "Rende" from "Rende collects the following annual interest".
+      const place = origin[2].replace(/^(?:of|di|de|del|della|delle|dei|degli|dello)\s+/i, "").match(new RegExp(String.raw`^${NAME}(?:\s+(?:${NAME}|di|de|del|della))*`))?.[0] || "";
+      const location = origin[1] || !place ? context.village : context.placeName(place);
+      return [{ ...named, location, pages: part.pages }];
+    }));
   }
 
   // One member line: name, role, age, and what the scribe writes beside the name.
@@ -393,17 +416,25 @@
   }
 
   // Every mention of a person, with its residential location settled. Each mention keeps the person as read
-  // (person), its household record, and its pages, for the XLSX index.
+  // (person), its household record, and its pages, for the XLSX index. With options.excludedSections (the Name
+  // Index), people named only in the excluded sections are read too: each owner, under the place they are
+  // said to come from, and the people their entries name. The XLSX Index follows the entries and leaves them out.
   function collectMentions(data, options = {}) {
     const refusal = refusalFor(data);
     if (refusal) throw new Error(refusal);
     const village = clean(options.village) || suggestedVillage(data) || "Not stated";
-    const context = makeContext(data, village);
+    const sections = options.excludedSections && Array.isArray(data?.excluded_sections) ? data.excluded_sections : [];
+    const context = makeContext(data, village, sections);
     const found = [];
     context.households.forEach(record => {
       const pages = Array.isArray(record.source_pages) ? record.source_pages : [];
       householdPeople(record, context).forEach(person => found.push({ ...entry(person, "household"), person, record, pages }));
       referencedPeople(record, context).forEach(person => found.push({
+        ...entry({ ...person, location: person.location || village }, "reference"), unlocated: !person.location, person, record, pages: person.pages
+      }));
+    });
+    sections.forEach(record => {
+      [...sectionOwners(record, context), ...referencedPeople(record, context)].forEach(person => found.push({
         ...entry({ ...person, location: person.location || village }, "reference"), unlocated: !person.location, person, record, pages: person.pages
       }));
     });
@@ -425,7 +456,7 @@
   }
 
   function buildNameIndex(data, options = {}) {
-    const { village, found } = collectMentions(data, options);
+    const { village, found } = collectMentions(data, { ...options, excludedSections: true });
 
     // One entry per given name and surname. Where the scribe tells same-named people apart ("Gennaro
     // Belmonte son of Santo"), each qualified version is kept and the plain mentions join it; with several

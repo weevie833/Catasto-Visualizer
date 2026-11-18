@@ -302,6 +302,8 @@
     if (!text || text.split(" ").length > 12 || /\d/.test(text)) return null;
     // A sentence about one chapel or house ("A chapel under the Right of Patronage of his family.") is not a heading.
     if (/^(?:a|an|un|una|uno)\b/i.test(text)) return null;
+    // A payee or creditor label ("To the Chapel of the Rosary", "Alla Cappella del Rosario") names who is paid.
+    if (/^(?:to|unto|towards|due\s+to|owed\s+to|paid\s+to|al|alla|alle|allo|agli|ai|all['’]|a['’])(?=[\s'’]|$)/i.test(text)) return null;
     if (/\b(?:possess\w*|possied\w*|pays?|paid|paga\w*|lives?|living|abita|habita|border\w*|confin\w*|esig\w*|collects?|owns?|estimated|stimat\w*|posta|posto|sit[ao]|situated|located)\b/i.test(text)) return null;
     if (/\b(?:collettoria|tass[ae]|esentat[io]|laus\s+deo|tax\s+(?:collection|of|for)|exempt\w*|praise\s+be\s+to\s+god)\b/i.test(text)) return "summary";
     if (/\b(?:non\s+abitant\w*|bonatenent\w*|risedent\w*\s+fuori|residing\s+elsewhere|landowners?|property\s+owners?)\b/i.test(text)) return "excluded";
@@ -448,7 +450,7 @@
 
   // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
   // and neighbor links are normalized the same way for both languages.
-  const PARSER_VERSION = 8;
+  const PARSER_VERSION = 9;
 
   function stripNamePrefixes(name) {
     return String(name || "")
@@ -710,17 +712,73 @@
     return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line) || isExemptHeadLine(line.trim())));
   }
 
+  // An entry's pages, where each page begins (as the words that open it, so a name in the entry can be placed
+  // on its page), and its text without page markers.
+  function pagedText(entry) {
+    const sourcePages = [...entry.matchAll(/\[\[SOURCE_PAGE:(\d+)\]\]/g)].map(match => Number(match[1]));
+    const entryLines = entry.split("\n");
+    const pageBreaks = entryLines.flatMap((line, lineIndex) => {
+      const page = line.trim().match(/^\[\[SOURCE_PAGE:(\d+)\]\]$/)?.[1];
+      const opening = page && entryLines.slice(lineIndex + 1).map(next => next.trim()).find(next => next && !/^\[\[SOURCE_PAGE:/.test(next));
+      return opening ? [{ page: Number(page), starts_with: opening.slice(0, 80) }] : [];
+    });
+    return { sourcePages, pageBreaks, cleanEntry: entry.replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim() };
+  }
+
+  // The text of each excluded section (non-resident owners, outside churches, the village's chapels), for the
+  // Name Index only: none of it becomes an entry. Each item has a household record's source fields, so the
+  // Name Index reads its pages the same way. Summary sections are not kept; everything after one is skipped.
+  function excludedSections(text) {
+    const sections = [];
+    let current = null;
+    let sectionKind = "resident";
+    let lastPageMarker = "";
+    let pendingPageMarker = "";
+    let awaitingHeading = false;
+    const close = () => {
+      if (current && current.lines.some(line => line.trim() && !/^\[\[SOURCE_PAGE:\d+\]\]$/.test(line.trim()))) {
+        const { sourcePages, pageBreaks, cleanEntry } = pagedText(current.lines.join("\n").trim());
+        sections.push({ heading: current.heading, source_pages: sourcePages, source_page_breaks: pageBreaks, source_entry: cleanEntry });
+      }
+      current = null;
+    };
+    text.replace(/\r/g, "").split("\n").forEach(line => {
+      const trimmed = line.trim();
+      if (/^\[\[SOURCE_PAGE:\d+\]\]$/.test(trimmed)) {
+        lastPageMarker = pendingPageMarker = trimmed;
+        return;
+      }
+      const section = trimmed.match(/^\[\[SECTION:(\w+)\]\]$/)?.[1];
+      if (section) {
+        if (sectionKind === "summary") return;
+        close();
+        sectionKind = section;
+        if (section === "excluded") {
+          current = { heading: "", lines: lastPageMarker ? [lastPageMarker] : [] };
+          pendingPageMarker = "";
+          awaitingHeading = true;
+        }
+        return;
+      }
+      if (!current || (pendingPageMarker && !trimmed)) return;
+      if (awaitingHeading && trimmed) {
+        current.heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*|__/g, "").trim();
+        awaitingHeading = false;
+        return;
+      }
+      if (pendingPageMarker) {
+        current.lines.push(pendingPageMarker);
+        pendingPageMarker = "";
+      }
+      current.lines.push(line);
+    });
+    close();
+    return sections;
+  }
+
   function segmentHouseholds(text) {
     return splitEntries(text).map((entry, index) => {
-      const sourcePages = [...entry.matchAll(/\[\[SOURCE_PAGE:(\d+)\]\]/g)].map(match => Number(match[1]));
-      // Where each page begins, as the words that open it, so a name in the entry can be placed on its page.
-      const entryLines = entry.split("\n");
-      const pageBreaks = entryLines.flatMap((line, lineIndex) => {
-        const page = line.trim().match(/^\[\[SOURCE_PAGE:(\d+)\]\]$/)?.[1];
-        const opening = page && entryLines.slice(lineIndex + 1).map(next => next.trim()).find(next => next && !/^\[\[SOURCE_PAGE:/.test(next));
-        return opening ? [{ page: Number(page), starts_with: opening.slice(0, 80) }] : [];
-      });
-      const cleanEntry = entry.replace(/^\[\[SOURCE_PAGE:\d+\]\]\s*$/gm, "").trim();
+      const { sourcePages, pageBreaks, cleanEntry } = pagedText(entry);
       // A sentence cut by a page break reads as one sentence: "the house where she lives located [continued on
       // next page]" + "...of the place called li Pasolani, bordering ...". The continuation starts in lowercase.
       const joinedEntry = entry
@@ -923,7 +981,7 @@
     return {
       parser_version: PARSER_VERSION,
       pipeline_version: "semantic-cleaning-v2-identity-triangulation",
-      entry_boundary_version: 6,
+      entry_boundary_version: 7,
       source_title: prepared.sourceTitle,
       cleaning_pipeline: [
         "segment_households",
@@ -944,7 +1002,8 @@
       note: prepared.usedSectionsOnly
         ? `Generated in browser from uploaded plain text after excluding non-${languageNames[prepared.language]} sections.`
         : "Generated in browser from uploaded plain text.",
-      households: records
+      households: records,
+      excluded_sections: excludedSections(prepared.text)
     };
   }
 

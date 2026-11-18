@@ -1,20 +1,32 @@
-# Response to CODEX_REVIEW_2.md (independent follow-up review)
+# Response to CODEX_REVIEW_3.md (round 3)
 
-Reviewed 2026-11-12 against the uncommitted working tree (HEAD `8832486`). I checked each finding against the source before acting. Each fix has a regression test, and I confirmed that test fails without the fix. Nothing was committed or pushed. The previous response is now `CLAUDE_RESPONSE_7.md`.
+Reviewed 2026-11-18 against HEAD `ecbcad5`. I reproduced each finding before changing anything, and each fix has a
+regression test that fails without it. All four actionable findings are fixed: R3-01, R3-02, M6 and R3-03. None
+needed a new decision, and I disagree with no finding. Nothing is committed or pushed. The previous response is now
+`CLAUDE_RESPONSE_8.md`.
 
-Result: all five actionable findings are now fixed: M1, M2, M3, L3 and Codex's NEW-01. L2 is resolved: the unused view state is removed, and you decided (D13) to keep the two land-clause rule sets separate and documented. Codex's 11 RESOLVED findings are unchanged. I agree with Codex's reassessment of my earlier NEW-01 (journal removal) and withdraw it.
+Codex is right that the API cache change was already committed in `ecbcad5` when the request called it
+uncommitted. I committed it after writing the request and did not update the request.
 
 ## Validation
 
-- `node --test *.test.mjs`: **153 tests, 150 passed, 3 skipped, 0 failed** (149 before; 4 added). The 3 skips are the optional checks on the private Marano source.
-- `python3 -m unittest test_serve`: **55 passed** (52 before; 3 added).
-- `npm run test:browser`: 1 passed. `npx eslint .` and `.venv/bin/ruff check .`: clean.
-- **Each new test was run without its fix:**
-  - The 3 new Python tests failed or errored on a copy of `project_store.py`/`serve.py` with only these fixes reverted. The huge-integer PUT ended in an unhandled error, as Codex reported.
-  - The reparse-offer test failed with `PARSER_VERSION = 6`.
-  - The repeated-opening test failed on the previous `pageParts`.
-- **With `CATASTO_VALIDATION_MD` naming the saved project:** 49 passed and 1 failed: the English/Italian agreement check, which is meant to fail until the transcript corrections are re-imported. The Name Index and XLSX Index checks pass, so the saved project has no merged records and is not affected by the M1 refusal.
-- **Not tested:** Windows, a real Python 3.7 interpreter, power loss (unchanged from the previous round).
+- `node --test *.test.mjs`: **175 tests, 172 passed, 3 skipped, 0 failed** (171 before; 4 added).
+- With `CATASTO_VALIDATION_MD` naming the saved Marano project: **175 passed, 0 failed.** This includes the
+  English/Italian agreement check that failed in round 2. Two of these private-source checks held assumptions
+  that V0.10 had made untrue, and I updated them (see "Private-source checks" below).
+- `python3 -m unittest test_serve`: 55 passed. `npm run test:browser`: 1 passed. `npx eslint .` and
+  `.venv/bin/ruff check .`: clean. `npm audit`: **0 vulnerabilities**.
+- **Each new test was run without its fix:** the three parser and Name Index tests and the new relations test
+  fail on the HEAD versions of `catasto-parser.js`, `catasto-name-index.js`, `catasto-relations.js` and `app.js`.
+- **Parse of the current Marano source, before and after** (required by `CLAUDE.md` before a parser change).
+  This compares each household's head, pages, residence place, residence neighbors and member lines, in English
+  and in Italian. **No household, residence, neighbor or member line changes in either language; 367 households
+  on both sides.** The only addition is `excluded_sections` (11 sections, pp. 394–396 and 416–461).
+- **In the app**, on a copy of the saved project in a temporary library, the Visualizer offered the update. The
+  review showed households 367 → 367, residences 350 → 350 and resolved neighbor links 368 → 368, with 0 changes,
+  additions or removals. After the update the copy was at version 9 with 11 excluded sections. Admin loaded
+  without console errors. Your saved library was only read.
+- **Not tested:** Windows, a real Python 3.7, power loss (unchanged).
 
 ## CRITICAL
 
@@ -22,113 +34,176 @@ None reported.
 
 ## HIGH
 
-### H1, H2, H3
+### R3-01 — A creditor label switches the parser into an excluded section
 
-**RESOLVED** (Codex agrees). No change this round.
+**RESOLVED.**
+
+Reproduced: Codex's example gives `["Bruno Ventrella", "Carlo Rossi"]` on V0.09 and `["Bruno Ventrella"]` on
+HEAD, with `[[SECTION:excluded]]` placed before "To the Chapel of the Rosary".
+
+- **What changed:** `sectionHeadingKind` returns no heading for a line that starts by naming a payee: English
+  `to`, `unto`, `towards`, `due to`, `owed to`, `paid to`; Italian `al`, `alla`, `alle`, `allo`, `agli`, `ai`,
+  `all'`, `a'`. A real heading such as "Chapels of this Land" is still one.
+- **Version:** `PARSER_VERSION` 9 and `entry_boundary_version` 7. Saved projects are offered the reviewed update;
+  nothing is reparsed on load.
+- **Marano:** none of its 31 detected headings starts this way, so its parse is unchanged.
+- **Test:** `catasto-parser.test.mjs`, "a payee label standing alone is not a heading, so the residents after it
+  are kept". It uses Codex's example in English and an Italian counterpart, and checks that a true heading is
+  still recognized.
+- **Residual risk:** a standalone line naming one chapel *without* a payee word ("Chapel of the Rosary") inside a
+  resident section is still read as an excluded heading. Marano needs that reading: "Chapel of this Land" (p. 394)
+  and the chapels on pp. 459–461 are real headings. Telling these apart needs more context than one line gives,
+  so I left it as it is.
 
 ## MEDIUM
 
-### M1 — Exports omit members from later legacy merged entries
+### R3-02 — The approved Name Index coverage of excluded sections is absent
 
-**RESOLVED — protective refusal.**
+**RESOLVED — `SECTION_HEADINGS_PLAN.md` step 3 built as decided on 2026-11-12.**
 
-Confirmed by reading `memberLines`: once the first entry yields members, the merged `members_text` fallback is never used, so people from the later entries are dropped. I took Codex's minimum option. It fits D10, under which a correction belongs in the transcript, not in the app.
+Confirmed: `data.excluded_sections` was undefined, and the Name Index read households only.
 
-- **What changed:**
-  - `CatastoNameIndex.refusalFor(data)` names any household with more than one `source_entries` item.
-  - `collectMentions`, which both the Name Index and the XLSX Index use, throws that message, so neither export can be made from such a project.
-  - In Admin, the Name Index dialog shows the explanation and disables the four export buttons. A click that gets through anyway is caught and reported in the status line.
-  - The project's own export (backup) is unaffected.
-- **Not implemented:** reading members from each merged entry. That needs rules for reconciling people and for citing pages, which Codex says need your decision. D10 makes them unnecessary.
-- **Test:** `admin.test.mjs`, "a project with households merged by an earlier version gets no index, and says why". It uses Codex's Bruno, Lucia and Carlo example.
-
-### M2 — A later import can overwrite the retained rollback journal
-
-**RESOLVED.**
-
-Confirmed. `add_all` called `settle` only for its own ids, then wrote the single journal over one that still named an earlier import's leftovers.
-
-- **What changed:** under the store lock, `add_all` first calls `settle_import()`. If the journal still exists after that, the import is refused with 503 before anything is written.
-- **Test:** `test_an_import_waits_while_an_earlier_failed_import_is_still_being_undone`, built from Codex's probe. The first import fails part-way and its rollback is blocked, so the second import is refused and the journal still names `new-1` and `new-2`. After a restart, `new-1` is gone, and the second import succeeds and leaves no journal.
-
-**My earlier NEW-01 is withdrawn.** Codex is right: the import reported an error, so undoing it at the next access keeps the import all-or-none. It is not a lost success.
-
-### M3 — Numeric validation has overflow and response-encoding gaps
-
-**RESOLVED.**
-
-Confirmed both gaps.
-
-- **What changed:**
-  - **Reading:** `loads` now has a `parse_float` that rejects numbers too large to represent, such as `1e999`. A request containing one gets 400 ("not valid JSON"), and a stored file containing one is reported as damaged (500) and left unchanged, the same as other damaged files.
-  - **Number checks:** `is_number` no longer converts integers to a float. Integers are accepted up to 2^53, the largest a browser holds exactly. A larger page number gets a 400 with an error message instead of a crash. Floats must be finite.
-  - **Replies:** `send_json` now uses the strict `dumps`, so a reply can never contain `NaN` or `Infinity`.
+- **Parser:**
+  - `excludedSections` keeps each excluded section as `{ heading, source_pages, source_page_breaks, source_entry }`
+    in `data.excluded_sections`. These are the same fields a household record has, so the existing page splitting
+    and anchor checks (L3) apply unchanged.
+  - The heading line is not part of the text. Summary sections are not kept, and nothing after a summary is.
+  - Page-break code shared with households moved to `pagedText`. Household output is unchanged.
+- **Name Index:**
+  - `collectMentions(data, { excludedSections: true })`, which `buildNameIndex` uses, reads each section in two
+    ways:
+    - the owner who opens each block: a line that is only a name, with or without an origin, or one ending
+      "possesses:" / "possiede:", indexed under the place it names
+    - the people the text names, read as references with the existing readers
+  - The owner reader skips lines that open with a verb or a preposition ("Esigge da …"), lines with digits, and
+    sentences.
+  - People named both in an entry and in a section appear once, through the existing grouping.
+- **XLSX Index:** `buildXlsxIndex` calls `collectMentions` without the option, so it follows the entries as
+  decided. Its output on the Marano project is byte-identical in English. In Italian it changes only through the
+  `esigge` fix below.
+- **Not added to:** households, the 3D view, Landholdings, search or the Adjacent Evidence report. None of them
+  reads `excluded_sections`.
+- **Reader fixes found while checking Marano** (each removed a false or garbled name the new sections exposed):
+  - "Magnifici" (plural) is a title, as "Magnifico" is. Without it, "per li Magnifici Maurizio e Don Gaetano
+    Cusinelli" gave a person named "Magnifici Maurizio".
+  - "Monte familiare" (a family fund) is an institution, as "Monte di …" already was.
+  - `Esigge da` with a double g is read like `Esige da`. In Italian resident entries this adds two real references
+    the old spelling missed: Giacomo Passarello (p. 199, in Lorenzo di Filippis's entry) and Paulo di Carlo of
+    Marano Principato (in Marzio di Luca's entry).
+- **Effect on the Marano Name Index:**
+  - English grows from 1,744 to 1,771 people; Italian from 1,743 to 1,758.
+  - New people are mostly non-resident owners under their origin (Giacomo Giraldi, Cosenza; Gennaro Bartuccio,
+    San Vincenzo; Saverio Arture, Montalto; the Matalone, Vericillo and Chiodi collectors, Rende), plus residents
+    named only in those sections.
+  - Several people already indexed gain a fuller title or a different place, because a section says where they
+    live. Giacomo Giraldi moves from Marano Marchesato to Cosenza ("of the city of Cosenza"). Gregorio Cajra moves
+    from Marano Principato to Marano Marchesato, because a section names him "of this Land" where before his place
+    came only from one other mention.
+  - Magnifico Antonio La Piana is placed at "Piane", from "of the Casale delle Piane": the place is the name after
+    the locality word, as for "Land of Rende".
 - **Tests:**
-  - `test_numbers_too_large_for_a_browser_are_refused_with_a_reply`: a 400-digit integer, `1e999`, 2^53+1, and a nested `-1e999`.
-  - `test_a_saved_file_with_an_overflowing_number_is_reported_damaged_not_sent`: a nested `1e999` in a stored file; the file is kept byte for byte.
+  - `catasto-parser.test.mjs`, "excluded sections are kept with their heading and pages, apart from the entries;
+    summaries are not"
+  - `catasto-name-index.test.mjs`, "the Name Index reads excluded sections: owners under their origin, once each;
+    the XLSX rows do not". It covers English and Italian, an owner with an origin, a "collects the following"
+    owner, an institution, an "Esigge da" line, a "Montefamiliare" line, and a resident named in both.
+  - The Marano Name Index check now asserts Giraldi (Cosenza), Bartuccio (San Vincenzo) and Maurizio Cusinelli.
 
-### M4, M5, M6, M7, M8
-
-**RESOLVED** (Codex agrees). No change this round. Codex's platform limits for M7 still apply: Windows folder syncs and real power loss are unverified.
-
-### NEW-01 (Codex) — Parser behavior changed without an upgrade version
+### M6 — D12's upstream-release trigger has occurred
 
 **RESOLVED.**
 
-Confirmed. I had left the version at 6 because the English output was unchanged, but that meant existing Italian projects were never offered the fix.
+Confirmed with `npm view`: ESLint 10.15.0 and `@eslint/config-array` 0.23.6 depend on minimatch `^11.0.5`.
 
-- **What changed:** `PARSER_VERSION` is now 7, and ARCHITECTURE.md says so. Projects still go through the existing reviewed update: nothing is reparsed on load, and a previous-version snapshot is kept.
-- **Side effect:** every saved project now shows the update notice once. For your English Marano project, the review lists any changes before anything is saved.
-- **Test:** `catasto-records.test.mjs`. A version-6 Italian project with one edited household is offered the update, and the update keeps that household's id and correction while adding the household from the same-line heading.
+- **What changed:** `eslint` 10.13.0 → 10.15.0 (exact pin; `npm install --save-dev --save-exact
+  --ignore-scripts`). The lockfile resolves minimatch 11.0.9, deduplicated. `@eslint/js` stays at 10.0.1, its
+  latest version. No override and no downgrade.
+- **Validation:** `npm audit` reports 0 vulnerabilities. Lint is clean, and it still reports a deliberate unused
+  variable and an undefined name. All tests pass.
+- **Docs:** D12 in `HUMAN_DECISIONS.md` is marked resolved, and the caution in `HANDOFF.md` is updated.
 
 ## LOW
 
-### L1
-
-**RESOLVED** (Codex agrees).
-
-### L2 — Duplicated extraction rules and obsolete view state
-
-**RESOLVED — unused state removed; the rules kept separate by decision D13.**
-
-- **Removed:** `view.x`, `view.y` and `view.scale` from `app.js`. A search found no reads of them; `scene3d.js` uses only Three.js objects' own `.scale`.
-- **Decided (D13, 2026-11-12):** the land-clause rules for the parcel view (`app.js`) and for relation evidence (`catasto-relations.js`) stay separate. Nothing you see changes.
-  - **Documented in ARCHITECTURE.md:**
-    - The view draws only sentences that name land, includes a garden named in the residence sentence, and keeps public roads and the owner's name.
-    - The report counts anything owned that borders someone, skips residence sentences, and keeps only other people.
-  - **Pinned by a test:** "the Landholdings view and relation evidence keep their own land-clause rules" in `index-app.test.mjs`. It covers a garden in the residence sentence, a vineyard bordering a road and the owner's own name, and a mill.
-  - **Supporting change:** `landNeighborNames` is now exported from `CatastoRelations` so that test can reach it.
-
-### L3 — Page attribution is ambiguous when openings repeat
+### R3-03 — Payment-only references still appear as report mentions
 
 **RESOLVED.**
 
-Confirmed. Each opening was found with `indexOf` from the start of the entry, so two identical openings landed on the same position.
+Reproduced: "He makes a payment to Carlo Rossi.", "He collects from Carlo Rossi five ducats." and "He receives
+from Carlo Rossi five ducats." each gave Carlo Rossi a "Mentioned in Bruno Ventrella's entry" line. So did
+"Esigge da Carlo Rossi …".
 
-- **What changed:** `pageParts` now trusts the recorded page breaks only when every opening occurs exactly once in the entry and the openings are in page order. Otherwise it cites the whole entry with all its pages, the fallback D10 already chose.
-- **Test:** `catasto-name-index.test.mjs`. In Codex's example, pages 2 and 3 open with the same sentence, so Carlo Rossi is cited as pages 1–3, not page 3 alone. A second case puts two openings out of order.
+- **What changed:** one word list, `FINANCIAL` in `catasto-relations.js`, now serves both the report
+  (`isPaymentSentence`) and search (`sourceReferenceType` in `app.js` calls `CatastoRelations.isPaymentSentence`).
+  The list combines the words each one had and adds `payment(s)`, `collect…`, `receiv…`, `debtor`, `pagamento`,
+  `debitore`, `creditore`, `esig…` (both spellings) and `riscuot…`.
+- **Marano:** the reports for all 367 household heads are identical before and after. The filter affects only
+  reports on people known from references alone.
+- **Test:** `catasto-relations.test.mjs`, "payments, collections and receipts are never mentions; a border with
+  the same person still counts". It also checks that a non-financial sentence ("She sold a field to Lucia Serra.")
+  is still a mention. Land and residence borders are read separately and are unaffected.
 
 ## INFORMATIONAL
 
-### I1, I2
+### I3 — Windows release readiness
 
-**RESOLVED** (Codex agrees). This round adds no request handling beyond stricter number checks.
+**Acknowledged; no code change this round.** I agree with Codex's reading. Two of its suggestions are mine to
+offer and yours to choose:
 
-## Summary of files changed this round
+- **A Python version check in the Windows launcher**, as the Mac launcher has. It is a small change, but it needs
+  a Windows machine to verify, so I have not made it.
+- **The manual Windows checklist** Codex lists (non-administrator account, a path with spaces and non-ASCII
+  characters, launcher and manual start, create/edit/reload, backup/import, reviewed reparse/restore, delete,
+  duplicate launch, restart after interrupted work, and the profile permissions). It needs a Windows machine.
 
-- `project_store.py`: `finite_float` for `loads`; `is_number` with the 2^53 integer limit; `add_all` refuses while an import journal remains.
-- `serve.py`: `send_json` uses the strict `dumps`; the unused `json` import is removed.
-- `catasto-parser.js`: `PARSER_VERSION` 7.
-- `catasto-name-index.js`: `pageParts` requires unique, ordered openings; `refusalFor` and the refusal in `collectMentions`.
-- `admin.js`: the Name Index dialog shows the refusal and disables the exports; export clicks report errors.
-- `app.js`: unused `view.x/y/scale` removed.
-- `catasto-relations.js`: `landNeighborNames` exported, for the D13 test.
+How to describe Windows support in the release is your decision.
+
+### I4 — API caching change
+
+**Acknowledged.** No change needed.
+
+### I5 — Documentation and test boundaries
+
+**RESOLVED.** `HANDOFF.md` now gives the bilingual figures measured on 2026-11-18 with parser version 9: 367
+households on both sides, 363 heads paired, and 369 of 378 English residence neighbors found on the Italian side.
+The stale version 7 figures (362 households) are removed.
+
+## Private-source checks
+
+Two checks that run only with `CATASTO_VALIDATION_MD` failed on HEAD before any change in this round. In both,
+the check's assumption no longer held:
+
+- **`catasto-xlsx-index.test.mjs`, Michele Marino:** it expected one row. There are two people: Barbara Caputo's
+  son (age 10, p. 361) and Pietro Morrone's nephew (age 14, pp. 281–282). The check now picks the age-10 row, as
+  it already does for Andrea Orrico.
+- **`catasto-xlsx-index.test.mjs`, Maurizio Cusinelli:** it expected one row. Since V0.10 his only mention, a mass
+  legacy, is in the excluded "Churches and Monasteries" section, so by the recorded decision the XLSX Index leaves
+  him out. The check now expects none, and the Name Index check expects him once.
+
+## Summary of files changed
+
+- `catasto-parser.js`:
+  - the payee rule in `sectionHeadingKind`
+  - `pagedText` (shared) and `excludedSections`
+  - `data.excluded_sections`
+  - `PARSER_VERSION` 9, `entry_boundary_version` 7
+- `catasto-name-index.js`:
+  - `sectionOwners` and the `excludedSections` option in `collectMentions`, used by `buildNameIndex`
+  - `Magnifici`, `Monte familiare`, `Esigge da`
+- `catasto-relations.js`: the shared `FINANCIAL` list; `isPaymentSentence` exported.
+- `app.js`: search's financial classification uses `CatastoRelations.isPaymentSentence`.
+- `package.json`, `package-lock.json`: ESLint 10.15.0.
 - Tests:
-  - `test_serve.py`: 3 tests.
-  - `catasto-records.test.mjs`, `catasto-name-index.test.mjs`, `admin.test.mjs` and `index-app.test.mjs`: 1 test each.
+  - `catasto-parser.test.mjs`: 2 tests
+  - `catasto-name-index.test.mjs`: 1 test, plus Marano assertions
+  - `catasto-relations.test.mjs`: 1 test
+  - `catasto-xlsx-index.test.mjs`: 2 Marano assertions corrected
 - Docs:
-  - `ARCHITECTURE.md`: number checks, import refusal, page anchors, index refusal, parser version, and the D13 land-clause rules.
-  - `HUMAN_DECISIONS.md`: D13.
-  - `HANDOFF.md`: test counts.
+  - `ARCHITECTURE.md`: parser version, excluded sections, Name Index
+  - `HANDOFF.md`: test count, bilingual figures, parser version 9, ESLint, money words
+  - `SECTION_HEADINGS_PLAN.md`: step 3 built
+  - `HUMAN_DECISIONS.md`: D12 resolved
+- `CLAUDE_RESPONSE_8.md`: the previous response, kept for history.
 
-STATUS: RESOLVED
+App version: V 0.11 in the footers of `index.html` and `admin.html`, in `INSTALL.md` and in `HANDOFF.md`.
+
+STATUS: READY_FOR_REVIEW

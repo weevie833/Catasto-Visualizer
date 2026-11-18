@@ -863,7 +863,7 @@ function sourceMatchDetail(context, query) {
 function sourceReferenceType(context, query = "") {
   const needle = searchKey(query);
   const clause = String(context || "").split(/;|(?<=[.!?])\s+/).find(part => needle && searchKey(part).includes(needle));
-  if (clause && /\b(?:pays?|paid|paying|payment|owes?|owed|rent|principal|interest|debt|deductions?|liabilit(?:y|ies)|burden(?:ed)?|creditor|debtor|collects?|receives?|paga|pagano|capitale|affitto|censo|debito|esige)\b|^\s*(?:to|al|alla|allo|alli|ai|agli|alle)\s/i.test(clause)) return "financialReferenceMatch";
+  if (clause && window.CatastoRelations.isPaymentSentence(clause)) return "financialReferenceMatch";
   if (/\b(?:bordering|adjacent|neighbor|property of|giusta|confin\w*|contigu\w*)\b/i.test(context)) return view.layer === "land" ? "landReferenceMatch" : "residenceReferenceMatch";
   if (/\b(?:pays? to|collects? from|receives? from|creditor|debtor|principal|interest|rent|paga|capitale|affitto|esige)\b/i.test(context)) return "financialReferenceMatch";
   return "sourceReferenceMatch";

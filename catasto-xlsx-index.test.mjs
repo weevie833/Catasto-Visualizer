@@ -203,7 +203,11 @@ test("the current Marano source, when CATASTO_VALIDATION_MD names it", async t =
   assert.ok(found.length > 2000);
   assert.ok(found.every(row => row.given && row.image));
   assert.equal(named("Andrea", "Orrico").find(row => row.age === 50).image, "5, 6");
-  assert.deepEqual(named("Michele", "Marino").map(row => [row.fatherGiven, row.motherGiven]), [["Francesco", "Barbara"]]);
+  // Two Michele Marinos: Barbara Caputo's son (age 10, p. 361) and Pietro Morrone's nephew (age 14, pp. 281–282).
+  const michele = named("Michele", "Marino").find(row => row.age === 10);
+  assert.deepEqual([michele.fatherGiven, michele.motherGiven], ["Francesco", "Barbara"]);
   assert.equal(named("Gennaro", "Belmonte").filter(row => row.age !== "").length, 3);
-  assert.ok(named("Maurizio", "Cusinelli").length === 1);
+  // Named only in a mass legacy in the excluded "Churches and Monasteries" section: the XLSX Index follows the
+  // entries and leaves him out; the Name Index keeps him.
+  assert.equal(named("Maurizio", "Cusinelli").length, 0);
 });

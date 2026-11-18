@@ -322,3 +322,22 @@ test("a person paid is never mentioned in the payer's entry; other mentions stil
   assert.deepEqual(texts(build(data, { name: "Cassandra Conte" }).summary), ["Cassandra Conte", "No household entry of their own.", "Mentioned in Anna Galli's entry (p. 5)"]);
   assert.deepEqual(texts(build(data, { name: "Domenico Ponzo" }).summary), ["Domenico Ponzo", "No household entry of their own."]);
 });
+
+test("payments, collections and receipts are never mentions; a border with the same person still counts", () => {
+  const entry = (head, ...lines) => ({ fields: { source_entry: [`${head}, laborer, age 40`, "", ...lines].join("\n") } });
+  const data = {
+    source_title: "Test Catasto",
+    households: [
+      household("h-payer", "Bruno Ventrella", ["Bruno Ventrella"], { page: 3, ...entry("Bruno Ventrella",
+        "He makes a payment to Carlo Rossi.",
+        "He collects from Carlo Rossi five ducats.",
+        "He receives from Carlo Rossi five ducats.",
+        "Esigge da Carlo Rossi annui carlini dodici.") }),
+      household("h-neighbor", "Anna Galli", ["Anna Galli"], { page: 5, ...entry("Anna Galli",
+        "She collects from Lucia Serra five ducats.",
+        "She sold a field to Lucia Serra.") })
+    ]
+  };
+  assert.deepEqual(texts(build(data, { name: "Carlo Rossi" }).summary), ["Carlo Rossi", "No household entry of their own."]);
+  assert.deepEqual(texts(build(data, { name: "Lucia Serra" }).summary), ["Lucia Serra", "No household entry of their own.", "Mentioned in Anna Galli's entry (p. 5)"]);
+});
