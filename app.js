@@ -400,10 +400,19 @@ function householdIdentityLabels(records) {
   return labels;
 }
 
+// The words a translation uses for a boundary: "bordering", "borders", "adjacent to", "next to", "contiguous to".
+const ENGLISH_BORDER = String.raw`\b(?:bordering|borders|adjacent\s+to|next\s+to|contiguous\s+(?:to|with)|confining\s+with)\b`;
+
+// A land clause names a kind of land and what borders it, as the Italian does: "A portion of Li Pasolani ...",
+// "An arable plot in li Fiumicello ...", "A property in Li Cipore ...". "the property of" names a neighbor, not
+// land. The house someone lives in is a residence, not a landholding, unless it comes with a garden or vineyard.
 function isLandholdingSentence(sentence) {
-  return /\b(possesses|owns|also owns|landholding|property called|garden|vineyard|chestnut grove|grove|portion of land)\b/i.test(sentence) &&
-    /\b(landholding|portion of land|property called|garden|vineyard|chestnut grove|grove|land|property)\b/i.test(sentence) &&
-    /\bbordering\b/i.test(sentence);
+  // An editor's bracket is not the clerk's word: "[The property] borders ..." continues a clause cut by a page.
+  const text = String(sentence || "").replace(/\\?\[[^\]]*\\?\]/g, " ");
+  const land = /\b(?:landholding|portion|plot|territory|arable|garden|vineyard|chestnut grove|grove|land|propert(?:y|ies)(?!\s+of\b))\b/i;
+  const residence = /\b(?:lives|resides)\b|\b(?:possess\w*|owns?)\s+(?:the|a|an|her|his|their)\s+(?:own\s+)?house\b/i;
+  return land.test(text) && new RegExp(ENGLISH_BORDER, "i").test(text) &&
+    (!residence.test(text) || /\b(?:garden|vineyard)\b/i.test(text));
 }
 
 function landholdingName(sentence, index) {
@@ -421,7 +430,7 @@ function landholdingName(sentence, index) {
 function landholdingPlace(sentence, name, previousPlace = null) {
   if (/\b(?:same|said|aforementioned) place\b/i.test(sentence) && previousPlace) return previousPlace;
   if (!/^Landholding\s+\d+$/i.test(name)) return canonicalPlace(name);
-  const locationClause = sentence.split(/\bbordering\b/i)[0];
+  const locationClause = sentence.split(new RegExp(ENGLISH_BORDER, "i"))[0];
   const explicit =
     locationClause.match(/\bin\s+(?:the\s+)?(?:place|district|neighborhood|contrada)\s+(?:called\s+|of\s+)?([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|$)/i) ||
     locationClause.match(/\bin\s+(?:the\s+)?([^,;]+?)(?=,?\s+(?:with|of)\s+(?:(?:a|the)\s+)?capacity|,|;|$)/i) ||
@@ -482,7 +491,7 @@ function parseLandholdings(record) {
         previousPlace = { key: holding.placeKey, label: holding.place };
         return holding;
       }
-      const borderMatch = sentence.match(/\bbordering\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|$)/i);
+      const borderMatch = sentence.match(new RegExp(String.raw`${ENGLISH_BORDER}\s+(?:the )?(?:property|properties)?\s*(?:of)?\s*([\s\S]*?)(?:;|\.|$)`, "i"));
       const rawAdjacentNames = borderMatch ? expandNeighborNames(borderMatch[1]) : [];
       const name = landholdingName(sentence, index);
       const placeInfo = landholdingPlace(sentence, name, previousPlace);

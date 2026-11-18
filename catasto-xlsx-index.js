@@ -140,7 +140,7 @@
         district: mention.record.residence?.place || "",
         person: mention.person,
         derived: mention.surname_derived,
-        infant: mention.person.age === 0 && /\b(?:infant|infante)\b/i.test(mention.person.line || "")
+        infant: mention.person.age === 0 && window.CatastoParser.INFANT.test(mention.person.line || "")
       }));
       rowOfPerson.set(mention.person, row);
       if (!households.has(mention.record)) households.set(mention.record, []);

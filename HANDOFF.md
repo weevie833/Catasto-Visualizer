@@ -110,9 +110,10 @@ Castelfranco`), `Abita in casa propria sita in ...` residences, neighbors after
 `di capacità`, and `stimata la rendita`. Italian projects display the source's
 Italian terms.
 
-On the current bilingual Marano source (the saved project's text, measured 2026-11-18 with parser version 9),
-both sides yield 367 households; 363 heads pair up, and 369 of 378 English residence neighbors are found on
-the Italian side.
+On the current bilingual Marano source (the saved project's text, measured 2026-11-18 with parser version 10),
+both sides yield 368 households, all paired by head, with 1,922 people, 361 located residences, and 621
+parcels in the Landholdings view on each side. The one residence neighbor that differed, a "vico" in the Italian
+for Angelo Chiappetta (pp. 4–5), was a transcription error and has been deleted from the source.
 `catasto-parser.test.mjs` repeats the household and neighbor comparison when the
 transcription is present and skips it otherwise.
 
@@ -153,6 +154,26 @@ Parser version 9 (2026-11-18, Codex round 3): a standalone payee label ("To the 
 longer taken for a section heading, so residents after it are kept; and excluded sections are kept in
 `data.excluded_sections` for the Name Index. On the saved Marano project nothing else changes: the same 367
 households, residences, members and neighbors in both languages, and the same XLSX Index.
+
+Parser version 10 (2026-11-18) makes the English and Italian sides of the same entry agree. Households: a
+"Parish Priest in the Mother Church" is not a mother (Don Ignazio Carvello, p. 387, now heads his own household),
+and a swaddled infant ("nella fascia", "nelle fascie", "in fasce") is a member. Residences: a placeholder ("He
+lives...", "Abita...") gives way to the next residence sentence; English sentences without a subject ("Lives in
+his own house") and boundaries written "adjacent to", "next to", "contiguous to" or "confining with" are read;
+"a house owned by" or rented is "Not Listed"; "quarter" and "area" are dropped from place names; Italian houses
+without "sita" ("casa propria li Malvitani", "casaggio detto li Malvitani", "casaggio proprio di Santo Nicola",
+"casaggio del San Nicola") are placed, "casa d'essa Matrice Chiesa" is another's house, and "Possiede la casa
+propria locata ..." is a residence, as "She possesses her own house ..." is in English. Origins set off by commas ("Agostino Chiappetta, from the Land of
+Castelfranco", "Antonio di Rangho, puglia della Terra di Marano Principato", "della città di Cosenza") give the
+residence when none is named, and leave the member line. A town ("the Land of Rende", "Terra di Rende") is not a
+neighbor. The document title "Italian Transcription and English Translation of the ..." no longer opens an
+Italian section, so the opening notes stay out of the first Italian household. In the Landholdings view, the
+English land rule now matches the Italian one (see D13 in `ARCHITECTURE.md`), and "castaneto" is a chestnut
+grove. Against version 9 on the saved Marano project, English gains Carvello's household, neighbors for 16
+residences, 9 residences, and 41 parcels ("A portion of ...", "A property in ...", "An arable plot ..."), tidies
+5 place names, and loses 20 parcels that were the house the owner lives in; Italian gains 22 residences,
+neighbors for 6, 4 infants and one parcel, corrects the place for Biasi Santanna (San Nicola) and Don Ignazio
+Carvello ("Not Listed"), and loses the "Terra di Rende" neighbor.
 
 Residence neighbors that still match no household entry are listed by comparing each
 `residence_links` entry that has no `household_id` against the heads. On the current transcription

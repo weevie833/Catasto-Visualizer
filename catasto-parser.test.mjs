@@ -166,7 +166,9 @@ Andrea Conte, from the Land of Castelfranco, age — 48
 Elisabetta Costabile, wife, age — 22
 He possesses a landholding in the Pasolani district.`).households;
   assert.deepEqual(Array.from(english, record => record.household_head), ["Antonio Mirabello", "Andrea Conte"]);
-  assert.equal(english[1].members_text, "Andrea Conte, from the Land of Castelfranco, age 48\nElisabetta Costabile, wife, age 22");
+  // The origin set apart by commas is his residence, not part of the member line.
+  assert.equal(english[1].members_text, "Andrea Conte, age 48\nElisabetta Costabile, wife, age 22");
+  assert.deepEqual(Array.from(english, record => record.residence.place), ["Rende", "Castelfranco"]);
 
   const italian = parsePlainText(`Antonio Mirabello, della Terra di Rende di anni — 48
 Teresa Volpentesta moglie di anni — 44
@@ -176,6 +178,7 @@ Andrea Conte della Terra di Castelfranco di anni — 48
 Elisabetta Costabile moglie di anni — 22
 Possiede una possessione nelli Pasolani.`, "it").households;
   assert.deepEqual(Array.from(italian, record => record.household_head), ["Antonio Mirabello", "Andrea Conte"]);
+  assert.deepEqual(Array.from(italian, record => record.residence.place), ["Rende", "Castelfranco"]);
 });
 
 test("first names joined by 'and' or a kept Italian 'e' share the surname that follows, particle included", () => {
@@ -461,6 +464,11 @@ test("the Italian and English sides of the current Marano source agree", { skip:
       if (italianNeighbors.has(name)) matchedNeighbors += 1;
     });
   });
+  // The same people, and a residence on both sides or on neither (parser version 10).
+  const people = records => records.reduce((sum, record) => sum + record.members_text.split("\n").filter(Boolean).length, 0);
+  assert.equal(people(italian), people(english));
+  const placed = records => records.filter(record => record.residence.place).length;
+  assert.equal(placed(italian), placed(english));
   assert.ok(sameHead / english.length >= 0.8, `household heads agree for ${sameHead} of ${english.length}`);
   assert.ok(matchedNeighbors / englishNeighbors >= 0.9, `residence neighbors agree for ${matchedNeighbors} of ${englishNeighbors}`);
 });
@@ -659,4 +667,106 @@ test("a heading ends the entry before it, and only resident sections hold entrie
 test("a source without section headings parses as before", () => {
   const text = "Marco Ferrari, laborer — age 40\n\nHe lives in his own house.\n\nLuca Neri, laborer — age 50\n\nHe lives in the Borgo.";
   assert.deepEqual(Array.from(parsePlainText(text).households, record => record.household_head), ["Marco Ferrari", "Luca Neri"]);
+});
+
+// Each household is one head and one residence sentence; returns [place, neighbors] per household.
+const residences = (lines, language = "en") => JSON.parse(JSON.stringify(parsePlainText(lines.join("\n\n"), language).households
+  .map(record => [record.residence.place, record.residence.adjacent_to])));
+
+test("the English and Italian sides of one entry give the same residence (parser version 10)", () => {
+  // A placeholder sentence gives way to the next one with words in it.
+  assert.deepEqual(residences(["Marco Monaco, day laborer — age 40\nHe lives...\nHe lives in his own house in Li Pasolani, bordering Ignazio Zupo and the public road."]),
+    [["Li Pasolani", ["Ignazio Zupo", "public road"]]]);
+  assert.deepEqual(residences(["Marco Monaco bracciale — anni 40\nAbita...\nAbita in casa propria di li Pasolani, giusta li beni di Ignazio Zupo e via publica."], "it"),
+    [["li Pasolani", ["Ignazio Zupo", "via publica"]]]);
+  // Translations without a subject, and boundaries other than "bordering".
+  assert.deepEqual(residences([
+    "Saverio di Bartolo, farmer — age 50\nLives in his own house called San Nicola, adjacent to the property of Marzio and Ignazio di Bartolo.",
+    "Nicolò Conforto, day laborer — age 30\nHe lives in his own house in San Nicola, next to Zeno Conforto and the public road.",
+    "Gennaro Ritaccha, day laborer — age 30\nHe lives in his own house in the Pasolani district, contiguous to Lorenzo Russo and the public road.",
+    "Giuseppe Morrone, day laborer — age 30\nHe lives in his own house called Pasolani, adjacent to 18 ounces the property of Bruno Perrotta, and the public road",
+    "Biasi Santanna, day laborer — age 30\nHe lives in his own house in the San Nicola quarter, bordering Pietro Santanna.",
+    "Ottavio Salerno, day laborer — age 30\nHe lives in the house of GiovanniBattista Serpe next to the Land of Rende and pays for it an annual rent of thirty-two carlini",
+    "Stefano Nigro, day laborer — age 30\nHe lives in a house owned by Giovanni Orrico and pays rent.",
+    "Francesca Principe, widow — age 40\nShe possesses her own house located in the San Nicola neighborhood, bordering the property of Matteo Iandria and the public road —"
+  ]), [
+    ["San Nicola", ["Marzio di Bartolo", "Ignazio di Bartolo"]],
+    ["San Nicola", ["Zeno Conforto", "public road"]],
+    ["Pasolani", ["Lorenzo Russo", "public road"]],
+    ["Pasolani", ["Bruno Perrotta", "public road"]],
+    ["San Nicola", ["Pietro Santanna"]],
+    ["Not Listed", []],
+    ["Not Listed", []],
+    ["San Nicola", ["Matteo Iandria", "public road"]]
+  ]);
+  // Italian house places without "sita" or "in", and another's house.
+  assert.deepEqual(residences([
+    "Antonio Morello bracciale — anni 40\nAbita in casa propria li Malvitani giusta li beni di Vincenzo Morello e via publica.",
+    "Gaetano Tenuta bracciale — anni 40\nAbita in casaggio detto li Malvitani giusta li beni di Pietro Tenuta.",
+    "Leonardo Coscarello pecoraro — anni 55\nAbita in casaggio proprio di Santo Nicola giusta li beni di Pietro Tenuta.",
+    "Biasi Santanna bracciale — anni 40\nAbita in casaggio del San Nicola giusta li beni di Pietro Santanna.",
+    "Innocenzo Militerni bracciale — anni 40\nAbita in casa propria consistente in più membri, giusta li beni di Giuseppe Volpentesta e via publica.",
+    "Ignazio Carvello sacerdote — anni 50\nAbita in casa d'essa Matrice Chiesa.",
+    "Francesca Principe vedova — anni 40\nPossiede la casa propria locata nelli San Nicola, giusta li beni di Matteo Iandria e via publica —",
+    "Ottavio Salerno bracciale — anni 30\nAbita in casa di GiovanniBattista Serpe giusta Terra di Rende e ne paga per annui Carlini trentadue affitto"
+  ], "it"), [
+    ["li Malvitani", ["Vincenzo Morello", "via publica"]],
+    ["li Malvitani", ["Pietro Tenuta"]],
+    ["Santo Nicola", ["Pietro Tenuta"]],
+    ["San Nicola", ["Pietro Santanna"]],
+    [null, ["Giuseppe Volpentesta", "via publica"]],
+    ["Not Listed", []],
+    ["San Nicola", ["Matteo Iandria", "via publica"]],
+    ["Not Listed", []]
+  ]);
+});
+
+test("a head's origin is his residence when none is given, in either language", () => {
+  const english = parsePlainText([
+    "Antonio di Rangho, from the Land of Marano Principato — age 30\nHe possesses no assets.",
+    "Antonio Scillaro, day laborer, also from the Land of Rende — age 69\nDianora Tenuta, wife — age 59\nHe possesses no assets.",
+    "Magnifica Cassandra Conte of the city of Cosenza, maiden and head of household — age 50\nShe possesses no assets."
+  ].join("\n\n")).households;
+  assert.deepEqual(Array.from(english, record => record.household_head), ["Antonio di Rangho", "Antonio Scillaro", "Magnifica Cassandra Conte"]);
+  assert.deepEqual(Array.from(english, record => record.residence.place), ["Marano Principato", null, "Cosenza"]);
+  // The origin is dropped from the member line, but the age stays.
+  assert.equal(english[1].members_text.split("\n")[0], "Antonio Scillaro, day laborer — age 69");
+  const italian = parsePlainText([
+    "Antonio di Rangho, puglia della Terra di Marano Principato — anni 30\nNon possiede beni.",
+    "Magnifica Cassandra Conte della città di Cosenza, vergine in capillis — anni 50\nNon possiede beni."
+  ].join("\n\n"), "it").households;
+  assert.deepEqual(Array.from(italian, record => record.residence.place), ["Marano Principato", "Cosenza"]);
+});
+
+test("a title naming both languages opens no section", () => {
+  const text = [
+    "### **Italian Transcription and English Translation of the** **1754 Catasto Onciario**",
+    "",
+    "**Elite Neighbors:** an editor's note on properties bordering the local elite.",
+    "",
+    "### **Marano Marchesato 1754: Page 4** **Italian Transcription:**",
+    "",
+    "Angelo Chiappetta bracciale — anni 40",
+    "Abita in casa propria sita nelli Pasolani giusta li beni di Isabella Orrico.",
+    "",
+    "### **Marano Marchesato 1754: Page 4** **English Translation:**",
+    "",
+    "Angelo Chiappetta, day laborer — age 40",
+    "He lives in his own house in the Pasolani district, bordering Isabella Orrico."
+  ].join("\n");
+  const { extractTranscriptionSections } = context.window.CatastoParser;
+  assert.doesNotMatch(extractTranscriptionSections(text, "it").text, /Elite Neighbors/);
+  assert.doesNotMatch(extractTranscriptionSections(text, "en").text, /Elite Neighbors/);
+});
+
+test("a swaddled infant is a member, and a parish priest of the Mother Church heads his own household", () => {
+  const italian = parsePlainText("Michele Tenuta bracciale — anni 30\nAntonia Chiappetta moglie — anni 29\nSanto figlio nella fascia\nFrancesca figlia — anni 3\nAbita in casa propria di San Nicola.", "it").households;
+  assert.deepEqual(italian[0].members_text.split("\n"), ["Michele Tenuta bracciale — anni 30", "Antonia Chiappetta moglie — anni 29", "Santo figlio nella fascia", "Francesca figlia — anni 3"]);
+  const english = parsePlainText([
+    "Don Antonio Morrone, Deacon — age 22",
+    "He possesses the house where he lives in the Pasolani district, bordering Bruno Perrotta.",
+    "Don Ignazio Carvello, from the Casale of Aprigliano, Priest and Parish Priest in the Mother Church of this City of Marano — age 50.",
+    "He lives in the house of the said Mother Church."
+  ].join("\n")).households;
+  assert.deepEqual(Array.from(english, record => record.household_head), ["Don Antonio Morrone", "Don Ignazio Carvello"]);
 });

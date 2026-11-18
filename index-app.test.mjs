@@ -595,6 +595,37 @@ test("the Landholdings view and relation evidence keep their own land-clause rul
   assert.deepEqual(evidence, ["Carlo Rossi", "Luca Bruni"]);
 });
 
+test("the Landholdings view counts the same parcels in a translation as in the Italian", async () => {
+  const app = await loadApp([sameNameProject()]);
+  const parcels = lines => JSON.parse(JSON.stringify(app.run(`parseLandholdings(${JSON.stringify({ id: "h-test", household_head: "Paulo Chiappetta",
+    source_entry: lines.join("\n") })}).map(item => [item.type, item.adjacent_to])`)));
+  // Translations name land as "portion", "property in", "arable plot", "territory", and bound it in several ways.
+  assert.deepEqual(parcels([
+    "Paulo Chiappetta, day laborer — age 40",
+    "He possesses a portion of Li Pasolani with a capacity of half a moggio, bordering Antonio Ritaccha and the public road.",
+    "Another portion in the same place with a capacity of half a moggio, bordering Domenico Lento and Daniele Lento.",
+    "A property in Li Cipore, with a capacity of one moggio, bordering the property of Jesuit Parsi and the public road.",
+    "An arable plot in li Fiumicello, with a capacity of one and a half moggia, bordering Giuseppe Scillaro and the running river.",
+    "Another territory called Malsitania arable land, with a capacity of one moggio, bordering Nunziato Cajra.",
+    "He owns a plot of land in the Pasolani area with a capacity of one-quarter of a moggio; it borders the property of Andrea Orrico and a public road."
+  ]).map(([, adjacent]) => adjacent), [
+    ["Antonio Ritaccha", "public road"], ["Domenico Lento", "Daniele Lento"], ["Jesuit Parsi", "public road"],
+    ["Giuseppe Scillaro", "running river"], ["Nunziato Cajra"], ["Andrea Orrico", "a public road"]
+  ]);
+  // The house someone lives in is a residence, as "Possiede la casa ove abita" is in the Italian; the rest of a
+  // clause cut by a page break, "[The property] borders ...", is not a second parcel.
+  assert.deepEqual(parcels([
+    "Teresa Covello, widow — age 30",
+    "She possesses the house where she lives in the Pajoli neighborhood, bordering the property of Anna Molinaro and the public road.",
+    "Furthermore, she possesses a landholding in the place called [San Nicola], with a capacity of two moggi, bordering...",
+    "[The property] borders the property of Domenico Aijello and Pietro Santanna."
+  ]).length, 1);
+  // "castaneto" is the scribe's spelling of "castagneto".
+  assert.deepEqual(parcels(["Achille Covello bracciale — anni 40",
+    "Un castaneto detto Costa della Pagliara di capacità moggia due, confina Vincenzo Morrone e fiume detto; si importa la rendita di ducati sei."]),
+  [["castaneto", ["Vincenzo Morrone", "fiume detto"]]]);
+});
+
 test("search classes a person paid as a financial reference, even in a clause that lists borders", async () => {
   const app = await loadApp([sameNameProject()]);
   const type = (context, query) => app.run(`sourceReferenceType(${JSON.stringify(context)}, ${JSON.stringify(query)})`);

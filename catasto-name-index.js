@@ -274,7 +274,7 @@
       relative: kin ? kin[2].trim() : "",
       role: R().roleOf(text),
       // An infant listed without an age is age 0.
-      age: Number(text.match(/\b(?:age|aged|anni)\s+(\d+)/i)?.[1] ?? (/\b(?:infant|infante)\b/i.test(text) ? 0 : NaN)),
+      age: Number(text.match(/\b(?:age|aged|anni)\s+(\d+)/i)?.[1] ?? (P().INFANT.test(text) ? 0 : NaN)),
       line: text,
       location: origin.location || (headOrigin ? context.placeName(headOrigin) : null)
     };

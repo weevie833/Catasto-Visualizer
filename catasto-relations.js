@@ -298,7 +298,7 @@
   function ageOf(line) {
     const age = String(line).match(/\b(?:age|aged|anni)\s+(\d+)\b/i)?.[1];
     if (age) return age;
-    return /\b(?:infante|infant)\b/i.test(line) ? "infant" : null;
+    return parser().INFANT.test(line) ? "infant" : null;
   }
 
   // The occupation or condition written beside the name, without the relation or age.
@@ -307,7 +307,7 @@
       .replace(/\[[^\]]+\]/g, " ")
       .replace(/\b(?:di\s+)?(?:anni|age|aged)\s+\d+\b.*$/i, "")
       // "an infant" is an age, not a description; the article goes with it.
-      .replace(/\b(?:an?\s+)?(?:infante|infant)\b/gi, "");
+      .replace(new RegExp(String.raw`\b(?:an?\s+)?${parser().INFANT.source.replace(/^\\b/, "")}`, "gi"), "");
     if (role !== "member") {
       const pattern = ROLE_PATTERNS.find(([key]) => key === role)?.[1];
       if (pattern) text = text.replace(pattern, "");
