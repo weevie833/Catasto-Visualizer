@@ -111,8 +111,9 @@ class CatastoRequestHandler(http.server.SimpleHTTPRequestHandler):
         return super().send_head()
 
     def end_headers(self):
-        # Makes the browser check for updated app files instead of mixing cached versions.
-        self.send_header("Cache-Control", "no-cache")
+        # App files: the browser checks for updates instead of mixing cached versions.
+        # Project replies: the browser keeps no copy of the project in its cache.
+        self.send_header("Cache-Control", "no-store" if self.is_api() else "no-cache")
         # Stops the browser treating a file as a different type than the one sent.
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)

@@ -67,6 +67,8 @@ class ServeTests(ServerFixture, unittest.TestCase):
                 self.assertNotIn("unsafe-inline", response.headers["Content-Security-Policy"])
         with self.fetch("vendor/three.module.js") as response:
             self.assertEqual(response.headers["Content-Type"], "text/javascript; charset=utf-8")
+        with self.fetch("api/projects") as response:
+            self.assertEqual(response.headers["Cache-Control"], "no-store")
 
     def test_only_app_files_are_served(self):
         for path in (".git/config", "%2Egit/config", "households.json", "MM%20Transcription.md", "vendor/", "test_serve.py"):
