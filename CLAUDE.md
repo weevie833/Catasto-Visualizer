@@ -15,7 +15,7 @@ Read `HANDOFF.md` for the project's state and `ARCHITECTURE.md` for its rules.
 - No inline scripts or styles: the server sends `script-src 'self'; style-src 'self'`.
 - A new app file must be added to `APP_FILES` in `serve.py`, or the server returns 404 for it.
 - Bump the stylesheet query (`scene3d.css?v=N`) in `index.html` after changing it.
-- The version is in `VERSION` (`0.12.0`) and shows in the footers of `index.html` and `admin.html` (`V 0.12`); `INSTALL.md` quotes it.
+- The version is in `VERSION` (`0.12.1`) and shows in the footers of `index.html` and `admin.html` (`V 0.12.1`); `INSTALL.md` quotes it.
 - Mac release: tag `v` + `VERSION` and push the tag; `.github/workflows/mac-release.yml` builds, signs, notarizes, and attaches the disk image. See ARCHITECTURE.md.
 - In `vm`-based tests, copy arrays made inside the context (`Array.from`, or JSON) before `deepEqual`.
 - The XLSX Index layout is written in `LAYOUT` in `catasto-xlsx-index.js`, copied from the Customizable
