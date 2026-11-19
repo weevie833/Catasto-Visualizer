@@ -34,6 +34,7 @@ from project_store import (
     loads,
 )
 from update_check import app_version, update_status
+from windows_shortcut import ensure_desktop_shortcut
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
@@ -70,6 +71,8 @@ APP_FILES = {
     "/scene3d.css",
     "/scene3d.js",
     "/update-banner.js",
+    "/flag-gb.svg",
+    "/flag-it.svg",
     "/vendor/OrbitControls.js",
     "/vendor/three.module.js",
 }
@@ -281,6 +284,8 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=DEFAULT_PORT,
                         help="keep 8000 to reopen the same browser project library (default: 8000)")
     parser.add_argument("--open", action="store_true", help="open the Visualizer in the default browser")
+    parser.add_argument("--desktop-shortcut", action="store_true",
+                        help="on Windows, put a shortcut on the desktop the first time (the .bat does)")
     args = parser.parse_args()
     url = f"http://{HOST}:{args.port}/index.html"
     try:
@@ -303,6 +308,8 @@ def main() -> None:
     with server:
         print(f"Catasto Visualizer {app_version() or '(development copy)'}: {url}")
         print(f"Projects are saved in: {default_data_dir() / 'projects'}")
+        if args.desktop_shortcut:
+            ensure_desktop_shortcut(default_data_dir())
         print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
         if args.open:
             webbrowser.open(url)

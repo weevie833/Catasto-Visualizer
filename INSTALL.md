@@ -209,6 +209,12 @@ project from the original transcription file does not.
 Double-click the launcher again, just as in Step 3. If the app is already
 running, the launcher reopens it in your browser.
 
+**Windows:** the first start also puts a **Catasto Visualizer** shortcut on
+your desktop, so you can start the app from there instead of opening the app
+folder. You can right-click it and choose **Pin to taskbar**. If you delete it,
+it does not come back; if you move the app folder, the next start makes a new
+one that points to the new place.
+
 ---
 
 ## Stopping the app

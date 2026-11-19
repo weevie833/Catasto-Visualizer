@@ -1,5 +1,6 @@
 """The Mac release: the start file, the signed app's launcher and build script (mac/), the
-release workflow, the version, and what the ZIP and the app leave out."""
+release workflow, the version, and what the ZIP and the app leave out. Also the Windows
+start file's desktop shortcut, which uses the same icon."""
 
 import os
 import plistlib
@@ -10,9 +11,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import serve
 import update_check
+import windows_shortcut
 
 ROOT = Path(__file__).resolve().parent
 COMMAND = ROOT / "Start Catasto Visualizer (Mac).command"
@@ -139,6 +142,49 @@ class SignedAppTests(unittest.TestCase):
             self.assertEqual((tmp / "support" / "projects" / "p1.json").read_text(), "{}")
 
 
+class WindowsShortcutTests(unittest.TestCase):
+    def test_the_start_file_asks_for_the_shortcut(self):
+        bat = BAT.read_text()
+        self.assertEqual(bat.count("serve.py --open --desktop-shortcut"), 2)
+        self.assertEqual(windows_shortcut.BAT_PATH, BAT)
+
+    def test_the_icon_is_a_windows_icon_up_to_256_pixels(self):
+        raw = windows_shortcut.ICON_PATH.read_bytes()
+        self.assertEqual(raw[:4], b"\x00\x00\x01\x00")
+        count = int.from_bytes(raw[4:6], "little")
+        widths = {raw[6 + 16 * i] or 256 for i in range(count)}
+        self.assertTrue({16, 32, 48, 256} <= widths, widths)
+
+    def test_the_script_takes_its_paths_from_the_environment(self):
+        script = windows_shortcut.SHORTCUT_SCRIPT
+        self.assertNotIn('"', script)
+        for name in ("CV_SHORTCUT_BAT", "CV_SHORTCUT_ICON", "CV_SHORTCUT_NAME"):
+            self.assertIn(f"$env:{name}", script)
+
+    def test_the_shortcut_is_made_once_per_app_location(self):
+        with tempfile.TemporaryDirectory() as data_dir, \
+                mock.patch.object(windows_shortcut, "ON_WINDOWS", True), \
+                mock.patch("builtins.print"):
+            calls = []
+            with mock.patch.object(windows_shortcut, "create_desktop_shortcut", lambda: calls.append(1) or True):
+                windows_shortcut.ensure_desktop_shortcut(Path(data_dir))
+                windows_shortcut.ensure_desktop_shortcut(Path(data_dir))
+                self.assertEqual(len(calls), 1)
+                (Path(data_dir) / windows_shortcut.MARKER).write_text("C:\\old place\\start.bat", encoding="utf-8")
+                windows_shortcut.ensure_desktop_shortcut(Path(data_dir))
+                self.assertEqual(len(calls), 2)
+            with mock.patch.object(windows_shortcut, "create_desktop_shortcut", lambda: False):
+                (Path(data_dir) / windows_shortcut.MARKER).unlink()
+                windows_shortcut.ensure_desktop_shortcut(Path(data_dir))
+                self.assertFalse((Path(data_dir) / windows_shortcut.MARKER).exists())
+
+    def test_nothing_happens_outside_windows(self):
+        with mock.patch.object(windows_shortcut, "ON_WINDOWS", False), \
+                mock.patch.object(windows_shortcut, "create_desktop_shortcut") as create:
+            windows_shortcut.ensure_desktop_shortcut(Path("/nonexistent"))
+        create.assert_not_called()
+
+
 @unittest.skipUnless(shutil.which("git") and (ROOT / ".git").exists(), "needs this git checkout")
 class ArchiveTests(unittest.TestCase):
     """What `git archive` (the GitHub ZIP, and the Mac app's copy) keeps and leaves out."""
@@ -150,7 +196,7 @@ class ArchiveTests(unittest.TestCase):
 
     def test_every_file_the_app_needs_is_kept(self):
         needed = [path.lstrip("/") for path in serve.APP_FILES]
-        needed += ["serve.py", "project_store.py", "update_check.py", "VERSION", "INSTALL.md",
+        needed += ["serve.py", "project_store.py", "update_check.py", "windows_shortcut.py", "app-icon.ico", "VERSION", "INSTALL.md",
                    "README.md", COMMAND.name, BAT.name, "vendor/THREE-LICENSE.txt"]
         self.assertEqual(self.export_ignored(needed), set())
 

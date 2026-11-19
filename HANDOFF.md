@@ -30,7 +30,7 @@ npm run test:browser
 ```
 
 The Node suite contains 175 parser, records, relations, name-index, XLSX-index, building-style, storage, Admin,
-visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 56 server and project-storage tests; `test_update_check.py` and `test_mac_release.py` contain 28 update-check and Mac-release tests.
+visualizer-workflow, and synthetic-fixture tests (three run only when `CATASTO_VALIDATION_MD` names the current Marano source: the saved project's `.json` file, whose stored source text is used, an Admin export, or a `.md` transcription; earlier source files are ignored); `test_serve.py` contains 56 server and project-storage tests; `test_update_check.py` and `test_mac_release.py` contain 33 update-check, Mac-release and Windows-shortcut tests.
 `npm run test:browser` (`smoke.browser.mjs`, about 10 seconds) starts the real server on a free port with a temporary
 project folder, creates a project in Admin from `test-fixtures/synthetic-catasto.md`, and checks in Chromium that the
 Visualizer loads with no console or security-policy errors, draws the 3D view, and keeps a source edit across a
