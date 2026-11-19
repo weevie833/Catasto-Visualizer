@@ -7,7 +7,7 @@ authoritative working directory.
 
 ## Repository state
 
-- Branch: `main`, at V 0.12.1 (Windows desktop shortcut, drawn language flags, village app icon; V 0.12 parser versions 10 and 11: the English and Italian parses of the Marano document give the same figures; V 0.11, Codex round 3 fixes: payee labels are not headings, the Name Index reads excluded sections, payments never count as mentions, ESLint 10.15.0; V 0.10 removed the fourth degree and kept payments out of the report)
+- Branch: `main`, at V 0.12.2 (American flag on the ENG button; V 0.12.1 Windows desktop shortcut, drawn language flags, village app icon; V 0.12 parser versions 10 and 11: the English and Italian parses of the Marano document give the same figures; V 0.11, Codex round 3 fixes: payee labels are not headings, the Name Index reads excluded sections, payments never count as mentions, ESLint 10.15.0; V 0.10 removed the fourth degree and kept payments out of the report)
 - GitHub: `https://github.com/weevie833/Catasto-Visualizer`
 - Runtime: static HTML, JavaScript, CSS, and vendored Three.js; no build step.
 
@@ -46,14 +46,14 @@ browser's IndexedDB at that address are migrated.
 ## Mac release (prepared 2026-11-18, not yet run)
 
 Same process as the Customizable Transcriber: `mac/` (launcher app, `build.sh`, icon),
-`.github/workflows/mac-release.yml` (signs and notarizes on `v*` tags), `VERSION` (`0.12.1`),
+`.github/workflows/mac-release.yml` (signs and notarizes on `v*` tags), `VERSION` (`0.12.2`),
 a pinned standalone Python in the Mac start file on Apple silicon, and an update notice
 (`update_check.py`, `update-banner.js`). Details are in ARCHITECTURE.md, "Release and update check".
 No one-line Terminal installer (the user chose not to add one).
 
 Before the first release: add the five secrets the workflow names (the same Developer ID
 certificate and App Store Connect key as the Transcriber) to this repository, run the workflow
-by hand (Actions > Mac release > Run workflow) to check signing, then tag `v` + `VERSION` and push the tag (v0.12.0 and v0.12.1 are released).
+by hand (Actions > Mac release > Run workflow) to check signing, then tag `v` + `VERSION` and push the tag (v0.12.0 to v0.12.2 are released).
 `mac/build.sh build/mac` makes an ad-hoc-signed local build for testing.
 
 ## Current application

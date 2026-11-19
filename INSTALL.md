@@ -271,7 +271,7 @@ Terminal with `CV_NO_UPDATE_CHECK=1 python3 serve.py`.
 ### Check which version you have
 
 The version number appears at the bottom of the Visualizer's left panel and at
-the bottom of the Admin page, for example **V 0.12.1**. To see whether a newer
+the bottom of the Admin page, for example **V 0.12.2**. To see whether a newer
 version exists, visit the app's GitHub page
 (<https://github.com/weevie833/Catasto-Visualizer>) or ask the person who
 shared the app with you.
