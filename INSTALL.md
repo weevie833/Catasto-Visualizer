@@ -22,6 +22,18 @@ for Intel Macs, and for anyone who prefers the ZIP download.
 - Your Catasto transcription file (`.md` or `.txt`) or a project backup
   (`.catasto.json`). The app does not come with any data.
 
+### Minimum requirements
+
+| | Mac app (disk image) | Mac (ZIP download) | Windows (ZIP download) |
+|---|---|---|---|
+| System | macOS 11 Big Sur or later | macOS 11 Big Sur or later | Windows 10 or later |
+| Python | Apple silicon: none, it sets up its own. Intel: Python 3.7 or later | Apple silicon: none, it sets up its own. Intel: Python 3.7 or later | Python 3.7 or later, from python.org |
+| Browser | A current Chrome, Edge, Firefox, or Safari | A current Chrome, Edge, Firefox, or Safari | A current Chrome, Edge, or Firefox |
+
+Older systems are not supported. The Mac app does not open on macOS 10.15 or
+earlier. On older Windows versions, current browsers and the current Python
+installer do not run.
+
 ---
 
 ## Mac: install the app
