@@ -71,7 +71,7 @@ APP_FILES = {
     "/scene3d.css",
     "/scene3d.js",
     "/update-banner.js",
-    "/flag-gb.svg",
+    "/flag-us.svg",
     "/flag-it.svg",
     "/vendor/OrbitControls.js",
     "/vendor/three.module.js",
