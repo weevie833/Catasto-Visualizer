@@ -288,6 +288,10 @@ def main() -> None:
                         help="on Windows, put a shortcut on the desktop the first time (the .bat does)")
     args = parser.parse_args()
     url = f"http://{HOST}:{args.port}/index.html"
+    if args.desktop_shortcut:
+        # Before the server starts, so a launch that finds the app already running
+        # (an older copy, or a second double-click) still makes it.
+        ensure_desktop_shortcut(default_data_dir())
     try:
         server = create_server(args.port)
     except DataDirInUse:
@@ -308,8 +312,6 @@ def main() -> None:
     with server:
         print(f"Catasto Visualizer {app_version() or '(development copy)'}: {url}")
         print(f"Projects are saved in: {default_data_dir() / 'projects'}")
-        if args.desktop_shortcut:
-            ensure_desktop_shortcut(default_data_dir())
         print("Keep this window open while you use the app. Close it (or press Ctrl+C) to stop.")
         if args.open:
             webbrowser.open(url)

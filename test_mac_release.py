@@ -2,6 +2,7 @@
 release workflow, the version, and what the ZIP and the app leave out. Also the Windows
 start file's desktop shortcut, which uses the same icon."""
 
+import errno
 import os
 import plistlib
 import re
@@ -177,6 +178,18 @@ class WindowsShortcutTests(unittest.TestCase):
                 (Path(data_dir) / windows_shortcut.MARKER).unlink()
                 windows_shortcut.ensure_desktop_shortcut(Path(data_dir))
                 self.assertFalse((Path(data_dir) / windows_shortcut.MARKER).exists())
+
+    def test_a_launch_that_finds_the_app_running_still_makes_it(self):
+        in_use = OSError(errno.EADDRINUSE, "Address already in use")
+        for failure in (serve.DataDirInUse("in use"), in_use):
+            def refuse(port, failure=failure):
+                raise failure
+            with mock.patch.object(sys, "argv", ["serve.py", "--desktop-shortcut"]), \
+                    mock.patch.object(serve, "create_server", refuse), \
+                    mock.patch.object(serve, "ensure_desktop_shortcut") as ensure, \
+                    mock.patch("builtins.print"):
+                serve.main()
+            ensure.assert_called_once_with(serve.default_data_dir())
 
     def test_nothing_happens_outside_windows(self):
         with mock.patch.object(windows_shortcut, "ON_WINDOWS", False), \
