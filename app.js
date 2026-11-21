@@ -54,7 +54,8 @@ const UI_STRINGS = {
     filterResults: "Filter search results", familyMember: "Family member", reference: "Reference",
     adjacentEvidence: "Adjacent evidence", resizePanels: "Resize text panels", back: "Back",
     backTo: name => `Back to ${name}`, openPerson: name => `Show ${name} in the Visualizer`,
-    resizePanelsHint: "Drag to resize the text panels; double-click to reset"
+    resizePanelsHint: "Drag to resize the text panels; double-click to reset",
+    supportKofi: "Support on Ko-fi", supportLine1: "Help offset the costs for", supportLine2: "developing and maintaining this application."
   },
   it: {
     households: "Famiglie", landholdings: "Terreni", landowners: "Proprietari",
@@ -78,7 +79,8 @@ const UI_STRINGS = {
     filterResults: "Filtra i risultati", familyMember: "Familiare", reference: "Riferimento",
     adjacentEvidence: "Prove adiacenti", resizePanels: "Ridimensiona i pannelli di testo", back: "Indietro",
     backTo: name => `Torna a ${name}`, openPerson: name => `Mostra ${name} nel Visualizzatore`,
-    resizePanelsHint: "Trascina per ridimensionare i pannelli di testo; doppio clic per ripristinare"
+    resizePanelsHint: "Trascina per ridimensionare i pannelli di testo; doppio clic per ripristinare",
+    supportKofi: "Sostieni su Ko-fi", supportLine1: "Aiuta a coprire i costi di", supportLine2: "sviluppo e manutenzione di questa applicazione."
   }
 };
 function storedPreference(key) {
@@ -224,6 +226,9 @@ function applyLanguage() {
   document.querySelector("#languageEnglish").setAttribute("aria-label", language === "it" ? "Inglese" : "English");
   document.querySelector("#languageItalian").setAttribute("aria-label", "Italiano");
   document.querySelector(".language-switch").setAttribute("aria-label", language === "it" ? "Lingua" : "Language");
+  document.querySelector("#supportLine1").textContent = t("supportLine1");
+  document.querySelector("#supportLine2").textContent = t("supportLine2");
+  document.querySelector("#supportKofiLabel").textContent = t("supportKofi");
   setFilenameLabel(currentFileName);
   renderLayerToggle();
   renderList();
