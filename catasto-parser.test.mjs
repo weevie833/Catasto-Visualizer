@@ -181,6 +181,51 @@ Possiede una possessione nelli Pasolani.`, "it").households;
   assert.deepEqual(Array.from(italian, record => record.residence.place), ["Rende", "Castelfranco"]);
 });
 
+test("an age abbreviated 'an:' or 'an.' at the end of a member line is an age, and 'an:' elsewhere is not (parser version 12)", () => {
+  const households = parsePlainText(`6o
+Ant.o Bafaro brac.te, anni 28.
+Gius.e fllo brac.te an: 24.
+Rosa sorella verg.e an. 14.
+
+abita in Casa propria =
+
+Possiede, ut rivelo f. 6o
+
+Un Castag.o d.o la Fontana d'an: ren.a 1. — 3. 10.
+
+Alli fig.i D. M.co Matera di Cos.a an: 0 — 60. — 2
+
+7o
+Angelo Arnone brac.te, orig.o di Rovito an: 34.
+Viola Bonvenuto moglie, anni 33.
+
+abita in Casa prop.a =`, "it").households;
+  assert.deepEqual(Array.from(households, record => record.household_head), ["Ant.o Bafaro", "Angelo Arnone"]);
+});
+
+test("abbreviated relationships 'fllo' (fratello), 'fig.o' (figlio) and 'mog.e' (moglie) mark household members, not new heads (parser version 12)", () => {
+  const households = parsePlainText(`Dom.co Barbuccio Massaro, anni 40.
+Vitt.a Lucca moglie, anni — 47.
+Ignazio fllo cieco, scemo an: — 46.
+Bonav.a fllo cieco anni — 35.
+
+abita in Casa propria =`, "it").households;
+  assert.deepEqual(Array.from(households, record => record.household_head), ["Dom.co Barbuccio Massaro"]);
+  const { isDependentHouseholdMember } = context.window.CatastoParser;
+  assert.equal(isDependentHouseholdMember("Bonav.a fllo cieco anni 35."), true);
+  assert.equal(splitItalianMemberLine("Bonav.a fllo cieco anni 35.").relation, "fllo cieco");
+  assert.equal(isDependentHouseholdMember("Vitt.a Lucca mog.e anni 47."), true);
+  assert.equal(isDependentHouseholdMember("Pascale fig.o anni 9."), true);
+  assert.equal(splitItalianMemberLine("Vitt.a Lucca mog.e anni 47.").name, "Vitt.a Lucca");
+  assert.equal(splitItalianMemberLine("Pascale fig.o anni 9.").relation, "fig.o");
+  const abbreviated = parsePlainText(`Dom.co Barbuccio, anni 40.
+Vitt.a Lucca mog.e, anni 47.
+Pascale fig.o anni 9.
+
+abita in Casa propria =`, "it").households;
+  assert.deepEqual(Array.from(abbreviated, record => record.household_head), ["Dom.co Barbuccio"]);
+});
+
 test("first names joined by 'and' or a kept Italian 'e' share the surname that follows, particle included", () => {
   const { expandNeighborNames } = context.window.CatastoParser;
   assert.deepEqual(Array.from(expandNeighborNames("Giacomo e Rafaele di Bartolo")), ["Giacomo di Bartolo", "Rafaele di Bartolo"]);

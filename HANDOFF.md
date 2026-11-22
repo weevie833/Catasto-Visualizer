@@ -201,6 +201,13 @@ changes. Parcels whose neighbor names still differ between the languages are tra
 nobles ("Convent San Domenico City Cosenza" / "Convento di San Domenico della Città di Cosenza") and rivers,
 which the parser does not translate.
 
+Parser version 12 (2026-11-22) reads an age abbreviated "an:" or "an." ("Gius.e fllo brac.te an: 24.", "an: — 46")
+as "anni N", only at the end of a line: elsewhere "an:" stands for annui/annua ("d'an: ren.a 1", "an: 0 — 60").
+It also reads the abbreviations "fllo" (fratello), "fig.o" (figlio) and "mog.e" (moglie) as relationships
+wherever the full words are, so "Ignazio fllo cieco" is a brother in the household, not a new head. Found on the Lappano 1742 Catasto, where a head of household written
+"an: 34" was not read as a person. The
+saved Marano export parses identically in both languages (368 households, no change); Marano has no such line.
+
 Residence neighbors that still match no household entry are listed by comparing each
 `residence_links` entry that has no `household_id` against the heads. On the current transcription
 8 names remain, among them Giacomo Loizzo (p. 340), whom the manuscript names but who has no

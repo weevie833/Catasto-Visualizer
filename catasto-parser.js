@@ -12,7 +12,7 @@
   const italianHonorific = /^(?:Don|Donna|Suor[ae]?|Fra|Frate|C(?:h)?ierico|Cherico|Magnific[oa]|Signor[ae]?|Reverend[oa]|Venerabile|Mastro|Maestro|Nobile)$/i;
   // Occupations and conditions written after the name; sometimes capitalized ("Bracciale").
   const italianOccupation = /^(?:bracciale|bracciante|pecoraro|stroppio|decrepito|sacerdote|diacono|chierico|regrato|nobile|vivente|calzolai?o|calzolaro|ferraro|sartore|sarto|studente|scolare|servitore|vergine|nubile|maritata|monaca|vedov[oa])$/i;
-  const italianRelation = /\b(?:moglie|marito|figli[oa]|figliastr[oa]|fratello|sorella|madre|padre|cognat[oa]|nipote|genero|nuora|s(?:u)?oc+er[oa]|serv[oa]|garzone|vedova|zi[oa])\b/i;
+  const italianRelation = /\b(?:moglie|mog\.e|marito|figli[oa]|fig\.o|figliastr[oa]|fratello|fllo|sorella|madre|padre|cognat[oa]|nipote|genero|nuora|s(?:u)?oc+er[oa]|serv[oa]|garzone|vedova|zi[oa])\b/i;
 
   // An infant, listed without an age: "an infant", "infante", or swaddled, "nella fascia" / "nelle fascie" / "in fasce".
   const INFANT = /\b(?:infant|infante|(?:nella|nelle|in)\s+fasc(?:ia|ie|e))\b/i;
@@ -83,7 +83,7 @@
     return text
       .replace(/\b(?:age|aged)\s+\d+.*$/i, "")
       .replace(/[—–-]+\s*$/, "")
-      .replace(/\s+\b(?:wife|husband|son|daughter|brother|sister|mother|father|niece|nephew|servant|laborer|day laborer|shepherd|manager|shoemaker|miller|moglie|marito|figlio|figlia|fratello|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b.*$/i, "")
+      .replace(/\s+\b(?:wife|husband|son|daughter|brother|sister|mother|father|niece|nephew|servant|laborer|day laborer|shepherd|manager|shoemaker|miller|moglie|mog\.e|marito|figlio|fig\.o|figlia|fratello|fllo|sorella|madre|padre|cognato|cognata|nipote|genero|nuora)\b.*$/i, "")
       .trim();
   }
 
@@ -118,7 +118,7 @@
     const nameField = (parts[0] || "").replace(/(\S\s+)Padre\b/g, "$1");
     const roleText = parts.slice(1).join(",");
     // "Parish Priest in the Mother Church" names a church, not his mother.
-    const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother(?!\s+church)|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|marito|figli[oa](?!\s+(?:di|del|della|d['’]|fu)\b)|figliastr[oa]|fratello|sorella|madre(?!\s+chiesa)|padre|cognato|cognata|nipote|genero|nuora|s(?:u)?oc+er[oa])\b/i;
+    const relationship = /\b(?:wife|husband|son(?!\s+of\b)|daughter(?!\s+of\b)|brother|sister|mother(?!\s+church)|father|parent|child|niece|nephew|grandson|granddaughter|son-in-law|daughter-in-law|brother-in-law|sister-in-law|moglie|mog\.e|marito|figli[oa](?!\s+(?:di|del|della|d['’]|fu)\b)|fig\.o(?!\s+(?:di|del|della|d['’]|fu)\b)|figliastr[oa]|fratello|fllo|sorella|madre(?!\s+chiesa)|padre|cognato|cognata|nipote|genero|nuora|s(?:u)?oc+er[oa])\b/i;
     const untitledNameField = nameField.replace(/^(?:Sister|Brother|Father)\s+/i, "");
     return relationship.test(roleText) || (!parts.slice(1).length && relationship.test(untitledNameField)) ||
       new RegExp(`${relationship.source}\\s*$`, "i").test(nameField);
@@ -225,7 +225,7 @@
       .map(part => part
         .replace(/^(?:(?:e|ed|di|de|del|della|dello|delli|degli|dei|il|lo|la|al|alla|con)\s+|d['’]\s*)+/i, "")
         // "e sorella Anna di Bartolo" names Anna di Bartolo; the relation is written in lowercase.
-        .replace(/^(?:su[oa]\s+)?(?:sorella|fratello|madre|padre|figli[oa]|moglie|marito|nipote|cognat[oa]|suocer[oa]|genero|nuora|zi[oa])\s+(?=[A-ZÀ-Ý])/, "")
+        .replace(/^(?:su[oa]\s+)?(?:sorella|fratello|fllo|madre|padre|figli[oa]|fig\.o|moglie|mog\.e|marito|nipote|cognat[oa]|suocer[oa]|genero|nuora|zi[oa])\s+(?=[A-ZÀ-Ý])/, "")
         .replace(/[.:]+$/, "")
         .trim())
       .map(name => cleanPersonName(cleanNeighborLabel(name)))
@@ -493,7 +493,7 @@
 
   // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
   // and neighbor links are normalized the same way for both languages.
-  const PARSER_VERSION = 11;
+  const PARSER_VERSION = 12;
 
   function stripNamePrefixes(name) {
     return String(name || "")
@@ -1034,8 +1034,11 @@
 
   function parsePlainText(text, sourceLanguage = "en") {
     // "age — 48" and "di anni — 48" give the age as "age 48" does; every reader of member lines expects the latter.
+    // Some scribes abbreviate anni as "an:" or "an." ("Gius.e fllo brac.te an: 24."). Only at the end of a line is it
+    // an age: elsewhere "an:" also stands for annui/annua ("d'an: ren.a 1", "an: 0 — 60").
     const unescapedText = String(text || "").replace(/\\/g, "")
-      .replace(/\b(age|aged|anni)[ \t]*[—–-]+[ \t]*(?=\d)/gi, "$1 ");
+      .replace(/\b(age|aged|anni)[ \t]*[—–-]+[ \t]*(?=\d)/gi, "$1 ")
+      .replace(/\ban[:.][ \t]*(?:[—–-]+[ \t]*)?(\d{1,3})\.?[ \t]*$/gm, "anni $1");
     const prepared = extractTranscriptionSections(unescapedText, sourceLanguage);
     const records = cleanedGraphRecordsFromText(prepared.text);
     return {
