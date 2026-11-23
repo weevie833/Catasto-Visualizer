@@ -4,12 +4,14 @@ start file's desktop shortcut, which uses the same icon."""
 
 import errno
 import os
+import platform
 import plistlib
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -63,7 +65,7 @@ class StartFileTests(unittest.TestCase):
                                r'cpython-3\.12\.\d+%2B\d+-aarch64-apple-darwin-install_only\.tar\.gz"')
         # A newer pin replaces the installed Python, not just the first install.
         self.assertIn('"$(installed_build)" != "$PYTHON_SHA256"', text)
-        self.assertIn("python-old", text)
+        self.assertIn('mv "$RUNTIME/python" "$INSTALL_STAGING/old"', text)
 
     @unittest.skipUnless(sys.platform == "darwin", "runs the start file")
     def test_an_installed_python_of_the_pinned_build_is_used_without_a_download(self):
@@ -141,6 +143,90 @@ class SignedAppTests(unittest.TestCase):
             self.assertEqual(run()[1], "0.12.0")
             self.assertEqual(sorted(p.name for p in app_dir.parent.iterdir()), ["App", "projects"])
             self.assertEqual((tmp / "support" / "projects" / "p1.json").read_text(), "{}")
+
+
+class ConcurrentInstallTests(unittest.TestCase):
+    """R4-05: launches that overlap never share staging files, and a second one waits for the first."""
+
+    def make_app(self, tmp, version="0.12.0"):
+        resources = tmp / "Catasto Visualizer.app" / "Contents" / "Resources"
+        (resources / "app").mkdir(parents=True)
+        shutil.copy2(APP_LAUNCHER, resources / "launcher.sh")
+        (resources / "app" / "VERSION").write_text(version + "\n")
+        (resources / "app" / COMMAND.name).write_text("#!/bin/bash\n")
+        app_dir = tmp / "support" / "App"
+        app_dir.parent.mkdir(parents=True)
+        env = dict(os.environ, CV_APP_DIR=str(app_dir), CV_SERVER_URL="http://127.0.0.1:1/", CV_LAUNCH_DRY_RUN="1")
+        return ["bash", str(resources / "launcher.sh")], env, app_dir
+
+    @unittest.skipUnless(sys.platform == "darwin", "uses ditto and xattr")
+    def test_overlapping_launches_all_succeed_and_leave_one_copy(self):
+        for _ in range(4):
+            with tempfile.TemporaryDirectory() as tmp:
+                command, env, app_dir = self.make_app(Path(tmp))
+                launches = [subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            for _ in range(3)]
+                results = [launch.communicate(timeout=60) + (launch.returncode,) for launch in launches]
+                self.assertEqual([code for _, _, code in results], [0, 0, 0], results)
+                self.assertEqual((app_dir / "VERSION").read_text().strip(), "0.12.0")
+                self.assertEqual([p.name for p in app_dir.parent.iterdir()], ["App"])
+
+    @unittest.skipUnless(sys.platform == "darwin", "uses ditto and xattr")
+    def test_a_waiting_launch_uses_the_copy_installed_while_it_waited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            command, env, app_dir = self.make_app(Path(tmp))
+            lock = Path(str(app_dir) + ".install-lock")
+            lock.mkdir()
+            (lock / "pid").write_text(str(os.getpid()))    # held by a running process: this test
+            launch = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            time.sleep(1.5)
+            self.assertIsNone(launch.poll(), "the launch waits while the lock is held")
+            app_dir.mkdir()
+            (app_dir / "VERSION").write_text("0.12.0\n")
+            (app_dir / COMMAND.name).write_text("#!/bin/bash\n")
+            (app_dir / "installed-by-the-other-launch").write_text("")
+            shutil.rmtree(lock)
+            _out, err = launch.communicate(timeout=30)
+            self.assertEqual(launch.returncode, 0, err)
+            self.assertTrue((app_dir / "installed-by-the-other-launch").exists(), "not installed a second time")
+            self.assertEqual(sorted(p.name for p in app_dir.parent.iterdir()), ["App"])
+
+    @unittest.skipUnless(sys.platform == "darwin", "uses ditto and xattr")
+    def test_a_lock_left_by_an_ended_launch_is_taken_over(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            command, env, app_dir = self.make_app(Path(tmp))
+            ended = subprocess.Popen(["true"])
+            ended.wait()
+            lock = Path(str(app_dir) + ".install-lock")
+            lock.mkdir()
+            (lock / "pid").write_text(str(ended.pid))
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=30, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((app_dir / "VERSION").read_text().strip(), "0.12.0")
+            self.assertEqual(sorted(p.name for p in app_dir.parent.iterdir()), ["App"])
+
+    @unittest.skipUnless(sys.platform == "darwin" and platform.machine() == "arm64", "the private Python is for Apple silicon")
+    def test_a_start_file_waiting_for_python_uses_the_one_set_up_meanwhile(self):
+        with tempfile.TemporaryDirectory() as runtime:
+            runtime = Path(runtime)
+            lock = runtime / ".install-lock"
+            lock.mkdir()
+            (lock / "pid").write_text(str(os.getpid()))
+            env = dict(os.environ, CV_RUNTIME_DIR=str(runtime), CV_INSTALL_ONLY="1")
+            start = subprocess.Popen(["bash", str(COMMAND)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            time.sleep(1.5)
+            self.assertIsNone(start.poll(), "the start file waits while another window sets up Python")
+            pinned = re.search(r'PYTHON_SHA256="([0-9a-f]{64})"', COMMAND.read_text()).group(1)
+            python = runtime / "python" / "bin" / "python3"
+            python.parent.mkdir(parents=True)
+            python.write_text("#!/bin/bash\nexit 0\n")
+            python.chmod(0o755)
+            (runtime / "python-build.txt").write_text(pinned + "\n")
+            shutil.rmtree(lock)
+            out, err = start.communicate(timeout=30)
+            self.assertEqual(start.returncode, 0, out + err)
+            self.assertNotIn("Downloading Python", out)
+            self.assertEqual(sorted(p.name for p in runtime.iterdir()), ["python", "python-build.txt"])
 
 
 class WindowsShortcutTests(unittest.TestCase):

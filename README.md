@@ -174,8 +174,8 @@ Projects are saved as JSON files in a per-user folder outside the app folder
 `~/Library/Application Support/Catasto Visualizer/projects/` on macOS), so
 updates and clearing browser data leave them in place. The app must be started
 with `serve.py` (or a launcher) to reach them. Export a `.catasto.json` file for backup or exchange with another user.
-Use Admin's **Import Project JSON** button to restore that file;
-the **Source text file** picker in **Create Project from Catasto Text** accepts `.md` and `.txt`
+Use Admin's **Import Project JSON** area (click to choose, or drop the file on it) to restore that file;
+the **Source file** area in **Create Project from Catasto Text** (click to choose, or drop a file on it) accepts Word `.docx`, `.md`, and `.txt`
 transcriptions, which are parsed into new projects. A transcription file does
 not preserve corrections made to a saved project. An open Visualizer tab
 switches to a newly imported or created project automatically, unless a source

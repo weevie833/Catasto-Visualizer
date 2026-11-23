@@ -19,7 +19,7 @@ for Intel Macs, and for anyone who prefers the ZIP download.
 - A current version of Chrome, Edge, Firefox, or Safari
 - Python 3, a free program that runs the app (step 1 shows how to install it;
   the Mac app and the Mac launcher on Apple silicon set up their own)
-- Your Catasto transcription file (`.md` or `.txt`) or a project backup
+- Your Catasto transcription file (`.docx`, `.md`, or `.txt`) or a project backup
   (`.catasto.json`). The app does not come with any data.
 
 ### Minimum requirements
@@ -162,9 +162,10 @@ The app starts with an empty library.
 1. Click **ADMIN** in the top-right corner. Admin opens in a new tab.
 2. Choose one of these:
    - **Create Project from Catasto Text:** enter a project name, choose your
-     transcription file (`.md` or `.txt`) under **Source text file**, and
+     transcription file (`.docx`, `.md`, or `.txt`) under **Source file** (or
+     drop it there), and
      click **Create project**.
-   - **Import Project JSON:** choose a `.catasto.json` backup
+   - **Import Project JSON:** choose or drop a `.catasto.json` backup
      that you or a colleague exported earlier.
 3. Switch back to the Visualizer tab. The new project opens automatically.
 

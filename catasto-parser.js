@@ -366,6 +366,26 @@
     return kinds.map((kind, index) => kind && open(index - 1) && open(index + 1) ? kind : null);
   }
 
+  // Each image's text may open with a record marker. The Catasto Transcriber writes the image's file name,
+  // "--- START OF RECORD: Lappano Catasto Onciario 1742_010.png ---": the number ending the name is the page and the
+  // rest is the source's title; a name without a number takes its position among the records. A hand-edited source
+  // may name the page instead, "### **START OF RECORD: Marano Marchesato 1754 \- Page 5** **Italian Transcription**",
+  // read as the heading "Marano Marchesato 1754: Page 5 Italian Transcription" is. "--- END OF RECORD ---" closes one.
+  function recordMarker(line, position) {
+    const match = line.replace(/\\(?=[-–—])/g, "").match(/^[-–—=*\s]*(START|END)\s+OF\s+RECORD\b\s*:?\s*(.*?)[-–—=*\s]*$/i);
+    if (!match) return null;
+    if (match[1].toUpperCase() === "END") return { end: true };
+    const page = match[2].match(/^(.*?)[\s:—–-]+Page\s+(\d+)\b/i);
+    if (page) {
+      return { title: page[1].trim(), page: Number(page[2]), label: match[2].slice(page[0].length).replace(/^[\s:.—–-]+/, "") };
+    }
+    const name = match[2].replace(/\.(?:png|jpe?g|tiff?|gif|webp|bmp|heic|pdf)$/i, "").trim();
+    const numbered = name.match(/^(.*?)[\s_-]*(\d+)$/);
+    return numbered
+      ? { title: numbered[1].replace(/[\s_-]+$/, "").trim(), page: Number(numbered[2]), label: "" }
+      : { title: name, page: position, label: "" };
+  }
+
   // Keeps only the sections of a bilingual transcription that are in the requested language ("en" or "it").
   // Text without section headings is used whole. A Catasto section heading is preceded by a marker line,
   // "[[SECTION:resident]]", "[[SECTION:excluded]]" or "[[SECTION:summary]]". With both languages present, an
@@ -378,27 +398,37 @@
     let mode = "unknown";
     let currentPage = null;
     let sourceTitle = "";
+    let records = 0;
     const info = lines.map(line => {
       const trimmed = line.trim();
       const heading = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/__/g, "").trim();
-      const pageMatch = heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
+      const record = recordMarker(heading, records + 1);
+      if (record?.end) {
+        mode = "unknown";
+        return { boundary: true, page: currentPage, mode };
+      }
+      const pageMatch = record ? null : heading.match(/^(.+?):\s*Page\s+(\d+)\b/i);
       // The section label may follow the page on the same line: "Marano Marchesato 1754: Page 4 Italian Transcription:".
-      const label = pageMatch ? heading.slice(pageMatch[0].length).replace(/^[\s:.—–-]+/, "") : heading;
+      const label = record ? record.label : pageMatch ? heading.slice(pageMatch[0].length).replace(/^[\s:.—–-]+/, "") : heading;
       // A title naming both, "Italian Transcription and English Translation of the 1754 Catasto", opens no section.
       const bothLanguages = /^(?:Italian\s+Transcription|English\s+Translation)\s+and\s+(?:the\s+)?(?:Italian|English)\b/i.test(label);
       const sectionLanguage = bothLanguages ? undefined : ["en", "it"].find(key => sectionHeadings[key].test(label));
-      if (pageMatch) {
+      if (record) {
+        records += 1;
+        if (record.title && !sourceTitle) sourceTitle = record.title;
+        currentPage = record.page;
+      } else if (pageMatch) {
         sourceTitle = pageMatch[1].trim();
         currentPage = Number(pageMatch[2]);
       }
       if (sectionLanguage) {
         found[sectionLanguage] = true;
         mode = sectionLanguage;
-        return { boundary: true, sectionLanguage, label, page: currentPage, mode };
+        return { boundary: true, record: Boolean(record), sectionLanguage, label, page: currentPage, mode };
       }
-      if (pageMatch) {
+      if (pageMatch || record) {
         mode = "unknown";
-        return { boundary: true, page: currentPage, mode };
+        return { boundary: true, record: Boolean(record), page: currentPage, mode };
       }
       return { boundary: false, page: currentPage, mode };
     });
@@ -439,6 +469,10 @@
           return;
         }
         if (item.boundary || item.mode !== target) return;
+      } else if (item.boundary && (item.record || /^[-–—=*\s]*END\s+OF\s+RECORD\b/i.test(line.trim()))) {
+        // Unsectioned text: a record marker becomes the page marker; the marker line itself is not text.
+        if (item.record) kept.push(`[[SOURCE_PAGE:${item.page}]]`);
+        return;
       }
       if (pendingSummary && line.trim()) {
         kept.push("[[SECTION:summary]]");
@@ -477,6 +511,7 @@
     if (sectionsFound[other]) {
       return {
         detected: other,
+        reason: "sections",
         message: `This text has ${other === "it" ? "Italian Transcription" : "English Translation"} sections but no ${target === "it" ? "Italian Transcription" : "English Translation"} sections. Choose ${languageCodes[other]} and try again.`
       };
     }
@@ -484,6 +519,7 @@
     if (!detected || detected === target) return null;
     return {
       detected,
+      reason: "looks",
       message: `This text looks ${languageNames[detected]}, but ${languageCodes[target]} is selected. Choose ${languageCodes[detected]} and try again.`
     };
   }
@@ -493,7 +529,7 @@
 
   // The canonical pipeline: every project, from Admin or a migration, is parsed here. Names, residence places,
   // and neighbor links are normalized the same way for both languages.
-  const PARSER_VERSION = 12;
+  const PARSER_VERSION = 13;
 
   function stripNamePrefixes(name) {
     return String(name || "")
@@ -710,19 +746,48 @@
     let sawMember = false;
     let narrativeStarted = false;
     let pendingPageMarker = "";
+    // A bare entry number ("15", "13.") opens the next household once the current one has members and narrative,
+    // even when the next head's age is on a later line. It waits for the line after it, as a page marker does.
+    let pendingNumber = "";
     // The page in progress, so an entry that starts mid-page records the page it starts on.
     let lastPageMarker = "";
     // Text before any heading is resident, so a source without headings parses as before.
     let sectionKind = "resident";
     let skipHeading = false;
-    lines.forEach(line => {
+    // A number opens a household only when a head follows it: the next line is a head or member line, or is one
+    // once the line after it (the head's age, "anni 62.") is joined to it. Otherwise it is text of the entry.
+    const opensHousehold = index => {
+      const next = lines.slice(index + 1).map(text => text.trim()).filter(text => text && !/^\[\[SOURCE_PAGE:\d+\]\]$/.test(text));
+      if (!next.length) return false;
+      if (isMemberLine(next[0]) || isExemptHeadLine(next[0])) return !isDependentHouseholdMember(next[0]);
+      return next.length > 1 && !isHouseholdNarrativeLine(next[0]) && isMemberLine(`${next[0]} ${next[1]}`);
+    };
+    lines.forEach((line, index) => {
       const trimmed = line.trim();
       if (/^\[\[SOURCE_PAGE:\d+\]\]$/.test(trimmed)) {
         pendingPageMarker = trimmed;
         lastPageMarker = trimmed;
         return;
       }
-      if (pendingPageMarker && !trimmed) return;
+      if ((pendingPageMarker || pendingNumber) && !trimmed) return;
+      if (/^\d{1,4}(?:\.?\s?(?:o|°|º|st|nd|rd|th))?\.?$/i.test(trimmed) && sectionKind === "resident" && !skipHeading && !pendingNumber) {
+        if (sawMember && narrativeStarted && current.join("").trim()) {
+          if (!opensHousehold(index)) {
+            current.push(line);
+            return;
+          }
+          // Marginal notes between a page's start and the number ("= B. ril:", "C.") go with the new household.
+          const pageStart = current.lastIndexOf(lastPageMarker);
+          const carried = pageStart > 0 && current.slice(pageStart + 1).every(text => !text.trim() ||
+            (!isMemberLine(text.trim()) && !isHouseholdNarrativeLine(text.trim()))) ? current.splice(pageStart) : [];
+          entries.push(current.join("\n").trim());
+          current = carried.length ? carried : pendingPageMarker || !lastPageMarker ? [] : [lastPageMarker];
+          sawMember = false;
+          narrativeStarted = false;
+        }
+        pendingNumber = line;
+        return;
+      }
       // A section heading ends the entry before it. Only resident sections hold entries; the closing
       // summary runs to the end of the text, so headings inside its tables never reopen entries.
       const section = trimmed.match(/^\[\[SECTION:(\w+)\]\]$/)?.[1];
@@ -755,12 +820,17 @@
         current.push(pendingPageMarker);
         pendingPageMarker = "";
       }
+      if (pendingNumber) {
+        current.push(pendingNumber);
+        pendingNumber = "";
+      }
       current.push(line);
       if (memberLine) sawMember = true;
       // The exemption sentence is the whole entry: the next member line begins another household.
       else if (exemptHead) sawMember = narrativeStarted = true;
       else if (sawMember && isHouseholdNarrativeLine(trimmed)) narrativeStarted = true;
     });
+    if (pendingNumber) current.push(pendingNumber);
     if (current.join("").trim()) entries.push(current.join("\n").trim());
     return entries.filter(entry => entry.split("\n").some(line => isMemberLine(line) || isExemptHeadLine(line.trim())));
   }
@@ -1074,7 +1144,7 @@
     PARSER_VERSION, INFANT, parsePlainText, inferFamilyRelationships, linkResidenceAdjacency, triangulateResidenceAdjacency,
     canonicalPlace, isPublicAnchor, normalizeName, normalizeResidencePlace, personKey, sentenceList, stripNamePrefixes,
     surnameFromName, surnamePhrase, titleCasePlace, expandNeighborNames, parseResidence,
-    extractTranscriptionSections, detectLanguage, languageMismatch,
+    extractTranscriptionSections, sectionHeadingKind, detectLanguage, languageMismatch,
     isMemberLine, isExemptHeadLine, memberPersonName, isDependentHouseholdMember, isHouseholdNarrativeLine,
     isItalianMemberLine, splitItalianMemberLine, parseItalianResidence, expandItalianNeighborNames,
     isItalianLandholdingSentence, parseItalianLandholding

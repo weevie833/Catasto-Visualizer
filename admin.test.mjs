@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 
 // Runs admin.js against a minimal DOM to check that every library change is announced to
 // open Visualizer tabs.
-const [adminSource, storageSource, parserSource, recordsSource, relationsSource, nameIndexSource, xlsxSource, xlsxIndexSource] = await Promise.all(
-  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js", "./catasto-relations.js", "./catasto-name-index.js", "./catasto-xlsx.js", "./catasto-xlsx-index.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
+const [adminSource, storageSource, parserSource, recordsSource, relationsSource, nameIndexSource, xlsxSource, xlsxIndexSource, docxSource, i18nSource] = await Promise.all(
+  ["./admin.js", "./catasto-storage.js", "./catasto-parser.js", "./catasto-records.js", "./catasto-relations.js", "./catasto-name-index.js", "./catasto-xlsx.js", "./catasto-xlsx-index.js", "./catasto-docx.js", "./admin-i18n.js"].map(path => readFile(new URL(path, import.meta.url), "utf8"))
 );
 const sampleText = "Paolo Rossi, day laborer, age 40\nHe lives in his own house in the Pasolani district.";
 
@@ -19,7 +19,9 @@ async function loadAdmin({ preferences = new Map() } = {}) {
         value: "", textContent: "", innerHTML: "", hidden: true, listeners,
         addEventListener: (type, listener) => { listeners[type] = listener; },
         focus() { this.focused = true; },
-        showModal() { this.open = true; }
+        showModal() { this.open = true; },
+        attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; }
       });
     }
     return elements.get(selector);
@@ -31,8 +33,8 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   const stored = new Map([["existing", { id: "existing", name: "Existing", data: { households: [] } }]]);
   let nextId = 0;
   const context = {
-    window: { confirm: message => { confirmations.push(message); return true; } },
-    document: { querySelector: element, createElement: () => ({ click() { downloads.push({ name: this.download, blob: this.blobs.at(-1) }); }, blobs: blobsMade }) },
+    window: { confirm: message => { confirmations.push(message); return true; }, addEventListener() {} },
+    document: { querySelector: element, documentElement: {}, createElement: () => ({ click() { downloads.push({ name: this.download, blob: this.blobs.at(-1) }); }, blobs: blobsMade }) },
     Blob: class { constructor(parts, options) { this.parts = parts; this.text = parts.join(""); this.type = options.type; blobsMade.push(this); } },
     TextEncoder,
     URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
@@ -58,6 +60,10 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   vm.runInContext(nameIndexSource, context);
   vm.runInContext(xlsxSource, context);
   vm.runInContext(xlsxIndexSource, context);
+  vm.runInContext(docxSource, context);
+  vm.runInContext(i18nSource, context);
+  context.CatastoDocx = context.window.CatastoDocx;
+  context.AdminI18n = context.window.AdminI18n;
   context.CatastoNameIndex = context.window.CatastoNameIndex;
   context.CatastoXlsxIndex = context.window.CatastoXlsxIndex;
   context.CatastoStorage = context.window.CatastoStorage;
@@ -76,7 +82,7 @@ async function loadAdmin({ preferences = new Map() } = {}) {
   vm.runInContext(adminSource, context);
   const settle = () => new Promise(resolve => setTimeout(resolve, 10));
   await settle();
-  return { element, messages, confirmations, downloads, stored, settle, preferences, storage: context.CatastoStorage };
+  return { element, messages, confirmations, downloads, stored, settle, preferences, context, storage: context.CatastoStorage };
 }
 
 test("importing a transcription announces the new project to open Visualizer tabs", async () => {
@@ -92,9 +98,12 @@ test("importing a transcription announces the new project to open Visualizer tab
   assert.equal(admin.element("#openVisualizer").focused, true);
 });
 
+// Chooses a source file for Create Project, as the file picker does.
+const chooseSource = (admin, text) => admin.element("#textFile").listeners.change({ target: { files: [{ name: "source.md", text: async () => text }] } });
+
 test("creating and deleting projects are announced", async () => {
   const admin = await loadAdmin();
-  admin.element("#plainText").value = sampleText;
+  await chooseSource(admin, sampleText);
   await admin.element("#createProject").listeners.click();
   const created = [...admin.stored.keys()].find(id => id !== "existing");
 
@@ -118,7 +127,7 @@ test("a failed import announces nothing", async () => {
 test("creating a project offers to open it, and the notice can be dismissed", async () => {
   const admin = await loadAdmin();
   admin.element("#projectName").value = "Sample";
-  admin.element("#plainText").value = sampleText;
+  await chooseSource(admin, sampleText);
   await admin.element("#createProject").listeners.click();
   assert.equal(admin.element("#successNotice").hidden, false);
   assert.equal(admin.element("#successTitle").textContent, "Created “Sample”");
@@ -160,7 +169,7 @@ test("ENG is selected until IT is saved as the default", async () => {
 
 test("an Italian transcription is created with IT and refused with ENG", async () => {
   const admin = await loadAdmin();
-  admin.element("#plainText").value = italianText;
+  await chooseSource(admin, italianText);
   await admin.element("#createProject").listeners.click();
   assert.match(admin.element("#createStatus").textContent, /looks Italian, but ENG is selected\. Choose IT/);
   assert.equal(admin.stored.size, 1);
@@ -170,6 +179,88 @@ test("an Italian transcription is created with IT and refused with ENG", async (
   const created = [...admin.stored.values()].find(project => project.id !== "existing");
   assert.equal(created.data.source_language, "it");
   assert.equal(created.data.households[0].household_head, "Andrea Morrone");
+});
+
+test("a transcription with too little English for a household points to IT", async () => {
+  const admin = await loadAdmin();
+  await chooseSource(admin, [
+    "--- START OF RECORD: Lappano Catasto Onciario 1742_010.png ---",
+    "Italian Transcription:",
+    "13.",
+    "Dom.co Cistaro pecoraro, brac.le, anni 62.",
+    "Abita in casa propria.",
+    "--- START OF RECORD: Lappano Catasto Onciario 1742_011.png ---",
+    "Italian Transcription:",
+    "Rafaele Corradi Eletto",
+    "English Translation:",
+    "Rafaele Corradi, Elected Official"
+  ].join("\n"));
+  await admin.element("#createProject").listeners.click();
+  assert.equal(admin.element("#createStatus").textContent,
+    "No household entries were detected in the English text, but the Italian text has 1. Choose IT and try again.");
+  assert.equal(admin.stored.size, 1);
+});
+
+test("with IT chosen in the Visualizer, Admin's messages are Italian", async () => {
+  const admin = await loadAdmin({ preferences: new Map([["catasto-language", "it"]]) });
+  assert.equal(admin.element("#languageItalian").attributes["aria-pressed"], "true");
+  await admin.element("#createProject").listeners.click();
+  assert.equal(admin.element("#createStatus").textContent, "Scegli o trascina prima un file sorgente.");
+
+  admin.element("#projectName").value = "Prova";
+  await chooseSource(admin, italianText);
+  assert.equal(admin.element("#createStatus").textContent,
+    "source.md caricato. Questo testo sembra in italiano, ma è selezionato ENG. Scegli IT prima di creare il progetto.");
+  admin.element("#sourceLanguage").value = "it";
+  await admin.element("#createProject").listeners.click();
+  assert.equal(admin.element("#successTitle").textContent, "Creato “Prova”");
+  assert.equal(admin.element("#successDetail").textContent, "1 famiglia pronta da esplorare.");
+  assert.match(admin.element("#projectList").innerHTML, /1 famiglia · Italiano[\s\S]*Esporta progetto JSON[\s\S]*Elimina/);
+});
+
+test("the Admin dictionaries have the same messages in both languages", async () => {
+  const admin = await loadAdmin();
+  const { STRINGS } = admin.context.AdminI18n;
+  assert.deepEqual(Object.keys(STRINGS.it).sort(), Object.keys(STRINGS.en).sort());
+});
+
+// R4-03: two source files chosen in quick succession; the first read finishes last.
+test("a slower earlier read does not replace the latest source file", async () => {
+  const admin = await loadAdmin();
+  const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
+  const first = deferred();
+  const second = deferred();
+  const choose = (name, read) => admin.element("#textFile").listeners.change({ target: { files: [{ name, text: () => read.promise }] } });
+  const firstDone = choose("First.txt", first);
+  const secondDone = choose("Second.txt", second);
+
+  await admin.element("#createProject").listeners.click();
+  assert.match(admin.element("#createStatus").textContent, /still being read/);
+  assert.equal(admin.stored.size, 1);
+
+  second.resolve("Carlo Rossi, day laborer, age 30\nHe lives in his own house in the Pasolani district.");
+  await secondDone;
+  first.resolve(sampleText);
+  await firstDone;
+  assert.equal(admin.element("#dropFileName").textContent, "Second.txt");
+  assert.equal(admin.element("#projectName").value, "Second");
+
+  await admin.element("#createProject").listeners.click();
+  const created = [...admin.stored.values()].find(project => project.id !== "existing");
+  assert.deepEqual({ name: created.name, sourceFile: created.sourceFile, head: created.data.households[0].household_head },
+    { name: "Second", sourceFile: "Second.txt", head: "Carlo Rossi" });
+});
+
+test("a file chosen later renames an inferred project name but keeps a typed one", async () => {
+  const admin = await loadAdmin();
+  const choose = name => admin.element("#textFile").listeners.change({ target: { files: [{ name, text: async () => sampleText }] } });
+  await choose("First.txt");
+  assert.equal(admin.element("#projectName").value, "First");
+  await choose("Second.txt");
+  assert.equal(admin.element("#projectName").value, "Second");
+  admin.element("#projectName").value = "My Catasto";
+  await choose("Third.txt");
+  assert.equal(admin.element("#projectName").value, "My Catasto");
 });
 
 const click = (admin, projectId, button) => admin.element("#projectList").listeners.click({

@@ -208,6 +208,27 @@ wherever the full words are, so "Ignazio fllo cieco" is a brother in the househo
 "an: 34" was not read as a person. The
 saved Marano export parses identically in both languages (368 households, no change); Marano has no such line.
 
+Parser version 13 (2026-11-22) reads the Catasto Transcriber's record markers. Each image's text opens with
+"--- START OF RECORD: Lappano Catasto Onciario 1742_010.png ---"; the marker starts a page, numbered from the image
+name (010 is page 10, a name without a number takes its position), and the rest of the name is the source title.
+A marker may name the page instead, as the edited Marano source does ("### **START OF RECORD: Marano Marchesato
+1754 \- Page 5** **Italian Transcription**"); it then reads exactly as the "Marano Marchesato 1754: Page 5" heading
+did, inline section label included. "--- END OF RECORD ---" lines are dropped. A bare entry number ("15", "13.", "8.o", "6th") opens the next
+household once the current one has members and narrative, and takes with it any marginal notes between the
+image's start and the number ("= B. ril:", "C."), so a household no longer ends on the next image. The number
+opens a household only when a head follows it (the next line is a member or head line, or becomes one joined
+with the line after, as "Dom.co Cistaro pecoraro, brac.le," over "anni 62."); any other number, such as an amount
+on its own line, stays in the entry with the text after it (Codex R4-01). Admin also reads Word (.docx)
+transcriptions. In Word a paragraph that names a section ("Citizens", "Forastieri non abitanti") is set apart by
+blank lines when read, so adjacent Word paragraphs separate sections as blank lines do in text (R4-02). A source
+file over 50 MB, or a Word text over 100 MB unpacked (counted as it unpacks), is refused (R4-04). Measured on 2026-11-22: the saved Marano project parses identically (368
+households); the Lappano test transcription (images 010-019) gives 18 households in IT, each on one image. In
+the saved "Lappano Test" project the IT parse keeps its 7 households, now with pages; in EN, Domenico Barbuccio's
+members read "40 years" rather than "age 40", so his household still runs into Domenico Sproviero's.
+The Marano Markdown converted to record markers (548 markers, 2026-11-22) parses the same as the saved project in
+both languages: 368 households, same titles, pages and excluded sections. The one difference is a text correction,
+Caterina Micieli "widow of the late Antonio Covello" (was Nicola), which now agrees with the Italian.
+
 Residence neighbors that still match no household entry are listed by comparing each
 `residence_links` entry that has no `household_id` against the heads. On the current transcription
 8 names remain, among them Giacomo Loizzo (p. 340), whom the manuscript names but who has no
@@ -279,7 +300,7 @@ with no entry of their own.
 - `serve.py` / `test_serve.py` — local server with fixed file types and the project API, bound to 127.0.0.1.
 - `project_store.py` — project files, stale-write refusal, atomic import, and migration record.
 - `catasto-storage.js` — browser side of project storage, IndexedDB migration, and exchange format.
-- `admin.html` / `admin.js` — project library management.
+- `admin.html` / `admin.js` — project library management. `admin-i18n.js` — Admin text in ENG and IT, following the Visualizer's language switch.
 - `building-types.js` / `building-types.test.mjs` — architectural source cues.
 - `INSTALL.md` — step-by-step installation guide for Mac and Windows users.
 - `ARCHITECTURE.md` — architecture and identity rules.

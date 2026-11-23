@@ -10,7 +10,8 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
-      globals: { ...globals.browser, CatastoParser: "readonly", CatastoRecords: "readonly", CatastoStorage: "readonly", CatastoNameIndex: "readonly", CatastoXlsxIndex: "readonly" }
+      globals: { ...globals.browser, CatastoParser: "readonly", CatastoRecords: "readonly", CatastoStorage: "readonly", CatastoNameIndex: "readonly", CatastoXlsxIndex: "readonly", CatastoDocx: "readonly",
+        AdminI18n: "readonly" }
     }
   },
   {

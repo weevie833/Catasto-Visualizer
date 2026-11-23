@@ -8,11 +8,15 @@
 </head>
 <body>
   <header>
-    <h1>Catasto Admin</h1>
+    <h1 data-i18n="adminTitle">Catasto Admin</h1>
     <div class="header-actions">
-      <p class="support-text">Help offset the costs for<br>developing and maintaining this application.</p>
-      <a class="kofi-button" href="https://ko-fi.com/forestiero" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 5h13v2h1.5a3.5 3.5 0 0 1 0 7H17a6 6 0 0 1-6 5H10a6 6 0 0 1-6-6V5zm13 4v3h1.5a1.5 1.5 0 0 0 0-3H17z"/></svg><span>Support on Ko-fi</span></a>
-      <a href="index.html" target="catasto-visualizer">Return to Visualizer</a>
+      <p class="support-text"><span data-i18n="supportLine1">Help offset the costs for</span><br><span data-i18n="supportLine2">developing and maintaining this application.</span></p>
+      <a class="kofi-button" href="https://ko-fi.com/forestiero" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 5h13v2h1.5a3.5 3.5 0 0 1 0 7H17a6 6 0 0 1-6 5H10a6 6 0 0 1-6-6V5zm13 4v3h1.5a1.5 1.5 0 0 0 0-3H17z"/></svg><span data-i18n="supportKofi">Support on Ko-fi</span></a>
+      <div class="language-switch" role="group" aria-label="Language" data-i18n-aria-label="languageSwitch">
+        <button class="language-button" id="languageEnglish" type="button" aria-label="English" data-i18n-aria-label="languageEnglish" aria-pressed="true"><img class="language-flag" src="./flag-us.svg" alt="" width="16" height="12"> ENG</button>
+        <button class="language-button" id="languageItalian" type="button" aria-label="Italiano" aria-pressed="false"><img class="language-flag" src="./flag-it.svg" alt="" width="16" height="12"> IT</button>
+      </div>
+      <a href="index.html" target="catasto-visualizer" data-i18n="returnToVisualizer">Return to Visualizer</a>
     </div>
   </header>
   <section class="update-banner" id="updateBanner" role="status" hidden></section>
@@ -22,55 +26,105 @@
       <span id="successDetail"></span>
     </div>
     <div class="actions">
-      <a class="button" id="openVisualizer" href="index.html" target="catasto-visualizer">Open in Visualizer</a>
-      <button class="secondary" id="dismissNotice" type="button">Stay in Admin</button>
+      <a class="button" id="openVisualizer" href="index.html" target="catasto-visualizer" data-i18n="openVisualizer">Open in Visualizer</a>
+      <button class="secondary" id="dismissNotice" type="button" data-i18n="stayInAdmin">Stay in Admin</button>
     </div>
   </div>
   <main>
-    <section class="panel" aria-labelledby="languageHeading">
-      <h2 id="languageHeading">Transcription Language</h2>
-      <div class="language-row">
-        <label for="sourceLanguage">Language</label>
-        <select id="sourceLanguage" aria-describedby="languageHelp">
-          <option value="en">ENG — English Translation</option>
-          <option value="it">IT — Italian Transcription</option>
-        </select>
-        <span class="check"><input type="checkbox" id="saveLanguageDefault"><label for="saveLanguageDefault">Save as default</label></span>
-      </div>
-      <p class="intro" id="languageHelp">Applies when importing or creating a project from Markdown or text. In a bilingual file only the sections in this language are parsed; an Italian-only transcription needs IT. Italian projects show the source's Italian terms.</p>
+    <div class="top-row">
+      <section class="panel" aria-labelledby="languageHeading">
+        <h2 id="languageHeading" data-i18n="languageHeading">Transcription Language</h2>
+        <div class="language-row">
+          <label for="sourceLanguage" data-i18n="languageLabel">Language</label>
+          <select id="sourceLanguage" aria-describedby="languageHelp">
+            <option value="en" data-i18n="languageOptionEn">ENG — English Translation</option>
+            <option value="it" data-i18n="languageOptionIt">IT — Italian Transcription</option>
+          </select>
+          <span class="check"><input type="checkbox" id="saveLanguageDefault"><label for="saveLanguageDefault" data-i18n="saveAsDefault">Save as default</label></span>
+        </div>
+        <p class="intro" id="languageHelp" data-i18n="languageHelp">Applies when importing or creating a project from a Word, Markdown, or text transcription. In a bilingual file only the sections in this language are parsed; an Italian-only transcription needs IT. Italian projects show the source's Italian terms.</p>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="createHeading">Create Project from Catasto Text</h2>
+        <div class="field">
+          <label for="projectName" data-i18n="projectName">Project name</label>
+          <input id="projectName" type="text" placeholder="Marano Marchesato 1754">
+        </div>
+        <div class="field">
+          <span class="field-label" id="textFileLabel" data-i18n="sourceFile">Source file</span>
+          <div class="drop-zone" id="sourceDropZone">
+            <input id="textFile" class="drop-input" type="file" accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" aria-labelledby="textFileLabel" aria-describedby="dropHelp">
+            <label for="textFile" class="drop-label">
+              <span class="drop-title" data-i18n="dropTitle">Drop a file here or click to choose</span>
+              <span class="drop-help" id="dropHelp" data-i18n="dropHelp">Word (.docx), Markdown (.md), or plain text (.txt)</span>
+              <span class="drop-file" id="dropFileName"></span>
+            </label>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="createProject" type="button" data-i18n="createProject">Create project</button>
+        </div>
+        <p class="status" id="createStatus" data-i18n="createIntro">Projects are saved in a folder on this computer, outside the app folder.</p>
+      </section>
+    </div>
+
+    <section class="panel guide" aria-labelledby="guideHeading">
+      <details class="guide-main">
+        <summary><h2 id="guideHeading" data-i18n="guideHeading">Best Practices for Creating a Project</h2></summary>
+        <p class="guide-intro" data-i18n="guideIntro">The Catasto Visualizer is designed to import a plain text transcript in either Italian or English, but the format of your document needs to follow some strict rules. The formatting rules allow the parser to accurately interpret your transcript into the different classifications of content.</p>
+        <details>
+          <summary data-i18n="guideContentTitle">Catasto content only</summary>
+          <p data-i18n="guideContent">Keep the transcript free of anything but the actual content of the Catasto Onciario register. If you have added any preamble or introduction, delete it.</p>
+        </details>
+        <details>
+          <summary data-i18n="guideHeaderTitle">Header formatting</summary>
+          <p data-i18n="guideHeader">The transcript needs to include headers that distinguish the start of each source image’s content, such as:</p>
+          <p class="guide-example guide-center">--- START OF RECORD: Lappano Catasto Onciario 1742_010.png ---</p>
+          <p data-i18n="guideHeaderKey">The key terms are “START OF RECORD” and the number at the end. This allows the app to tell you where an entry is located in the visualizer.</p>
+        </details>
+        <details>
+          <summary data-i18n="guideEntryTitle">Entry formatting</summary>
+          <p data-i18n="guideEntry">The start of a household begins with the list of the head of household. The list of household members should look like this:</p>
+          <div class="guide-example guide-indent">
+            <p>Antonio Bafaro, day laborer, age 28.<br>
+            Giuseppe, brother, day laborer, age 24.<br>
+            Pascale, brother, age 9.<br>
+            Livia, sister, unmarried woman, age 16.<br>
+            Rosa, sister, unmarried woman, age 14.<br>
+            Anna, sister, unmarried woman, age 12.<br>
+            Catarina Scarpella, widow, age 50.<br>
+            Pompea, sister, married, age 26.<br>
+            Nicolò Imbrogno, day laborer, husband of Pompea, brother-in-law — 32.</p>
+            <p>Head of Antonio — 1.<br>
+            Industry of the same — ounces 12.<br>
+            Industry of Giuseppe — ounces 12.<br>
+            Industry of Nicolò — ounces 12.</p>
+            <p>Lives in own House. Owns, as per declaration page 6th</p>
+            <p>A Chestnut grove called la Fontana di in capo of annual income 1. as in appraisal page 13. number 216. — 3. 10.</p>
+          </div>
+          <p data-i18n="guideEntryRest">The rest of the entry can be plain text, as-is. If you upload a DOCX, MD, or TXT file and the Admin says that no households can be found, it is because of the formatting.</p>
+        </details>
+        <details>
+          <summary data-i18n="guideVariationsTitle">Variations in Catasto content</summary>
+          <p data-i18n="guideVariations">Not every Catasto Onciario contains relationship information, such as adjacent households or landholdings. If the transcript does not indicate any, then the visualizer cannot show relationships. However, you can still refer to the Adjacent Evidence to locate potential connections.</p>
+        </details>
+        <details>
+          <summary data-i18n="guideReplaceTitle">Replacing a project</summary>
+          <p data-i18n="guideReplace">If you discover that your transcript contains errors after you import it into the app, make your corrections in your source transcript, delete the old project out of the Admin, and re-upload your transcript as a new project. Keep your source transcript as the “single version of the truth.”</p>
+        </details>
+      </details>
     </section>
 
     <section class="panel">
-      <h2>Create Project from Catasto Text</h2>
-      <div class="grid">
-        <div>
-          <div class="field">
-            <label for="projectName">Project name</label>
-            <input id="projectName" type="text" placeholder="Marano Marchesato 1754">
-          </div>
-          <div class="field">
-            <label for="textFile">Source text file</label>
-            <input id="textFile" type="file" accept=".txt,.md,text/plain,text/markdown">
-          </div>
-        </div>
-        <div>
-          <label for="plainText">Plain text</label>
-          <textarea id="plainText" placeholder="Paste Catasto text here (English translation or Italian transcription), or choose a text file."></textarea>
-        </div>
+      <h2 data-i18n="libraryHeading">Project Library</h2>
+      <div class="drop-zone import-zone" id="importDropZone">
+        <input id="importFile" class="drop-input" type="file" accept=".json,.catasto,.docx,.txt,.md,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" aria-describedby="importHelp">
+        <label for="importFile" class="drop-label">
+          <span class="drop-title" data-i18n="importTitle">Import Project JSON</span>
+          <span class="drop-help" id="importHelp" data-i18n="importHelp">Drop a Catasto Visualizer JSON backup (.catasto.json) here or click to choose. A .docx, .md, or .txt transcription is imported as a new project.</span>
+        </label>
       </div>
-      <div class="actions">
-        <button id="createProject" type="button">Create project</button>
-      </div>
-      <p class="status" id="createStatus">Projects are saved in a folder on this computer, outside the app folder.</p>
-    </section>
-
-    <section class="panel">
-      <h2>Project Library</h2>
-      <div class="actions">
-        <input id="importFile" class="import-file" type="file" accept=".json,.catasto,.txt,.md,application/json,text/plain,text/markdown" aria-describedby="importHelp">
-        <label class="import-label" for="importFile">Import Project JSON</label>
-      </div>
-      <p class="intro" id="importHelp">Import Catasto Visualizer JSON projects.</p>
       <p class="status" id="libraryStatus"></p>
       <div class="project-list" id="projectList"></div>
     </section>
@@ -78,17 +132,17 @@
   <dialog id="nameIndexDialog" aria-labelledby="nameIndexTitle" aria-describedby="nameIndexHelp">
     <form method="dialog">
       <h2 id="nameIndexTitle">Name Index / Indice Onomastico</h2>
-      <p class="intro" id="nameIndexHelp">Every person named in <strong id="nameIndexProject"></strong>, with honorific, given name, surname, qualifier, and residential location. The XLSX Index adds ages, occupations, parents, districts, and pages, one row per person. People with no stated origin are placed in the village below.</p>
+      <p class="intro" id="nameIndexHelp"><span data-i18n="nameIndexHelpBefore">Every person named in</span> <strong id="nameIndexProject"></strong><span data-i18n="nameIndexHelpAfter">, with honorific, given name, surname, qualifier, and residential location. The XLSX Index adds ages, occupations, parents, districts, and pages, one row per person. People with no stated origin are placed in the village below.</span></p>
       <div class="field">
-        <label for="nameIndexVillage">Village covered by this Catasto</label>
+        <label for="nameIndexVillage" data-i18n="nameIndexVillage">Village covered by this Catasto</label>
         <input id="nameIndexVillage" type="text" autocomplete="off">
       </div>
       <div class="actions">
-        <button id="nameIndexJson" type="button" value="json">Export JSON</button>
-        <button id="nameIndexCsv" type="button" value="csv">Export CSV</button>
-        <button id="nameIndexMarkdown" type="button" value="md">Export Markdown</button>
-        <button id="nameIndexXlsx" type="button" value="xlsx">Export XLSX Index</button>
-        <button class="secondary" value="close">Close</button>
+        <button id="nameIndexJson" type="button" value="json" data-i18n="exportJson">Export JSON</button>
+        <button id="nameIndexCsv" type="button" value="csv" data-i18n="exportCsv">Export CSV</button>
+        <button id="nameIndexMarkdown" type="button" value="md" data-i18n="exportMarkdown">Export Markdown</button>
+        <button id="nameIndexXlsx" type="button" value="xlsx" data-i18n="exportXlsx">Export XLSX Index</button>
+        <button class="secondary" value="close" data-i18n="close">Close</button>
       </div>
       <p class="status" id="nameIndexStatus" role="status"></p>
     </form>
@@ -96,11 +150,13 @@
   <footer class="license-footer">&copy; 2026 Steve Covello. All rights reserved — free to download and run for personal use; redistribution, hosting, and derivative works require permission. &middot; V 0.12.2</footer>
   <script src="catasto-storage.js"></script>
   <script src="catasto-parser.js"></script>
+  <script src="catasto-docx.js"></script>
   <script src="catasto-records.js"></script>
   <script src="catasto-relations.js"></script>
   <script src="catasto-name-index.js"></script>
   <script src="catasto-xlsx.js"></script>
   <script src="catasto-xlsx-index.js"></script>
+  <script src="admin-i18n.js"></script>
   <script src="admin.js"></script>
   <script src="update-banner.js"></script>
 </body>

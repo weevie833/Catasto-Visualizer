@@ -836,3 +836,111 @@ test("a swaddled infant is a member, and a parish priest of the Mother Church he
   ].join("\n")).households;
   assert.deepEqual(Array.from(english, record => record.household_head), ["Don Antonio Morrone", "Don Ignazio Carvello"]);
 });
+
+test("each image's START OF RECORD marker is a page, numbered from the image's file name", () => {
+  const text = [
+    "DO NOT EDIT OR DELETE THIS BLOCK",
+    "Native-language transcription: Italian",
+    "",
+    "# Transcription Output",
+    "--- START OF RECORD: Lappano Catasto Onciario 1742_010.png ---",
+    "Italian Transcription:",
+    "13.",
+    "Dom.co Cistaro pecoraro, brac.le, anni 62.",
+    "Finita Imbrogna moglie, anni — 50.",
+    "Industria di Dom.co — on 12.",
+    "Abita in casa propria.",
+    "--- START OF RECORD: Lappano Catasto Onciario 1742_011.png ---",
+    "Italian Transcription:",
+    "= B. ril:",
+    "C.",
+    "14.o",
+    "Dianora Sproviero moglie di Saverio Pastore",
+    "assente anni 6. senza notizia, dove abita anni 49.",
+    "Pascale figlio, anni — 10.",
+    "Abita in casa propria.",
+    "15",
+    "Filippo Pastore, bracc.le, anni — 51.",
+    "Industria — on 12.",
+    "--- END OF RECORD ---"
+  ].join("\n");
+  const data = parsePlainText(text, "it");
+  assert.equal(data.source_title, "Lappano Catasto Onciario 1742");
+  assert.deepEqual(Array.from(data.households, household => Array.from(household.source_pages)), [[10], [11], [11]]);
+  // The entry number and the notes at the top of the image belong to the household they head.
+  assert.match(data.households[1].source_entry, /^= B\. ril:\nC\.\n14\.o\nDianora Sproviero/);
+  assert.doesNotMatch(data.households[0].source_entry, /START OF RECORD|14\.o|ril:/);
+  assert.equal(data.households[2].household_head, "Filippo Pastore");
+
+  // Without section labels, the marker still starts the page and is not kept as text.
+  const plain = parsePlainText(text.replace(/^Italian Transcription:\n/gm, ""), "it");
+  assert.deepEqual(Array.from(plain.households, household => Array.from(household.source_pages)), [[10], [11], [11]]);
+  assert.ok(plain.households.every(household => !/RECORD/.test(household.source_entry)));
+});
+
+test("a record marker without a number in the image name takes its position", () => {
+  const data = parsePlainText([
+    "--- START OF RECORD: front page.jpg ---",
+    "Dom.co Cistaro pecoraro, anni 62.",
+    "Abita in casa propria.",
+    "--- START OF RECORD: back page.jpg ---",
+    "Filippo Pastore, bracc.le, anni 51.",
+    "Abita in casa propria."
+  ].join("\n"), "it");
+  assert.deepEqual(Array.from(data.households, household => Array.from(household.source_pages)), [[1], [2]]);
+  assert.equal(data.source_title, "front page");
+});
+
+test("a record marker naming the page reads as a page heading, with the section label on the same line", () => {
+  const marked = [
+    "### **START OF RECORD: Marano Marchesato 1754 \\- Page 1, 2: Archivio di Stato Cosenza header**",
+    "### **START OF RECORD: Marano Marchesato 1754 \\- Page 5** **Italian Transcription**",
+    "Angelo Chiappetta pecoraro anni 30",
+    "Rosolia Bruno moglie anni 26",
+    "",
+    "Abita in casa propria sita nelli Pajoli.",
+    "",
+    "**English Translation:**",
+    "",
+    "Angelo Chiappetta, shepherd, age 30",
+    "Rosolia Bruno, wife, age 26",
+    "",
+    "He lives in his own house situated in the Pajoli neighborhood.",
+    "",
+    "**START OF RECORD: Marano Marchesato 1754 \\- Page 6**  ",
+    "**Italian Transcription:**",
+    "Andrea Orrico bracciale anni 50",
+    "",
+    "Abita in casa propria sita in San Nicola.",
+    "",
+    "**English Translation:**",
+    "Andrea Orrico, day laborer, age 50",
+    "",
+    "He lives in his own house situated in San Nicola."
+  ].join("\n");
+  const headed = marked.replace(/^(?:### )?\*\*START OF RECORD: (.+?) \\- (Page [^*]+)\*\*/gm, "**$1: $2**");
+  for (const language of ["en", "it"]) {
+    const fromMarkers = parsePlainText(marked, language);
+    const fromHeadings = parsePlainText(headed, language);
+    assert.equal(fromMarkers.source_title, "Marano Marchesato 1754");
+    assert.deepEqual(Array.from(fromMarkers.households, household => Array.from(household.source_pages)), [[5], [6]]);
+    assert.deepEqual(JSON.parse(JSON.stringify(fromMarkers.households)), JSON.parse(JSON.stringify(fromHeadings.households)));
+  }
+});
+
+test("a bare number opens a household only when a head follows it (R4-01)", () => {
+  const amount = parsePlainText("Bruno Ventrella, farmer — age 40\nHe lives in his own house.\n10\nHe owns a vineyard bordering Carlo Rossi.", "en");
+  assert.equal(amount.households.length, 1);
+  assert.match(amount.households[0].source_entry, /\n10\nHe owns a vineyard bordering Carlo Rossi\.$/);
+
+  const trailing = parsePlainText("Bruno Ventrella, farmer — age 40\nHe lives in his own house.\n12", "en");
+  assert.equal(trailing.households[0].source_entry, "Bruno Ventrella, farmer — age 40\nHe lives in his own house.\n12");
+
+  const numbered = parsePlainText([
+    "Bruno Ventrella, farmer — age 40", "He lives in his own house.", "10", "He owns a vineyard bordering Carlo Rossi.",
+    "11.", "Carlo Rossi, day laborer — age 30", "He lives in a rented house."
+  ].join("\n"), "en");
+  assert.deepEqual(Array.from(numbered.households, household => household.household_head), ["Bruno Ventrella", "Carlo Rossi"]);
+  assert.match(numbered.households[0].source_entry, /vineyard bordering Carlo Rossi\.$/);
+  assert.match(numbered.households[1].source_entry, /^11\.\nCarlo Rossi/);
+});

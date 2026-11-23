@@ -1,14 +1,20 @@
 (function () {
   "use strict";
 
+  // A file dropped outside the source file area is ignored; otherwise the browser opens or downloads it.
+  window.addEventListener("dragover", event => event.preventDefault());
+  window.addEventListener("drop", event => event.preventDefault());
+
   const projectList = document.querySelector("#projectList");
   const libraryStatus = document.querySelector("#libraryStatus");
   const createStatus = document.querySelector("#createStatus");
   const projectName = document.querySelector("#projectName");
   window.name = "catasto-admin";
   const textFile = document.querySelector("#textFile");
-  const plainText = document.querySelector("#plainText");
+  const sourceDropZone = document.querySelector("#sourceDropZone");
+  const dropFileName = document.querySelector("#dropFileName");
   const importFile = document.querySelector("#importFile");
+  const importDropZone = document.querySelector("#importDropZone");
   const successNotice = document.querySelector("#successNotice");
   const successTitle = document.querySelector("#successTitle");
   const successDetail = document.querySelector("#successDetail");
@@ -16,7 +22,15 @@
   const sourceLanguage = document.querySelector("#sourceLanguage");
   const saveLanguageDefault = document.querySelector("#saveLanguageDefault");
   const languageDefaultKey = "catasto-source-language";
+  const { t } = AdminI18n;
   let selectedSourceName = "";
+  let sourceText = ""; // the text of the chosen or dropped source file
+  // Each choice of source file is numbered; a read that finishes after a later choice is ignored, so the
+  // text, file name, and project name always come from the latest file.
+  let sourceRead = 0;
+  let readingSource = false;
+  // The project name filled in from a file name; a name the user typed is kept.
+  let inferredName = "";
 
   function savePreference(key, value) {
     try { localStorage.setItem(key, value); } catch { /* Storage may be disabled. */ }
@@ -50,8 +64,22 @@
 
   function parseTranscription(text) {
     const mismatch = CatastoParser.languageMismatch(text, selectedLanguage());
-    if (mismatch) throw new Error(mismatch.message);
-    return CatastoParser.parsePlainText(text, selectedLanguage());
+    if (mismatch) throw new Error(mismatchMessage(mismatch, t("tryAgain")));
+    const data = CatastoParser.parsePlainText(text, selectedLanguage());
+    if (!data.households.length) {
+      // A transcription translated for only a few images can have no readable household in the translation.
+      const other = selectedLanguage() === "it" ? "en" : "it";
+      const found = CatastoParser.parsePlainText(text, other).households.length;
+      if (found) {
+        throw new Error(t("otherLanguageHasHouseholds", selectedLanguage(), other, found));
+      }
+    }
+    return data;
+  }
+
+  // The parser's language mismatch in the page language; suffix is "and try again" or "before creating the project".
+  function mismatchMessage(mismatch, suffix) {
+    return t(mismatch.reason === "sections" ? "mismatchSections" : "mismatchLooks", selectedLanguage(), mismatch.detected, suffix);
   }
 
   // Tells open Visualizer tabs to reload their project list.
@@ -91,11 +119,15 @@
       .replace(/^-|-$/g, "");
   }
 
+  function changeList(changes) {
+    const shown = changes.slice(0, 12).map(change => `• ${change}`);
+    if (changes.length > shown.length) shown.push(`• ${t("moreChanges", changes.length - shown.length)}`);
+    return shown.join("\n");
+  }
+
   // Lists what repairing the file changed, so nothing is altered without the user seeing it first.
   function importReport(changes) {
-    const shown = changes.slice(0, 12).map(change => `• ${change}`);
-    if (changes.length > shown.length) shown.push(`• …and ${changes.length - shown.length} more.`);
-    return `Some records in this file had to be repaired before import:\n\n${shown.join("\n")}\n\nImport the repaired projects?`;
+    return t("repairReport", changeList(changes));
   }
 
   function downloadFile(contents, fileName, type = "application/json") {
@@ -121,7 +153,7 @@
       version: 2,
       exportedAt: new Date().toISOString(),
       project: {
-        name: `${project.name} (previous version, ${formatDate(previous.createdAt)})`,
+        name: t("previousVersionName", project.name, formatDate(previous.createdAt)),
         sourceFile: project.sourceFile,
         sourceText: project.sourceText || "",
         createdAt: previous.createdAt,
@@ -139,13 +171,11 @@
     if (!previous) return null;
     const data = JSON.parse(JSON.stringify(previous.data));
     const changes = CatastoRecords.repairProjectData(data);
-    const repairs = changes.length
-      ? `\n\nThis version predates the current record rules, so a copy of it was repaired:\n${changes.slice(0, 12).map(change => `• ${change}`).join("\n")}${changes.length > 12 ? `\n• …and ${changes.length - 12} more.` : ""}\nUse Download previous version first to keep it exactly as saved.`
-      : "";
-    const question = `Restore “${project.name}” to the version saved ${formatDate(previous.createdAt)} (${previous.reason.toLowerCase()})? The current version becomes the previous version, so this can be undone.${repairs}`;
+    const repairs = changes.length ? t("restoreRepairs", changeList(changes)) : "";
+    const question = t("restoreQuestion", project.name, formatDate(previous.createdAt), previous.reason.toLowerCase()) + repairs;
     if (!window.confirm(question)) return null;
     await CatastoStorage.restoreSnapshot(project, data);
-    return `Restored the previous version of “${project.name}”.`;
+    return t("restored", project.name);
   }
 
   // Name Index: built by catasto-name-index.js from the stored project when exported; nothing is saved.
@@ -173,7 +203,7 @@
     else if (format === "csv") downloadFile(CatastoNameIndex.toCsv(index), `${base}.csv`, "text/csv");
     else downloadFile(CatastoNameIndex.toJson(index), `${base}.json`);
     const derived = index.people.filter(person => person.surname_derived).length;
-    nameIndexStatus.textContent = `Exported ${index.people.length} people${derived ? `, ${derived} with a derived surname to review` : ""}.`;
+    nameIndexStatus.textContent = t("exportedPeople", index.people.length, derived);
   }
 
   // The Customizable Transcriber's Catasto Onciario Index layout: one row per person, with ages and parents.
@@ -183,7 +213,7 @@
     downloadFile(CatastoXlsxIndex.toXlsx(index), `${slugify(nameIndexProject.name) || "catasto-project"}-index.xlsx`,
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     const review = index.rows.filter(row => /check the source/.test(row[row.length - 1])).length;
-    nameIndexStatus.textContent = `Exported ${index.rows.length} rows${review ? `, ${review} marked to check against the source` : ""}.`;
+    nameIndexStatus.textContent = t("exportedRows", index.rows.length, review);
   }
 
   // An index that cannot be made (see CatastoNameIndex.refusalFor) is reported, and nothing is downloaded.
@@ -201,7 +231,7 @@
 
   function formatDate(value) {
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "earlier" : date.toLocaleString();
+    return Number.isNaN(date.getTime()) ? t("earlier") : date.toLocaleString();
   }
 
   async function renderProjects() {
@@ -212,35 +242,35 @@
         <article class="project">
           <div>
             <h3>${escapeHtml(project.name)}</h3>
-            <div class="meta">Unavailable: ${escapeHtml(project.unavailable)}</div>
+            <div class="meta">${t("unavailable")}: ${escapeHtml(project.unavailable)}</div>
           </div>
         </article>`;
       }
       const count = project.householdCount;
-      const language = project.sourceLanguage === "it" ? " · Italian" : "";
+      const language = project.sourceLanguage === "it" ? ` · ${t("italianProject")}` : "";
       const restore = project.snapshotCreatedAt
-        ? `<button class="secondary restore" type="button" title="Saved ${escapeHtml(formatDate(project.snapshotCreatedAt))}">Restore previous version</button>
-           <button class="secondary download-previous" type="button">Download previous version</button>`
+        ? `<button class="secondary restore" type="button" title="${escapeHtml(t("savedAt", formatDate(project.snapshotCreatedAt)))}">${t("restorePrevious")}</button>
+           <button class="secondary download-previous" type="button">${t("downloadPrevious")}</button>`
         : "";
       return `
         <article class="project" data-project-id="${escapeHtml(project.id)}">
           <div>
             <h3>${escapeHtml(project.name)}</h3>
-            <div class="meta">${count} household${count === 1 ? "" : "s"}${language}${project.sourceFile ? ` · ${escapeHtml(project.sourceFile)}` : ""}</div>
+            <div class="meta">${t("households", count)}${language}${project.sourceFile ? ` · ${escapeHtml(project.sourceFile)}` : ""}</div>
           </div>
           <div class="actions">
-            <button class="secondary export" type="button">Export Project JSON</button>
-            <button class="secondary name-index" type="button">Export Name Index</button>
+            <button class="secondary export" type="button">${t("exportProject")}</button>
+            <button class="secondary name-index" type="button">${t("exportNameIndex")}</button>
             ${restore}
-            <button class="danger delete" type="button">Delete</button>
+            <button class="danger delete" type="button">${t("deleteProject")}</button>
           </div>
         </article>`;
-    }).join("") : '<div class="empty">No Catasto projects are saved yet.</div>';
+    }).join("") : `<div class="empty">${t("noProjects")}</div>`;
   }
 
   // Every action reports a failure in the library status rather than ending silently.
   projectList.addEventListener("click", event => handleProjectAction(event).catch(error => {
-    libraryStatus.textContent = `The action could not be completed: ${error.message} Reload the page and try again.`;
+    libraryStatus.textContent = t("actionFailed", error.message);
   }));
 
   async function handleProjectAction(event) {
@@ -248,7 +278,7 @@
     if (!projectElement) return;
     const project = await CatastoStorage.getProject(projectElement.dataset.projectId);
     if (!project) {
-      libraryStatus.textContent = "This project is no longer saved. The list has been updated.";
+      libraryStatus.textContent = t("projectGone");
       await renderProjects();
       return;
     }
@@ -265,12 +295,12 @@
         if (!message) return;
         announceLibraryChange("restored", project.id);
       } catch (error) {
-        message = `Restore failed: ${error.message}`;
+        message = t("restoreFailed", error.message);
       }
       await renderProjects();
       libraryStatus.textContent = message;
     } else if (event.target.closest(".delete")) {
-      if (!window.confirm(`Delete “${project.name}” from this computer? Its previous version is deleted too. Export Project JSON first if you need a backup; the export includes the previous version.`)) return;
+      if (!window.confirm(t("deleteQuestion", project.name))) return;
       let message = "";
       try {
         await CatastoStorage.deleteProject(project);
@@ -283,30 +313,102 @@
     }
   }
 
-  textFile.addEventListener("change", async event => {
-    const file = event.target.files?.[0];
+  // A message in the create status line, which then no longer shows the translated intro.
+  function status(element, text) {
+    if (element.dataset) delete element.dataset.i18n;
+    element.textContent = text;
+  }
+
+  async function loadSourceFile(file) {
     if (!file) return;
+    const read = ++sourceRead;
+    sourceText = "";
+    selectedSourceName = "";
+    dropFileName.textContent = "";
+    readingSource = false;
+    if (!/\.(?:docx?|md|txt)$/i.test(file.name)) {
+      status(createStatus, t("notSourceFile", file.name));
+      return;
+    }
+    if (typeof CatastoDocx === "undefined") {
+      // The page is newer than the running server, which does not yet serve the Word reader.
+      status(createStatus, t("restartToUpdate"));
+      return;
+    }
+    status(createStatus, t("reading", file.name));
+    readingSource = true;
+    let text;
+    try {
+      text = await CatastoDocx.readSourceFile(file);
+    } catch (error) {
+      if (read !== sourceRead) return;
+      readingSource = false;
+      status(createStatus, error.message);
+      textFile.value = "";
+      sourceText = "";
+      selectedSourceName = "";
+      dropFileName.textContent = "";
+      return;
+    }
+    if (read !== sourceRead) return;
+    readingSource = false;
     selectedSourceName = file.name;
-    plainText.value = await file.text();
-    if (!projectName.value.trim()) projectName.value = file.name.replace(/\.[^.]+$/, "");
-    const mismatch = CatastoParser.languageMismatch(plainText.value, selectedLanguage());
-    createStatus.textContent = mismatch
-      ? `${file.name} loaded. ${mismatch.message.replace(" and try again", " before creating the project")}`
-      : `${file.name} loaded and ready to parse.`;
-  });
+    dropFileName.textContent = file.name;
+    sourceText = text;
+    if (!projectName.value.trim() || projectName.value === inferredName) {
+      inferredName = file.name.replace(/\.[^.]+$/, "");
+      projectName.value = inferredName;
+    }
+    const mismatch = CatastoParser.languageMismatch(sourceText, selectedLanguage());
+    status(createStatus, mismatch
+      ? t("loadedMismatch", file.name, mismatchMessage(mismatch, t("beforeCreating")))
+      : t("loaded", file.name));
+  }
+
+  // A file area that also takes a dropped file; onFile receives it either way.
+  function dropZone(zone, input, onFile) {
+    let depth = 0;
+    input.addEventListener("change", event => onFile(event.target.files?.[0]));
+    zone.addEventListener("dragenter", event => {
+      event.preventDefault();
+      depth += 1;
+      zone.classList.add("dragging");
+    });
+    zone.addEventListener("dragleave", () => {
+      depth = Math.max(0, depth - 1);
+      if (!depth) zone.classList.remove("dragging");
+    });
+    zone.addEventListener("dragover", event => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    });
+    zone.addEventListener("drop", event => {
+      event.preventDefault();
+      depth = 0;
+      zone.classList.remove("dragging");
+      input.value = "";
+      onFile(event.dataTransfer.files?.[0]);
+    });
+  }
+
+  dropZone(sourceDropZone, textFile, loadSourceFile);
 
   document.querySelector("#createProject").addEventListener("click", async () => {
-    const text = plainText.value.trim();
+    const text = sourceText.trim();
+    if (readingSource) {
+      status(createStatus, t("stillReading"));
+      return;
+    }
     if (!text) {
-      createStatus.textContent = "Add plain text or choose a text file first.";
+      status(createStatus, t("chooseSourceFirst"));
       return;
     }
     try {
       const data = parseTranscription(text);
-      if (!data.households.length) throw new Error("No household entries were detected.");
+      if (!data.households.length) throw new Error(t("noHouseholds"));
       const project = CatastoStorage.createProject({
         name: projectName.value,
-        sourceFile: selectedSourceName || "pasted plain text",
+        sourceFile: selectedSourceName,
         sourceText: text,
         data
       });
@@ -314,31 +416,39 @@
       savePreference("catasto-active-project", project.id);
       announceLibraryChange("created", project.id);
       projectName.value = "";
-      plainText.value = "";
+      inferredName = "";
+      sourceRead += 1;
+      sourceText = "";
       textFile.value = "";
       selectedSourceName = "";
+      dropFileName.textContent = "";
       const count = data.households.length;
-      createStatus.textContent = `Created “${project.name}” with ${count} household${count === 1 ? "" : "s"}.`;
+      status(createStatus, t("created", project.name, count));
       await renderProjects();
-      showSuccess(`Created “${project.name}”`, `${count} household${count === 1 ? "" : "s"} ready to explore.`);
+      showSuccess(t("createdTitle", project.name), t("readyToExplore", count));
     } catch (error) {
       hideSuccess();
-      createStatus.textContent = error.message;
+      status(createStatus, error.message);
     }
   });
 
-  importFile.addEventListener("change", async event => {
-    const file = event.target.files?.[0];
+  async function importProjectFile(file) {
     if (!file) return;
+    if (typeof CatastoDocx === "undefined") {
+      // The page is newer than the running server, which does not yet serve the Word reader.
+      libraryStatus.textContent = t("restartToUpdate");
+      return;
+    }
+    libraryStatus.textContent = t("reading", file.name);
     try {
-      const contents = await file.text();
+      const contents = await CatastoDocx.readSourceFile(file);
       let projects;
       if (/\.(?:catasto\.)?json$/i.test(file.name) || /\.catasto$/i.test(file.name)) {
         const payload = JSON.parse(contents);
         projects = CatastoStorage.projectsFromImport(payload, file.name.replace(/\.(?:catasto\.)?(?:json|catasto)$/i, ""));
-      } else if (/\.(?:md|txt)$/i.test(file.name)) {
+      } else if (/\.(?:docx|md|txt)$/i.test(file.name)) {
         const data = parseTranscription(contents);
-        if (!data.households.length) throw new Error("No household entries were detected in this text file.");
+        if (!data.households.length) throw new Error(t("noHouseholdsInFile"));
         projects = [CatastoStorage.createProject({
           name: file.name.replace(/\.[^.]+$/, ""),
           sourceFile: file.name,
@@ -346,11 +456,11 @@
           data
         })];
       } else {
-        throw new Error("Choose a Catasto JSON backup, .md transcription, or .txt transcription.");
+        throw new Error(t("chooseImportFile"));
       }
       const changes = projects.flatMap(project => project.importChanges.map(change => projects.length > 1 ? `${project.name}: ${change}` : change));
       if (changes.length && !window.confirm(importReport(changes))) {
-        libraryStatus.textContent = "Import cancelled; nothing was saved.";
+        libraryStatus.textContent = t("importCancelled");
         return;
       }
       await CatastoStorage.saveImportedProjects(projects);
@@ -359,20 +469,43 @@
       await renderProjects();
       const opened = projects.at(-1);
       const count = opened.data.households.length;
-      libraryStatus.textContent = `Imported ${projects.length} project${projects.length === 1 ? "" : "s"}.`;
+      libraryStatus.textContent = t("imported", projects.length);
       showSuccess(
-        projects.length === 1 ? `Imported “${opened.name}”` : `Imported ${projects.length} projects`,
-        `${projects.length === 1 ? "" : `“${opened.name}” opens first. `}${count} household${count === 1 ? "" : "s"} ready to explore.`
+        projects.length === 1 ? t("importedTitle", opened.name) : t("importedManyTitle", projects.length),
+        `${projects.length === 1 ? "" : t("opensFirst", opened.name)}${t("readyToExplore", count)}`
       );
     } catch (error) {
       hideSuccess();
-      libraryStatus.textContent = `Import failed: ${error.message}`;
+      libraryStatus.textContent = t("importFailed", error.message);
     } finally {
       importFile.value = "";
     }
-  });
+  }
+
+  dropZone(importDropZone, importFile, importProjectFile);
 
   renderProjects().catch(error => {
-    libraryStatus.textContent = `Could not open local project storage: ${error.message}`;
+    libraryStatus.textContent = t("storageFailed", error.message);
   });
+
+  // Page language: the Visualizer's ENG / IT setting, shared through localStorage, so a switch in either
+  // page applies to both. The project list is redrawn; status lines already shown keep their language.
+  const languageButtons = { en: document.querySelector("#languageEnglish"), it: document.querySelector("#languageItalian") };
+  function applyPageLanguage() {
+    AdminI18n.apply();
+    Object.entries(languageButtons).forEach(([code, button]) => button.setAttribute("aria-pressed", String(AdminI18n.language() === code)));
+    renderProjects().catch(() => {});
+  }
+  Object.entries(languageButtons).forEach(([code, button]) => button.addEventListener("click", () => {
+    if (AdminI18n.language() === code) return;
+    AdminI18n.setLanguage(code);
+    applyPageLanguage();
+  }));
+  window.addEventListener("storage", event => {
+    if (event.key !== "catasto-language" || (event.newValue === "it" ? "it" : "en") === AdminI18n.language()) return;
+    AdminI18n.setLanguage(event.newValue);
+    applyPageLanguage();
+  });
+  AdminI18n.apply();
+  Object.entries(languageButtons).forEach(([code, button]) => button.setAttribute("aria-pressed", String(AdminI18n.language() === code)));
 }());
