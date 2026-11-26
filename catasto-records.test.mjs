@@ -172,6 +172,23 @@ test("an unedited record keeps a stored residence place the new parse reads diff
   assert.deepEqual(plain(changes.find(change => change.kind === "neighbors").added), ["Angelo Chiappetta"]);
 });
 
+test("a settlement placed by a village without neighborhoods replaces a stored house name", () => {
+  const parsed = CatastoParser.parsePlainText([
+    "--- START OF RECORD: Valle Nuova Catasto Onciario 1742_001.png ---",
+    "Marco Rossi, day laborer, age 40", "lives in own house called lo Casalicchio.",
+    "Bruno Greco, day laborer, age 30", "lives in own house",
+    "Carlo Apa, day laborer, age 50", "lives in own house"
+  ].join("\n"));
+  const project = storedProject([
+    { id: "h-marco", household_head: "Marco Rossi", source_entry: "x", residence: { place: "lo Casalicchio", adjacent_to: [] } },
+    { id: "h-bruno", household_head: "Bruno Greco", source_entry: "y", residence: { place: null, adjacent_to: [] } }
+  ]);
+  const { data, summary, changes } = CatastoRecords.planReparse(project, parsed);
+  assert.deepEqual(plain(data.households.map(record => record.residence.place)), ["Valle Nuova", "Valle Nuova", "Valle Nuova"]);
+  assert.equal(summary.keptPlaces, 0);
+  assert.deepEqual(plain(changes.filter(change => change.kind === "place").map(change => change.from)), ["lo Casalicchio", null]);
+});
+
 test("duplicate ids in an import are replaced and links to them dropped, with a report", () => {
   const data = {
     record_id_version: 2,

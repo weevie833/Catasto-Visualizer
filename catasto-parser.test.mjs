@@ -7,7 +7,7 @@ import { validationSource } from "./validation-source.mjs";
 const source = await readFile(new URL("./catasto-parser.js", import.meta.url), "utf8");
 const context = { window: {} };
 vm.runInNewContext(source, context);
-const { inferFamilyRelationships, parsePlainText, languageMismatch, parseItalianLandholding, splitItalianMemberLine } = context.window.CatastoParser;
+const { inferFamilyRelationships, parsePlainText, languageMismatch, parseItalianLandholding, splitItalianMemberLine, isMemberLine } = context.window.CatastoParser;
 
 test("children of a widow inherit the deceased husband's surname", () => {
   const result = inferFamilyRelationships([
@@ -943,4 +943,83 @@ test("a bare number opens a household only when a head follows it (R4-01)", () =
   assert.deepEqual(Array.from(numbered.households, household => household.household_head), ["Bruno Ventrella", "Carlo Rossi"]);
   assert.match(numbered.households[0].source_entry, /vineyard bordering Carlo Rossi\.$/);
   assert.match(numbered.households[1].source_entry, /^11\.\nCarlo Rossi/);
+});
+
+// A register laid out as Lappano's is: no neighborhoods, a second settlement under its own heading, priests
+// entered without ages, and each entry ending in its tax verdict.
+function villageWithoutNeighborhoods() {
+  const page = (number, italian, english) => [
+    `**--- START OF RECORD: Valle Nuova Catasto Onciario 1742_00${number}.png ---**`, "",
+    "**Italian Transcription:**", "", ...italian.flatMap(line => [line, ""]),
+    "**English Translation:**", "", ...english.flatMap(line => [line, ""])
+  ].join("\n");
+  return [
+    page(1, [
+      "1.", "Marco Rossi bracc.te anni 40.", "Anna Greco moglie anni 35.", "abita in Casa propria d.a in Capo Casale",
+      "p avanzare il peso non si tassa nil",
+      "2.", "Gius.e Andrea Fumo brac.te, anni — d' 25", "Testa — D 1.", "abitano in Casa propria"
+    ], [
+      "1.", "Marco Rossi, day laborer, age 40.", "Anna Greco, wife, age 35.", "lives in own House called in Capo Casale",
+      "for exceeding the burden it is not taxed nil",
+      "2.", "Giuseppe Andrea Fumo, day laborer, age — of 25", "Head — D 1.", "they live in their own house"
+    ]),
+    page(2, [
+      "RR. Sacerdoti di Valle Nuova", "1", "R.do Sacerd.e D. Ant.o Rossi", "Possiede li sotti beni Patrim.li.", "Non si tassa",
+      "V.bli Chiese di Valle Nuova", "2.", "V.ble Chiesa di S. M.a della Grazia", "Possiede una possessione d.a la Dote."
+    ], [
+      "Reverend Priests of Valle Nuova", "1", "Reverend Priest Don Antonio Rossi", "He owns the underwritten Patrimonial goods.",
+      "He is not taxed",
+      "Venerable Churches of Valle Nuova", "2.", "Venerable Church of Santa Maria della Grazia", "It owns a landholding called la Dote."
+    ]),
+    page(3, ["Altavilla seu Corno", "A", "1.", "Andrea Apa, custode di pecore anni 54.", "abita in Casa propria"],
+      ["Altavilla or Corno", "A", "1.", "Andrea Apa, sheep keeper, age 54.", "lives in own House"]),
+    page(4, ["N", "2.", "Nicolò Greco brac.te anni 18.", "abita in Casa propria"],
+      ["Number", "2.", "Nicolò Greco, day laborer, age 18.", "lives in own House"]),
+    page(5, [
+      "Fuochi Forastieri abitanti, e Bonatenenti", "1.", "Domenico Falcone di Manneto, abitante in q.o Casale anni 33.",
+      "abita in Casa propria"
+    ], [
+      "Foreign households living, and property owners", "1.", "Domenico Falcone, outsider of Manneto, living in this hamlet, age 33.",
+      "lives in own House"
+    ])
+  ].join("\n\n");
+}
+
+for (const language of ["en", "it"]) {
+  test(`${language}: a village without neighborhoods places each household in its settlement`, () => {
+    const parsed = parsePlainText(villageWithoutNeighborhoods(), language);
+    const rows = Array.from(parsed.households, household => [household.household_head.replace(/\s+$/, ""), household.residence.place]);
+    const italian = language === "it";
+    // The tax verdict ends Marco's entry, not the list; the priest is entered without an age; the churches are not
+    // households; the settlement heading opens Corno's households; "Number" is the letter N; foreigners live here.
+    assert.deepEqual(JSON.parse(JSON.stringify(rows)), [
+      [italian ? "Marco Rossi" : "Marco Rossi", "Valle Nuova"],
+      [italian ? "Gius.e Andrea Fumo" : "Giuseppe Andrea Fumo", "Valle Nuova"],
+      [italian ? "R.do Sacerd.e D. Ant.o Rossi" : "Reverend Priest Don Antonio Rossi", "Valle Nuova"],
+      ["Andrea Apa", italian ? "Altavilla seu Corno" : "Altavilla or Corno"],
+      [italian ? "Nicolò Greco" : "Nicolò Greco", italian ? "Altavilla seu Corno" : "Altavilla or Corno"],
+      ["Domenico Falcone", "Valle Nuova"]
+    ]);
+    assert.equal(parsed.named_neighborhoods, false);
+    // The house's own wording stays in the description.
+    assert.match(parsed.households[0].residence.description, /Capo Casale/);
+    assert.match(parsed.households[1].residence.description, italian ? /abitano in Casa propria/ : /they live in their own house/);
+  });
+}
+
+test("a village with neighborhoods keeps them", () => {
+  const parsed = parsePlainText([
+    "Andrea Orrico, day laborer, age 50", "He lives in his own house situated in San Nicola.",
+    "Bruno Ventrella, farmer, age 40", "He lives in his own house situated in Pasolani."
+  ].join("\n"), "en");
+  assert.equal(parsed.named_neighborhoods, true);
+  assert.deepEqual(Array.from(parsed.households, household => household.residence.place), ["San Nicola", "Pasolani"]);
+});
+
+test("Italian names: a surname that is a trade, an elided surname, and Don written D.", () => {
+  assert.equal(splitItalianMemberLine("Franc.o Ferraro bracc.te anni 51.").name, "Franc.o Ferraro");
+  assert.equal(splitItalianMemberLine("Dom.co dell'Aquila brac.le anni 51.").name, "Dom.co dell'Aquila");
+  assert.equal(splitItalianMemberLine("D. Girolamo Guarano, Cittadino di q.o Casale anni 45.").name, "D. Girolamo Guarano");
+  assert.equal(splitItalianMemberLine("Marco Provenzano Bracciale anni 60").name, "Marco Provenzano");
+  assert.equal(isMemberLine("Al V.le Conv.o di S. Franc.o di Paula di Cos.a Cap.te — 300. — d.i anni 70"), false);
 });

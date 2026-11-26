@@ -240,7 +240,8 @@
   //   keep the stored record's permanent id.
   // - Records the user edited or merged keep their stored content, including those the new parse no
   //   longer finds. An unedited record keeps a stored residence place the new parse reads differently,
-  //   since older versions applied residence corrections without marking them.
+  //   since older versions applied residence corrections without marking them; where the new parse places
+  //   households in their settlement (a village without neighborhoods), the settlement is shown as a change.
   // - Page numbers taken only from a record's position are marked "inferred".
   // `changes` lists, per record, what the update would change.
   function planReparse(project, parsed) {
@@ -327,7 +328,9 @@
       }
       const updated = { ...record, id, household_id: id, residence: { ...record.residence } };
       const storedPlace = previous.residence?.place;
-      if (storedPlace && storedPlace !== updated.residence.place) {
+      // A settlement given because the village names no neighborhoods replaces an older reading of the house's
+      // name ("lo Casalicchio", "Not Listed"), which was never a correction.
+      if (storedPlace && storedPlace !== updated.residence.place && updated.residence.place_basis !== "community") {
         updated.residence.place = storedPlace;
         summary.keptPlaces += 1;
       } else if ((storedPlace || null) !== (updated.residence.place || null)) {

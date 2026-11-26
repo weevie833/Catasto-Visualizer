@@ -229,6 +229,21 @@ The Marano Markdown converted to record markers (548 markers, 2026-11-22) parses
 both languages: 368 households, same titles, pages and excluded sections. The one difference is a text correction,
 Caterina Micieli "widow of the late Antonio Covello" (was Nicola), which now agrees with the Italian.
 
+Parser version 14 (2026-11-26) reads the full Lappano 1742 transcription, which version 13 stopped at household 30:
+an entry's own tax verdict on a line by itself ("non si tassa nil", "exempt nil", "Tassa Diocesana") no longer
+opens the closing summary; a priest entered without an age ("Reverend Priest Don Antonio Imbrogno", "Suddiacono
+Gius.e Cistaro") heads his entry when he follows its number; a place heading over a second settlement's
+households ("Altavilla seu Corno") opens a resident section; "Fuochi Forastieri abitanti, e Bonatenenti" /
+"Foreign households living, and property owners" is resident; "age — of 25" / "anni — d' 25" are ages; a payee
+line ("Al V.le Conv.o ... Cap.te ... d.i anni 70") is not a member; Italian names keep a surname that is a trade
+("Franc.o Ferraro"), an elided surname ("dell'Aquila") and "D." for Don; English residence sentences in lowercase
+("lives in own House") or "They live" are read, and "Lives miserably ..." is not a residence. Lappano has no
+named neighborhoods, so its households are placed in Lappano (86) or Altavilla or Corno (19): 105 households in
+both languages (66 Lappano, 6 clergy, 18 Corno, 1 Corno clergy entry, 14 resident foreigners). Entry 6 of Corno is
+absent from the source. On a reparse, a settlement given this way replaces an older stored house name. Measured
+the same day: the saved Marano project parses byte-identically to version 13 in both languages (368 households,
+same excluded sections).
+
 Residence neighbors that still match no household entry are listed by comparing each
 `residence_links` entry that has no `household_id` against the heads. On the current transcription
 8 names remain, among them Giacomo Loizzo (p. 340), whom the manuscript names but who has no
