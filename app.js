@@ -1540,8 +1540,8 @@ async function activateProject(id) {
     showUnavailableProject(project, error);
     return;
   }
-  const projectParts = project.name.split(/\s*·\s*/);
-  document.querySelector("#catastoTitle").textContent = `${projectParts[0] || project.name} Catasto Onciario${projectParts[1] ? ` ${projectParts.slice(1).join(" ")}` : ""}`;
+  // The project's name as the user gave it.
+  document.querySelector("#catastoTitle").textContent = project.name;
   setFilenameLabel(`${project.name} · ${project.data.households.length} households`);
   savePreference("catasto-active-project", project.id);
   updateReparseNotice();
